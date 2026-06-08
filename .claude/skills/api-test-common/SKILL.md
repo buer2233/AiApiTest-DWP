@@ -65,17 +65,9 @@ Mermaid 源文件见 `flow_chart/flow.md`。当前 common skill 只保留 Mermai
 - URL 索引：`tools/page_api_index.sqlite3`
 - 抓包运行时产物：`runtime/latest.jsonl`、`runtime/capture_selection.md`
 
-## 核心原则（详见 `doc/core_principles.md`）
+## 核心原则（强制引用）
 
-1. **两层结构**：先写接口方法，再写 pytest 用例调用接口方法。
-2. **最小必要改动**：只在用户指定位置插入，不重构无关代码。
-3. **UTF-8 与中文安全优先**：文件按 UTF-8 读写，写入后真实校验。
-4. **先复用，后新增**：优先查 `tools/page_api_index.sqlite3`，按 URL path + HTTP method 查重。
-5. **以真实返回为准**：断言基于抓包、cURL 或 pytest 实际返回。
-6. **Allure 标准化**：类级 `epic/feature`，方法级 `story/severity`，步骤级 `with allure.step(...)`。
-7. **接口方法返回规范**：默认只断言 HTTP `status_code`，然后 `return res.json()`；业务断言写在 pytest 用例中。
-8. **抓包过滤可配置**：`allowed_prefixes.txt` 为空时不做白名单限制，非空时先按允许前缀筛选；`blocked_prefixes.txt` 为空时不做黑名单限制，非空时再排除匹配前缀的请求。
-9. **测试闭环**：默认执行 pytest，生成 Allure 结果；导入路径、执行目录、关键失败和最终结果必须说明。
+执行接口自动化新增或维护任务前，必须读取并遵守 @doc/core_principles.md。
 
 ## 失败排查优先级
 
