@@ -6,12 +6,35 @@ BaseAPI 会通过该适配器发送请求，从而避免每个接口方法重复
 
 import json
 import time
+from dataclasses import dataclass
 
+import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ReadTimeout
 from requests.models import Response
 
 import config
+
+try:
+    from curl_cffi.requests import Session as CurlSession
+    from curl_cffi.requests.exceptions import ReadTimeout as CurlReadTimeout
+    from curl_cffi.requests.exceptions import Timeout as CurlTimeout
+
+    CURL_CFFI_AVAILABLE = True
+except ImportError:
+    CurlSession = None
+    CurlReadTimeout = None
+    CurlTimeout = None
+    CURL_CFFI_AVAILABLE = False
+
+
+@dataclass
+class _RequestLogContext:
+    """用于兼容 requests.PreparedRequest 日志字段的轻量请求上下文。"""
+
+    url: str
+    body: object = None
+    headers: dict | None = None
 
 
 class TimeoutHTTPAdapter(HTTPAdapter):
@@ -190,3 +213,152 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         except Exception:
             # 极少数情况下 response.text 读取失败，使用 reason 作为兜底信息。
             return response.reason
+
+
+class TimeoutCurlCffiSession:
+    """带默认超时、SSL 校验和异常日志能力的 curl_cffi session 包装器。
+
+    curl_cffi 的 Session 与 requests.Session 请求参数高度接近，但不支持
+    mount(requests.adapters.HTTPAdapter)。因此这里通过包装 request 方法复用
+    TimeoutHTTPAdapter 中同样的超时、证书和异常日志策略。
+    """
+
+    def __init__(
+        self,
+        timeout=None,
+        verify_ssl=None,
+        log_success=None,
+        business_error_rules=None,
+        impersonate=None,
+    ):
+        if not CURL_CFFI_AVAILABLE:
+            raise ImportError("使用 curl_cffi 请求方式需要先安装 curl_cffi")
+
+        self.timeout = timeout or config.timeout
+        self.verify_ssl = config.verify_ssl if verify_ssl is None else verify_ssl
+        self.log_success = config.is_log_success if log_success is None else log_success
+        self.business_error_rules = business_error_rules or config.business_error_rules
+        self.impersonate = impersonate or config.curl_impersonate
+        self._session = CurlSession(impersonate=self.impersonate)
+
+    @property
+    def headers(self):
+        return self._session.headers
+
+    @property
+    def cookies(self):
+        return self._session.cookies
+
+    @property
+    def proxies(self):
+        return self._session.proxies
+
+    def request(self, method, url, **kwargs):
+        """发送 curl_cffi 请求，并补齐与 TimeoutHTTPAdapter 一致的默认参数。"""
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = self.timeout
+        if kwargs.get("verify") is None:
+            kwargs["verify"] = self.verify_ssl
+
+        request_context = self._build_request_log_context(url, kwargs)
+        request_duration = 0
+        try:
+            start_time = time.time()
+            response = self._session.request(method, url, **kwargs)
+            request_duration = round(time.time() - start_time, 2)
+        except self._timeout_exceptions():
+            response = Response()
+            response.status_code = 500
+            response.url = url
+            message = (
+                f"报错原因:接口:{url},响应超过:{self.timeout}秒,"
+                f"发生问题客户端时间:{time.strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            response.reason = message
+            response._content = message.encode("utf-8")
+            self._print_exception_info(request_context, response, request_duration)
+            return response
+
+        if response.status_code >= 400 or self._is_business_error(response):
+            self._print_exception_info(request_context, response, request_duration)
+        elif self.log_success:
+            print(f"--通过接口：--url:{url}; 响应时间：{request_duration}秒")
+
+        return response
+
+    def _build_request_log_context(self, url, kwargs):
+        headers = dict(self.headers)
+        headers.update(kwargs.get("headers") or {})
+        body = kwargs.get("data")
+        if body is None:
+            body = kwargs.get("json")
+        return _RequestLogContext(url=url, body=body, headers=headers)
+
+    @staticmethod
+    def _timeout_exceptions():
+        exceptions = [ReadTimeout]
+        if CurlReadTimeout is not None:
+            exceptions.append(CurlReadTimeout)
+        if CurlTimeout is not None:
+            exceptions.append(CurlTimeout)
+        return tuple(exceptions)
+
+    def _is_business_error(self, response):
+        return TimeoutHTTPAdapter._is_business_error(self, response)
+
+    def _print_exception_info(self, request, response, request_duration):
+        return TimeoutHTTPAdapter._print_exception_info(self, request, response, request_duration)
+
+    @staticmethod
+    def _safe_body(request):
+        return TimeoutHTTPAdapter._safe_body(request)
+
+    @staticmethod
+    def _safe_response_text(response):
+        return TimeoutHTTPAdapter._safe_response_text(response)
+
+
+def create_http_session(
+    timeout=None,
+    verify_ssl=None,
+    headers=None,
+    cookies=None,
+    proxies=None,
+    use_curl_cffi=None,
+    curl_impersonate=None,
+):
+    """按配置创建 requests 或 curl_cffi session。
+
+    Args:
+        timeout: 默认请求超时时间。
+        verify_ssl: 是否校验 HTTPS 证书。
+        headers: 需要合并到 session 的请求头。
+        cookies: 需要合并到 session 的 cookies。
+        proxies: requests/curl_cffi 代理配置。
+        use_curl_cffi: 是否使用 curl_cffi；不传时读取 config.use_curl_cffi。
+        curl_impersonate: curl_cffi 浏览器指纹；不传时读取 config.curl_impersonate。
+    Returns:
+        requests.Session | TimeoutCurlCffiSession: 已配置好的请求 session。
+    """
+    should_use_curl = config.use_curl_cffi if use_curl_cffi is None else use_curl_cffi
+    if should_use_curl and CURL_CFFI_AVAILABLE:
+        session = TimeoutCurlCffiSession(
+            timeout=timeout,
+            verify_ssl=verify_ssl,
+            impersonate=curl_impersonate or config.curl_impersonate,
+        )
+    else:
+        session = requests.Session()
+        adapter = TimeoutHTTPAdapter(timeout=timeout or config.timeout, verify_ssl=verify_ssl)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
+    session.headers.update(config.default_headers)
+    session.headers.update(headers or {})
+    session.cookies.update(config.default_cookies)
+    session.cookies.update(cookies or {})
+    if proxies is not None:
+        session.proxies.update(proxies)
+    elif config.proxies:
+        session.proxies.update(config.proxies)
+    return session

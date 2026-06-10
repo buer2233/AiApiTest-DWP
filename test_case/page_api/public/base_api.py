@@ -7,9 +7,8 @@ HTTP 状态码断言、JSON 响应解析，以及接口用例中常用的多层�
 
 import config
 import allure
-import requests
 from urllib.parse import urlparse
-from utils.timeout_http_adapter import TimeoutHTTPAdapter
+from utils.timeout_http_adapter import create_http_session
 
 
 class BaseAPI:
@@ -74,28 +73,17 @@ class BaseAPI:
             cookies: 需要合并到 session 的 cookies。
             proxies: requests 代理配置。
         Returns:
-            requests.Session: 已挂载 TimeoutHTTPAdapter 的 session。
+            requests.Session | TimeoutCurlCffiSession: 已配置好的 session。
         """
-        # 创建 session 后挂载自定义适配器，统一处理超时、证书和异常日志。
-        session = requests.Session()
-        adapter = TimeoutHTTPAdapter(timeout=timeout or config.timeout, verify_ssl=verify_ssl)
-
-        # 同时挂载 http/https，保证两种协议都走同一套请求增强逻辑。
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
-
-        # 先写入全局默认 headers/cookies，再写入调用方传入值实现覆盖。
-        session.headers.update(config.default_headers)
-        session.headers.update(headers or {})
-        session.cookies.update(config.default_cookies)
-        session.cookies.update(cookies or {})
-
-        # proxies 显式传入时优先使用；未传入时读取全局代理配置。
-        if proxies is not None:
-            session.proxies.update(proxies)
-        elif config.proxies:
-            session.proxies.update(config.proxies)
-        return session
+        return create_http_session(
+            timeout=timeout or config.timeout,
+            verify_ssl=verify_ssl,
+            headers=headers,
+            cookies=cookies,
+            proxies=proxies,
+            use_curl_cffi=config.use_curl_cffi,
+            curl_impersonate=config.curl_impersonate,
+        )
 
     def get_base_request(self):
         """获取当前接口类复用的 requests.Session。
@@ -153,10 +141,12 @@ class BaseAPI:
         message = error_msg or f"接口<{url}>请求失败"
 
         # 接口方法层只断言 HTTP 状态码，业务 code 断言应放在 pytest 用例层处理。
-        assert response.status_code == status_code, (
-            f"{message},接口<{url}>报错-{response.status_code},"
-            f"reason:{response.reason},text:{response.text}"
-        )
+        # status_code=0 表示跳过状态码检查，由调用方自行处理
+        if status_code != 0:
+            assert response.status_code == status_code, (
+                f"{message},接口<{url}>报错-{response.status_code},"
+                f"reason:{response.reason},text:{response.text}"
+            )
 
         # 非 JSON、下载、重定向等特殊场景可要求返回原始 response。
         if return_response:

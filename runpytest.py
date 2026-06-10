@@ -184,4 +184,4 @@ def main(case_path="test_case", marker=None, open_report=False, clean=True):
 if __name__ == "__main__":
 
     # main()  # 默认的全量执行
-    main(case_path='test_case/test_douban_case')  # 单独执行豆瓣的用例
+    main(case_path='test_case/test_gbif_case')  # 单独执行某个模块的用例
