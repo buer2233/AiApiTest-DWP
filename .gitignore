@@ -8,3 +8,4 @@ report/allure-report/
 logs/
 runtime/
 .idea/
+/tests/
