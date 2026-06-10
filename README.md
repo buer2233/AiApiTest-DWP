@@ -48,7 +48,7 @@ pip install -r requirements.txt
 
 ```python
 # config.py
-base_url = "https://movie.douban.com"
+base_url = "https://www.gbif.org"
 ```
 
 运行用例：

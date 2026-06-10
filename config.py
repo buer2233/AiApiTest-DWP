@@ -99,7 +99,7 @@ def validate_base_url(url=None):
     # urlparse 用于拆分协议、域名、路径等部分，避免手写字符串判断。
     parsed = urlparse(target)
     if not parsed.scheme or not parsed.netloc:
-        raise ValueError("base_url 必须包含协议和域名，例如：https://movie.douban.com")
+        raise ValueError("base_url 必须包含协议和域名，例如：https://www.gbif.org")
 
     # 统一去掉末尾斜杠，避免后续拼接接口路径时出现重复斜杠。
     return target.rstrip("/")
