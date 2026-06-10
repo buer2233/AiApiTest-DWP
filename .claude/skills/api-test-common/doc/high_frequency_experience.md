@@ -8,7 +8,7 @@
 
 ## base_url
 
-- `config.base_url` 必须包含协议和域名，例如 `https://movie.douban.com`。
+- `config.base_url` 必须包含协议和域名，例如 `https://www.gbif.org`。
 - 不要使用额外 `is_https` 字段，协议由 `base_url` 决定。
 
 ## 认证信息

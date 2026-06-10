@@ -17,7 +17,7 @@ mitmdump -s capture_addon.py --listen-port 12138
 启动成功后会看到类似日志：
 
 ```text
-[api-test-common] self.baseurl = https://movie.douban.com
+[api-test-common] self.baseurl = https://www.gbif.org
 [api-test-common] self.prefixes = []
 [api-test-common] self.blocked_prefixes = []
 [api-test-common] self.jsonl_path = ...\runtime\latest.jsonl
