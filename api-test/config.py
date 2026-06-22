@@ -4,8 +4,8 @@ from urllib.parse import urlparse
 # Allure 报告中展示的网站名称；为空时会从 base_url 自动解析域名。
 website_name = ""
 
-# 被测系统基础地址，必须包含协议和域名，例如：https://www.gbif.org
-base_url = "https://www.gbif.org"
+# 被测系统基础地址，必须包含协议和域名，例如：https://api.gbif.org （可公开测试的接口）
+base_url = "https://api.gbif.org"
 
 # 是否使用 curl_cffi 模拟浏览器 TLS 指纹（绕过 Cloudflare 等 WAF）。
 # True: 使用 curl_cffi，需要安装 pip install curl_cffi
@@ -32,10 +32,7 @@ default_headers = {
 }
 
 # 默认 cookies；通用框架默认不放登录态，避免提交敏感信息。
-# GBIF Cloudflare 验证 cookie（浏览器访问后获取）
-default_cookies = {
-    "cf_clearance": "kl9YjgOjP4.hhI6Byc_keITDHfQq3V2Si2ZTC407xIU-1781076102-1.2.1.1-_X_w9nRHqoW1LIAU.Q4eHYiQp8yKjRCxhSUiAH0sMxH.CG7KoI89LTx9IjvXw36DJ6wAuBpee3_vODlkRb7M7RvDQAe2dsrR76WaMG6yWOA_q3Mc7Mrxkq9PZ.DXvcenCCFBD9lMQW7ifKStxigSLtRLq3fANc1XuHJXxdTIcJw4kQZOBiY8mqAK_2YjDf2YclOsYAEvAzWd5WgoKFMo_KcjP9xk94mU62QSMp8GGCDLbDG43vHbqcB.bRbJxr58T3.ciIW2zL0DHUT9w0kiA1yQpnEFI9eN3UEHonIMoTBWCNZUdH6TYmKPomy2imcVjQjzsSZc6tYaIvhsXLV7_83lwEkt8ZGJszxVGfx8pRrWJqwqK4_1Q0gA3RMG37ljm6TpW1BmYjJIgvSTA9UGZqUIovK_caBFCGCTkwcxp5c"
-}
+default_cookies = {}
 
 # requests 代理配置；为空表示不走代理。
 proxies = {}
