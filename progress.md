@@ -30,6 +30,8 @@
   - 2026-06-22 17:54:19 +08:00：更新 `.gitignore`，忽略 `api-test` 下的报告、运行时和日志产物。
   - 2026-06-22 17:54:19 +08:00：运行迁移验证测试确认 GREEN，结果 5 passed。
   - 2026-06-22 17:54:19 +08:00：运行 demo 回归 `python runpytest.py --case-path test_case/test_gbif_case --clean`，结果 14 passed, 1 skipped，并生成 Allure HTML 报告。
+  - 2026-06-22 17:54:19 +08:00：完成 Stage 2 提交 `60a0711`，提交信息 `stage2: migrate api test framework`。
+  - 2026-06-22 17:54:19 +08:00：执行 `git push origin main` 成功，远程 `main` 更新到 `60a0711`。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -58,8 +60,8 @@
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Phase 4: TDD Implementation - Stage 2 |
-| Where am I going? | Stage 2 提交和推送，然后进入 Stage 3 |
+| Where am I? | Stage 2 complete |
+| Where am I going? | 等用户确认后进入 Stage 3：pytest node id 与失败重试执行器 |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、RED/GREEN 测试和 demo 回归，待提交推送 |
+| What have I done? | 已完成 Stage 2 迁移、RED/GREEN 测试、demo 回归、commit 和 push |

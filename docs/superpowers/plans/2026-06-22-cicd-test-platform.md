@@ -852,7 +852,7 @@ npm test
 |------|------|------|----------|----------|----------|------|
 | 2026-06-22 | Stage 1 | in_progress | 创建开发计划，记录用户架构、技术选型、10 阶段流程、TDD 和提交推送要求 | 未运行测试，当前为需求/计划阶段 | 未提交 | 等待用户确认进入 Stage 2 |
 | 2026-06-22 | Stage 1 | in_progress | 更新 `AGENTS.md` 和 `README.md`，将旧接口自动化框架说明对齐为 CICD AI 自动化测试平台说明，并补充后续 AI 接手规则 | 文档更新，未运行自动化测试 | 未提交 | 本次只更新核心文档和上下文记录，不进入新阶段实现 |
-| 2026-06-22 | Stage 2 | complete | 迁移接口测试框架到 `api-test/`，新增迁移路径测试，修复 `runpytest.py` 默认入口和忽略规则 | RED: 5 failed；GREEN: 5 passed；回归: 14 passed, 1 skipped，Allure 报告生成成功 | 待 commit/push | 提交前检查中 |
+| 2026-06-22 | Stage 2 | complete | 迁移接口测试框架到 `api-test/`，新增迁移路径测试，修复 `runpytest.py` 默认入口和忽略规则 | RED: 5 failed；GREEN: 5 passed；回归: 14 passed, 1 skipped，Allure 报告生成成功 | committed and pushed: `60a0711` | Stage 2 完成 |
 
 ## 17. 风险与处理策略
 
