@@ -7,6 +7,10 @@ report/allure-results/
 report/allure-report/
 logs/
 runtime/
+api-test/report/allure-results/
+api-test/report/allure-report/
+api-test/logs/
+api-test/runtime/
 .idea/
 /tests/
 /.claude/

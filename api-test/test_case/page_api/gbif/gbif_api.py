@@ -6,7 +6,10 @@ from test_case.page_api.public.base_api import BaseAPI
 
 
 class GbifAPI(BaseAPI):
-    """GBIF API 接口封装"""
+    """
+    GBIF API 接口封装
+    公开的可用于接口测试的网站：https://api.gbif.org
+    """
 
     # ==================== 物种搜索相关 ====================
 
@@ -16,7 +19,7 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = "/api/species/search"
+        url = "/v1/species/search"
         payload = {}
         error_msg = kwargs.pop("error_msg", "物种搜索")
         payload.update(kwargs)
@@ -28,7 +31,7 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = "/api/species/names"
+        url = "/v1/species/name_usage/search"
         payload = {}
         error_msg = kwargs.pop("error_msg", "物种名称列表")
         payload.update(kwargs)
@@ -42,7 +45,7 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/species/{taxon_key}/name"
+        url = f"/v1/species/{taxon_key}/name"
         payload = {}
         error_msg = kwargs.pop("error_msg", "获取物种名称")
         payload.update(kwargs)
@@ -50,25 +53,17 @@ class GbifAPI(BaseAPI):
 
     @allure.step("接口：获取物种俗名")
     def species_vernacular_name(self, taxon_key, **kwargs):
-        """获取指定物种的俗名（可能返回204 No Content）"""
+        """获取指定物种的第一个俗名"""
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/species/{taxon_key}/vernacularName"
+        url = f"/v1/species/{taxon_key}/vernacularNames"
         payload = {}
         error_msg = kwargs.pop("error_msg", "获取物种俗名")
         payload.update(kwargs)
-        # 该接口可能返回 204 No Content，需要特殊处理
-        resp = self.get(url, status_code=0, params=payload, error_msg=error_msg, return_response=True)
-        if resp.status_code == 204:
-            return None
-        if resp.status_code == 200:
-            return resp.json()
-        # 其他状态码抛出断言错误
-        assert False, (
-            f"{error_msg},接口<{url}>异常-{resp.status_code},"
-            f"reason:{resp.reason},text:{resp.text}"
-        )
+        payload.setdefault("limit", 1)
+        data = self.get(url, status_code=200, params=payload, error_msg=error_msg)
+        return data.get("results", [None])[0] if data.get("results") else None
 
     @allure.step("接口：获取物种所有俗名")
     def species_vernacular_names(self, taxon_key, status_code=200, **kwargs):
@@ -76,7 +71,7 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/species/{taxon_key}/vernacularNames"
+        url = f"/v1/species/{taxon_key}/vernacularNames"
         payload = {}
         error_msg = kwargs.pop("error_msg", "获取物种所有俗名")
         payload.update(kwargs)
@@ -84,11 +79,11 @@ class GbifAPI(BaseAPI):
 
     @allure.step("接口：获取物种处理信息")
     def species_treatments(self, taxon_key, status_code=200, **kwargs):
-        """获取指定物种的处理信息"""
+        """获取指定物种的描述信息"""
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/species/{taxon_key}/treatments"
+        url = f"/v1/species/{taxon_key}/descriptions"
         payload = {}
         error_msg = kwargs.pop("error_msg", "获取物种处理信息")
         payload.update(kwargs)
@@ -100,7 +95,7 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/species/{taxon_key}/combinations"
+        url = f"/v1/species/{taxon_key}/combinations"
         payload = {}
         error_msg = kwargs.pop("error_msg", "获取物种组合信息")
         payload.update(kwargs)
@@ -112,20 +107,20 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/species/{taxon_key}/checklistdatasets"
-        payload = {}
+        url = "/v1/dataset/search"
+        payload = {"type": "CHECKLIST", "taxon_key": taxon_key}
         error_msg = kwargs.pop("error_msg", "获取物种清单数据集")
         payload.update(kwargs)
         return self.get(url, status_code=status_code, params=payload, error_msg=error_msg)
 
     @allure.step("接口：获取物种出现数据集")
     def species_occurrence_datasets(self, taxon_key, status_code=200, **kwargs):
-        """获取指定物种的出现数据集"""
+        """按出现记录分面获取指定物种关联的数据集"""
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/species/{taxon_key}/occurencedatasets"
-        payload = {}
+        url = "/v1/occurrence/search"
+        payload = {"taxon_key": taxon_key, "facet": "datasetKey", "limit": 0}
         error_msg = kwargs.pop("error_msg", "获取物种出现数据集")
         payload.update(kwargs)
         return self.get(url, status_code=status_code, params=payload, error_msg=error_msg)
@@ -138,7 +133,7 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/taxonomy/{dataset_key}/{taxon_key}"
+        url = f"/v1/species/{taxon_key}"
         payload = {}
         error_msg = kwargs.pop("error_msg", "获取分类详情")
         payload.update(kwargs)
@@ -150,7 +145,7 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/taxonomy/{dataset_key}/{taxon_key}/parents"
+        url = f"/v1/species/{taxon_key}/parents"
         payload = {}
         error_msg = kwargs.pop("error_msg", "获取父分类")
         payload.update(kwargs)
@@ -162,7 +157,7 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/taxonomy/{dataset_key}/{taxon_key}/children"
+        url = f"/v1/species/{taxon_key}/children"
         payload = {}
         error_msg = kwargs.pop("error_msg", "获取子分类")
         payload.update(kwargs)
@@ -174,7 +169,7 @@ class GbifAPI(BaseAPI):
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/taxonomy/{dataset_key}/{taxon_key}/synonyms"
+        url = f"/v1/species/{taxon_key}/synonyms"
         payload = {}
         error_msg = kwargs.pop("error_msg", "获取同义词")
         payload.update(kwargs)
@@ -184,22 +179,15 @@ class GbifAPI(BaseAPI):
 
     @allure.step("接口：获取物种Wikidata信息")
     def species_wikidata(self, taxon_key, **kwargs):
-        """获取指定物种的Wikidata信息（可能触发429限流）"""
+        """获取指定物种的Wikidata信息。
+
+        GBIF 公开 v1 API 未提供网站内部 Wikidata 接口的稳定等价路径。
+        """
         # Author: AI
         # Create Date: 2026-06-10
         # IsAI: True
-        url = f"/api/wikidata/species/{taxon_key}"
-        payload = {}
-        error_msg = kwargs.pop("error_msg", "获取物种Wikidata信息")
-        payload.update(kwargs)
-        # 该接口可能触发 429 Too Many Requests 限流
-        resp = self.get(url, status_code=0, params=payload, error_msg=error_msg, return_response=True)
-        if resp.status_code == 429:
-            return {"_rate_limited": True, "retry_after": resp.headers.get("Retry-After", "60")}
-        if resp.status_code == 200:
-            return resp.json()
-        # 其他状态码抛出断言错误
-        assert False, (
-            f"{error_msg},接口<{url}>异常-{resp.status_code},"
-            f"reason:{resp.reason},text:{resp.text}"
-        )
+        return {
+            "_unavailable": True,
+            "taxonKey": taxon_key,
+            "reason": "GBIF public v1 API has no stable Wikidata endpoint.",
+        }

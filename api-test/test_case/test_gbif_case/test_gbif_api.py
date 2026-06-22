@@ -8,7 +8,10 @@ from test_case.page_api.gbif.gbif_api import GbifAPI
 @allure.epic(f"{config.get_website_name()}-接口自动化")
 @allure.feature("GBIF物种数据接口")
 class TestGbifAPI:
-    """GBIF API 接口测试"""
+    """
+    GBIF API 接口测试
+    公开的可用于接口测试的网站：https://api.gbif.org
+    """
 
     def setup_class(self):
         self.gbif_api = GbifAPI()
@@ -74,8 +77,9 @@ class TestGbifAPI:
             assert response, f"调用获取物种名称接口报错:{response}"
 
         with allure.step("2.断言返回结果"):
-            assert "n" in response, f"响应缺少n字段:{response}"
-            assert response["n"] == "Bryophyta", f"物种名称应为Bryophyta，实际:{response['n']}"
+            assert "scientificName" in response, f"响应缺少scientificName字段:{response}"
+            assert response["scientificName"] == "Bryophyta", \
+                f"物种名称应为Bryophyta，实际:{response['scientificName']}"
 
     @allure.story("获取物种俗名")
     @allure.severity(allure.severity_level.CRITICAL)
@@ -89,7 +93,7 @@ class TestGbifAPI:
             response = self.gbif_api.species_vernacular_name(self.taxon_key)
 
         with allure.step("2.断言返回结果"):
-            # 该接口可能返回 None（204 No Content），这是正常情况
+            # 该接口可能没有俗名结果，这是正常情况
             if response is not None:
                 assert "vernacularName" in response, f"响应缺少vernacularName字段:{response}"
                 assert "language" in response, f"响应缺少language字段:{response}"
@@ -97,7 +101,7 @@ class TestGbifAPI:
                     f"taxonKey应为{self.taxon_key}，实际:{response.get('taxonKey')}"
                 allure.attach(f"俗名: {response.get('vernacularName')}", name="物种俗名")
             else:
-                allure.attach("接口返回204 No Content，该物种无单独俗名数据", name="响应状态")
+                allure.attach("该物种无俗名数据", name="响应状态")
 
     @allure.story("获取物种所有俗名列表")
     @allure.severity(allure.severity_level.NORMAL)
@@ -112,9 +116,8 @@ class TestGbifAPI:
             assert response, f"调用获取所有俗名接口报错:{response}"
 
         with allure.step("2.断言返回结果"):
-            assert "count" in response, f"响应缺少count字段:{response}"
             assert "results" in response, f"响应缺少results字段:{response}"
-            assert response["count"] > 0, f"俗名数量应大于0，实际:{response['count']}"
+            assert len(response["results"]) > 0, f"俗名列表不应为空:{response}"
 
         with allure.step("3.断言俗名详情"):
             first_vernacular = response["results"][0]
@@ -134,7 +137,9 @@ class TestGbifAPI:
             assert response is not None, "调用获取处理信息接口返回None"
 
         with allure.step("2.断言返回结果"):
-            assert isinstance(response, list), f"响应应为数组类型，实际:{type(response)}"
+            assert "results" in response, f"响应缺少results字段:{response}"
+            assert isinstance(response["results"], list), \
+                f"results应为数组类型，实际:{type(response['results'])}"
 
     @allure.story("获取物种组合信息")
     @allure.severity(allure.severity_level.NORMAL)
@@ -187,8 +192,13 @@ class TestGbifAPI:
 
         with allure.step("2.断言返回结果"):
             assert "count" in response, f"响应缺少count字段:{response}"
-            assert "results" in response, f"响应缺少results字段:{response}"
-            assert response["count"] > 0, f"数据集数量应大于0，实际:{response['count']}"
+            assert "facets" in response, f"响应缺少facets字段:{response}"
+            assert response["count"] > 0, f"出现记录数量应大于0，实际:{response['count']}"
+            assert response["facets"], f"出现数据集分面不应为空:{response}"
+            first_facet = response["facets"][0]
+            assert first_facet.get("field") == "DATASET_KEY", \
+                f"分面字段应为DATASET_KEY，实际:{first_facet.get('field')}"
+            assert first_facet.get("counts"), f"数据集分面计数不应为空:{first_facet}"
 
     # ==================== 分类学相关 ====================
 
@@ -290,6 +300,9 @@ class TestGbifAPI:
 
         with allure.step("2.断言返回结果"):
             # 检查是否触发限流
+            if response.get("_unavailable"):
+                import pytest
+                pytest.skip(response.get("reason", "GBIF公开API未提供Wikidata接口"))
             if response.get("_rate_limited"):
                 allure.attach(
                     f"接口触发429限流，建议等待 {response.get('retry_after', '60')} 秒后重试",
@@ -327,21 +340,22 @@ class TestGbifAPI:
         with allure.step("1.获取物种名称"):
             name_resp = self.gbif_api.species_name(self.taxon_key)
             assert name_resp, f"获取物种名称报错:{name_resp}"
-            assert name_resp.get("n") == "Bryophyta", f"物种名称应为Bryophyta，实际:{name_resp.get('n')}"
+            assert name_resp.get("scientificName") == "Bryophyta", \
+                f"物种名称应为Bryophyta，实际:{name_resp.get('scientificName')}"
 
         with allure.step("2.获取物种俗名"):
             vernacular_resp = self.gbif_api.species_vernacular_name(self.taxon_key)
-            # 该接口可能返回 None（204 No Content），这是正常情况
+            # 该接口可能没有俗名结果，这是正常情况
             if vernacular_resp is not None:
                 assert "vernacularName" in vernacular_resp, f"响应缺少vernacularName字段:{vernacular_resp}"
                 allure.attach(f"俗名: {vernacular_resp.get('vernacularName')}", name="物种俗名")
             else:
-                allure.attach("接口返回204 No Content，该物种无单独俗名数据", name="响应状态")
+                allure.attach("该物种无俗名数据", name="响应状态")
 
         with allure.step("3.获取所有俗名列表"):
             vernaculars_resp = self.gbif_api.species_vernacular_names(self.taxon_key)
             assert vernaculars_resp, f"获取所有俗名报错:{vernaculars_resp}"
-            assert vernaculars_resp.get("count", 0) > 0, "俗名数量应大于0"
+            assert len(vernaculars_resp.get("results", [])) > 0, "俗名列表不应为空"
 
         with allure.step("4.获取分类详情"):
             taxonomy_resp = self.gbif_api.taxonomy_detail(self.dataset_key, self.taxon_key)
@@ -373,13 +387,16 @@ class TestGbifAPI:
         with allure.step("9.获取出现数据集"):
             occurrence_resp = self.gbif_api.species_occurrence_datasets(self.taxon_key)
             assert occurrence_resp, f"获取出现数据集报错:{occurrence_resp}"
-            assert occurrence_resp.get("count", 0) > 0, "出现数据集数量应大于0"
+            assert occurrence_resp.get("count", 0) > 0, "出现记录数量应大于0"
+            assert occurrence_resp.get("facets"), "出现数据集分面不应为空"
 
         with allure.step("10.获取Wikidata信息"):
             wikidata_resp = self.gbif_api.species_wikidata(self.taxon_key)
             assert wikidata_resp, f"获取Wikidata信息报错:{wikidata_resp}"
             # 检查是否触发限流
-            if wikidata_resp.get("_rate_limited"):
+            if wikidata_resp.get("_unavailable"):
+                allure.attach(wikidata_resp.get("reason", ""), name="Wikidata接口状态")
+            elif wikidata_resp.get("_rate_limited"):
                 allure.attach(
                     f"接口触发429限流，建议等待 {wikidata_resp.get('retry_after', '60')} 秒后重试",
                     name="限流提示"
