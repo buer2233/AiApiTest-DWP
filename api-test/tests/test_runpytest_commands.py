@@ -23,6 +23,7 @@ def load_module_from_api_test(module_name):
 def test_framework_files_are_moved_under_api_test():
     expected_items = [
         "report",
+        "page_api",
         "test_case",
         "test_data",
         "utils",
@@ -36,6 +37,7 @@ def test_framework_files_are_moved_under_api_test():
     for item in expected_items:
         assert (API_TEST_ROOT / item).exists(), f"api-test/{item} should exist"
         assert not (PROJECT_ROOT / item).exists(), f"root {item} should be moved into api-test"
+    assert not (API_TEST_ROOT / "test_case" / "page_api").exists()
 
 
 def test_config_paths_are_api_test_relative():

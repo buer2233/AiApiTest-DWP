@@ -2,7 +2,7 @@
 
 import allure
 import config
-from test_case.page_api.gbif.gbif_api import GbifAPI
+from page_api.gbif.gbif_api import GbifAPI
 
 
 @allure.epic(f"{config.get_website_name()}-接口自动化")

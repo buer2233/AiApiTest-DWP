@@ -32,6 +32,12 @@
   - 2026-06-22 17:54:19 +08:00：运行 demo 回归 `python runpytest.py --case-path test_case/test_gbif_case --clean`，结果 14 passed, 1 skipped，并生成 Allure HTML 报告。
   - 2026-06-22 17:54:19 +08:00：完成 Stage 2 提交 `60a0711`，提交信息 `stage2: migrate api test framework`。
   - 2026-06-22 17:54:19 +08:00：执行 `git push origin main` 成功，远程 `main` 更新到 `60a0711`。
+  - 2026-06-23 09:14:44 +08:00：处理迁移后 PyCharm 手动运行单测报错，定位到 `.idea/workspace.xml` 仍引用旧工作目录 `$PROJECT_DIR$/test_case/test_gbif_case`。
+  - 2026-06-23 09:14:44 +08:00：新增 `api-test/tests/test_pycharm_migration_config.py`，先运行确认 RED：2 failed。
+  - 2026-06-23 09:14:44 +08:00：修复 PyCharm 测试配置和 runpytest 配置到 `api-test` 路径，并保留用户已移动的 `api-test/page_api` 结构。
+  - 2026-06-23 09:14:44 +08:00：运行 PyCharm 配置测试确认 GREEN：2 passed。
+  - 2026-06-23 09:14:44 +08:00：运行迁移路径测试：5 passed。
+  - 2026-06-23 09:14:44 +08:00：等效 PyCharm 手动执行单个测试：`cd api-test/test_case/test_gbif_case; python -m pytest test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword -q`，结果 1 passed。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -42,6 +48,7 @@
   - `.gitignore`
   - `docs/api-test-migration.md`
   - `api-test/`
+  - `.idea/workspace.xml`
 
 ## Test Results
 | Test | Input | Expected | Actual | Status |
@@ -51,6 +58,9 @@
 | Stage 2 RED | `cd api-test; python -m pytest tests/test_runpytest_commands.py -v` | 迁移前失败 | 5 failed | passed |
 | Stage 2 GREEN | `cd api-test; python -m pytest tests/test_runpytest_commands.py -v` | 迁移后通过 | 5 passed | passed |
 | Stage 2 回归 | `cd api-test; python runpytest.py --case-path test_case/test_gbif_case --clean` | demo 可执行并生成报告 | 14 passed, 1 skipped；Allure HTML 已生成 | passed |
+| PyCharm 配置 RED | `cd api-test; python -m pytest tests/test_pycharm_migration_config.py -v` | 旧路径配置被测试捕获 | 2 failed | passed |
+| PyCharm 配置 GREEN | `cd api-test; python -m pytest tests/test_pycharm_migration_config.py -v` | 旧路径清除 | 2 passed | passed |
+| PyCharm 等效单测 | `cd api-test/test_case/test_gbif_case; python -m pytest test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword -q` | 单测可执行 | 1 passed | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -64,4 +74,4 @@
 | Where am I going? | 等用户确认后进入 Stage 3：pytest node id 与失败重试执行器 |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、RED/GREEN 测试、demo 回归、commit 和 push |
+| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、RED/GREEN 测试、demo 回归、commit 和 push |
