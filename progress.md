@@ -134,6 +134,7 @@
   - 2026-06-23：移动视口检查登录页无文本重叠，表单可向下滚动访问。
   - 2026-06-23：创建 `docs/front-end-login.md`，记录 Stage 8 范围、登录流程、路由、设计、TDD、测试命令、浏览器检查和已知问题。
   - 2026-06-23：提交 Stage 8：`stage8: add vue frontend login shell`。
+  - 2026-06-23：执行 `git push origin main` 成功，远端 `main` 已更新到 `d6fc6a7`。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -236,7 +237,7 @@
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 8 complete，已 git commit，待 git push |
+| Where am I? | Stage 8 complete and pushed |
 | Where am I going? | Stage 9：模块通过率与失败用例页面 |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
