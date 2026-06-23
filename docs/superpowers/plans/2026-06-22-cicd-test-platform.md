@@ -115,7 +115,7 @@ D:/AI/AiApiTest-DWP/
 | Stage 2 | `api-test/` 迁移与充分测试 | complete | 将分散的测试框架内容全部转移到 `api-test/` 并充分验证 |
 | Stage 3 | pytest node id 与失败重试执行器 | complete | 提供可被 Jenkins 和后端复用的 node id 收集、失败用例重跑能力 |
 | Stage 4 | Jenkins Groovy Pipeline | complete | Jenkins 可执行用例、重试用例、生成 Allure 报告、归档结果 |
-| Stage 5 | DRF 后端基础工程与用户角色 | pending | 建立 DRF Token 认证、本地 MySQL、管理员/普通用户角色 |
+| Stage 5 | DRF 后端基础工程与用户角色 | complete | 建立 DRF Token 认证、本地 MySQL、管理员/普通用户角色 |
 | Stage 6 | 测试任务与失败用例 API | pending | 保存测试任务、失败用例、重试任务、报告路径和执行日志 |
 | Stage 7 | Jenkins 查询与触发 API | pending | 后端支持 Jenkins job/build 查询、触发、日志查看，并兼容 Windows/Linux |
 | Stage 8 | Vue 3 前端基础与登录 | pending | 建立 Vue 3、Element Plus、登录态、布局、菜单 |
@@ -465,7 +465,7 @@ GREEN:
 - Create: `back-end/tests/test_accounts_api.py`
 - Create: `docs/back-end-accounts.md`
 
-- [ ] **Step 1: 写登录和角色测试**
+- [x] **Step 1: 写登录和角色测试**
 
 测试目标：
 - 用户可登录并获得 token。
@@ -482,7 +482,7 @@ python -m pytest tests/test_accounts_api.py -v
 
 预期 RED：Django 工程和 accounts app 尚不存在。
 
-- [ ] **Step 2: 创建 Django/DRF 工程**
+- [x] **Step 2: 创建 Django/DRF 工程**
 
 默认配置：
 - 本地 MySQL 数据库。
@@ -490,7 +490,7 @@ python -m pytest tests/test_accounts_api.py -v
 - DRF Token 认证。
 - CORS 允许本地前端开发地址。
 
-- [ ] **Step 3: 实现 accounts**
+- [x] **Step 3: 实现 accounts**
 
 模型：
 
@@ -512,6 +512,18 @@ GET  /api/auth/me/
 - 可创建管理员和普通用户。
 - `docs/back-end-accounts.md` 记录本地 MySQL 配置、迁移命令、测试命令和测试结果。
 - 完成单独 `git commit` 和 `git push`。
+
+执行结果：
+
+```text
+RED:
+- back-end/tests/test_accounts_api.py: ImproperlyConfigured: Requested setting AUTH_USER_MODEL, but settings are not configured.
+- create_superuser 补强测试: 1 failed，默认 role 为 member，不符合管理员创建验收。
+
+GREEN:
+- cd back-end; python -m pytest tests/test_accounts_api.py -v -> 6 passed
+- cd back-end; python manage.py check -> System check identified no issues
+```
 
 ## 11. Stage 6: 测试任务与失败用例 API
 
@@ -887,6 +899,7 @@ npm test
 | 2026-06-23 | Stage 2 bugfix | complete | 修复 PyCharm 手动运行单测仍引用旧 `test_case` 工作目录的问题，并适配 `api-test/page_api` 结构 | RED: 2 failed；GREEN: 2 passed；迁移测试: 5 passed；等效单测: 1 passed | committed and pushed: `be60899` | 用户已确认 PyCharm 手动测试无问题 |
 | 2026-06-23 | Stage 3 | complete | 新增 pytest node id 读取工具和 CI 重试执行器，支持模块运行、选择 node id、一键失败重试、summary 和运行产物输出 | RED: `tools` 不存在、旧 lastfailed 污染、负数 retry_count；GREEN: 13 passed；回归: 20 passed；烟测: exit code 0 | committed and pushed | Stage 3 完成，具体提交记录见 git 历史 |
 | 2026-06-23 | Stage 4 | complete | 新增 Jenkins 参数兼容适配、Jenkinsfile、Groovy Pipeline、静态验证测试和 Jenkins 文档 | RED: 2 failed/3 failed/1 failed；GREEN: ci_runner 10 passed，Jenkins 静态 4 passed，api-test 回归 22 passed，Jenkins env 烟测 exit code 0 | pending commit and push | 本地未连接真实 Jenkins，已记录验证限制 |
+| 2026-06-23 | Stage 5 | complete | 新增 DRF 后端基础工程、Token 登录/登出/me API、自定义用户角色和权限入口 | RED: settings 未配置；补强 RED: createsuperuser 默认 member；GREEN: accounts 6 passed，Django check 通过 | pending commit and push | 本机默认 MySQL 数据库未创建，文档已记录建库和迁移命令 |
 
 ## 17. 风险与处理策略
 

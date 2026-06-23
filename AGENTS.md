@@ -97,3 +97,6 @@
 
 - 每个阶段完成后必须单独 `git commit` 和 `git push`。
 
+## 减少常见 LLM 编码错误的行为准则
+可根据项目特定需求合并使用： @andrej-karpathy-skills.md
+
