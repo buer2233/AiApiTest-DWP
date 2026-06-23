@@ -50,6 +50,8 @@
   - 2026-06-23：运行 `api-test` 回归测试：`python -m pytest tests -v`，结果 20 passed。
   - 2026-06-23：提交前最终烟测：`python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-final --clean`，exit code 0，Allure HTML 报告生成成功。
   - 2026-06-23：Stage 3 已完成提交和推送，具体 commit hash 见 git 历史。
+  - 2026-06-23：按用户要求整理根目录与四个核心子目录的 Markdown 规则文件：根 `AGENTS.md` 保留全局规则；`api-test/`、`back-end/`、`front-end/`、`jenkins/` 均补齐 `README.md`、`AGENTS.md`、`CLAUDE.md`；所有 `CLAUDE.md` 仅引用同级 `AGENTS.md`。
+  - 2026-06-23：文档整理后运行 `cd api-test; python -m pytest tests -v`，结果 20 passed。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -81,6 +83,7 @@
 | Stage 3 回归 | `cd api-test; python -m pytest tests -v` | api-test 自身测试全部通过 | 20 passed | passed |
 | Stage 3 真实烟测 | `cd api-test; python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-smoke --clean` | 执行器可真实运行模块并输出 summary | exit code 0；summary passed；failed_nodeids [] | passed |
 | Stage 3 最终烟测 | `cd api-test; python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-final --clean` | 最终实现可真实运行模块并生成 Allure HTML | exit code 0；Allure HTML 生成成功 | passed |
+| Markdown 规则文件整理回归 | `cd api-test; python -m pytest tests -v` | 文档新增不影响 api-test 测试发现 | 20 passed | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
