@@ -38,6 +38,18 @@
   - 2026-06-23 09:14:44 +08:00：运行 PyCharm 配置测试确认 GREEN：2 passed。
   - 2026-06-23 09:14:44 +08:00：运行迁移路径测试：5 passed。
   - 2026-06-23 09:14:44 +08:00：等效 PyCharm 手动执行单个测试：`cd api-test/test_case/test_gbif_case; python -m pytest test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword -q`，结果 1 passed。
+  - 2026-06-23：用户确认 PyCharm 手动执行测试无问题，进入 Stage 3。
+  - 2026-06-23：创建 `docs/pytest-nodeid-retry-runner.md`，记录 Stage 3 范围、输入、输出、重试模式和验收标准。
+  - 2026-06-23：创建 `api-test/tests/test_pytest_nodeids.py` 和 `api-test/tests/test_ci_runner.py`，先运行确认 RED，失败原因均为 `ModuleNotFoundError: No module named 'tools'`。
+  - 2026-06-23：创建 `api-test/tools/__init__.py`、`api-test/tools/pytest_nodeids.py`、`api-test/tools/ci_runner.py`，实现 node id 读取、CI 执行、产物写出和 summary。
+  - 2026-06-23：运行 Stage 3 测试确认初始 GREEN：`tests/test_pytest_nodeids.py` 5 passed，`tests/test_ci_runner.py` 6 passed。
+  - 2026-06-23：真实执行器烟测：`python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-smoke --clean`，exit code 0，Allure HTML 报告生成到 `api-test/runtime/ci-runs/stage3-smoke/allure-report`。
+  - 2026-06-23：发现旧 `.pytest_cache/v/cache/lastfailed` 可能污染本次运行 summary，补充失败测试后修复为执行前清理旧 cache。
+  - 2026-06-23：补充 `retry_count=-1` 边界失败测试，修复为命令构造和 CLI 入口均拒绝负数。
+  - 2026-06-23：运行 Stage 3 精确测试：`python -m pytest tests/test_pytest_nodeids.py tests/test_ci_runner.py -v`，结果 13 passed。
+  - 2026-06-23：运行 `api-test` 回归测试：`python -m pytest tests -v`，结果 20 passed。
+  - 2026-06-23：提交前最终烟测：`python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-final --clean`，exit code 0，Allure HTML 报告生成成功。
+  - 2026-06-23：Stage 3 已完成提交和推送，具体 commit hash 见 git 历史。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -61,17 +73,28 @@
 | PyCharm 配置 RED | `cd api-test; python -m pytest tests/test_pycharm_migration_config.py -v` | 旧路径配置被测试捕获 | 2 failed | passed |
 | PyCharm 配置 GREEN | `cd api-test; python -m pytest tests/test_pycharm_migration_config.py -v` | 旧路径清除 | 2 passed | passed |
 | PyCharm 等效单测 | `cd api-test/test_case/test_gbif_case; python -m pytest test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword -q` | 单测可执行 | 1 passed | passed |
+| Stage 3 node id RED | `cd api-test; python -m pytest tests/test_pytest_nodeids.py -v` | `tools` 包不存在导致失败 | 1 error: `ModuleNotFoundError` | passed |
+| Stage 3 CI runner RED | `cd api-test; python -m pytest tests/test_ci_runner.py -v` | `tools` 包不存在导致失败 | 1 error: `ModuleNotFoundError` | passed |
+| Stage 3 stale cache RED | `cd api-test; python -m pytest tests/test_ci_runner.py -v` | 旧 `lastfailed` 污染被捕获 | 1 failed, 6 passed | passed |
+| Stage 3 retry_count RED | `cd api-test; python -m pytest tests/test_ci_runner.py::test_build_pytest_command_rejects_negative_rerun_count -v` | 负数重试次数被测试捕获 | 1 failed | passed |
+| Stage 3 GREEN | `cd api-test; python -m pytest tests/test_pytest_nodeids.py tests/test_ci_runner.py -v` | Stage 3 功能测试通过 | 13 passed | passed |
+| Stage 3 回归 | `cd api-test; python -m pytest tests -v` | api-test 自身测试全部通过 | 20 passed | passed |
+| Stage 3 真实烟测 | `cd api-test; python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-smoke --clean` | 执行器可真实运行模块并输出 summary | exit code 0；summary passed；failed_nodeids [] | passed |
+| Stage 3 最终烟测 | `cd api-test; python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-final --clean` | 最终实现可真实运行模块并生成 Allure HTML | exit code 0；Allure HTML 生成成功 | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
 |-----------|-------|---------|------------|
 | N/A | None | 1 | N/A |
+| 2026-06-23 | Stage 3 初始 RED：`ModuleNotFoundError: No module named 'tools'` | 1 | 创建 `api-test/tools` 包和实现文件 |
+| 2026-06-23 | Stage 3 补强 RED：旧 `lastfailed` cache 污染当前运行失败列表 | 1 | 在 pytest 执行前清理旧 cache |
+| 2026-06-23 | Stage 3 补强 RED：`retry_count=-1` 未被拒绝 | 1 | 增加非负校验 |
 
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 2 complete |
-| Where am I going? | 等用户确认后进入 Stage 3：pytest node id 与失败重试执行器 |
+| Where am I? | Stage 3 complete |
+| Where am I going? | Stage 4：Jenkins Groovy Pipeline |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、RED/GREEN 测试、demo 回归、commit 和 push |
+| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、RED/GREEN 测试、真实烟测 |

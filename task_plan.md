@@ -4,7 +4,7 @@
 与用户共同设计接口自动化框架的 CICD 和网页端测试平台能力，用户确认需求后再按 TDD 开发。
 
 ## Current Phase
-Phase 4: TDD Implementation - Stage 2
+Phase 4: TDD Implementation - Stage 3 complete, ready for Stage 4 after commit and push
 
 ## Phases
 
@@ -41,6 +41,14 @@ Phase 4: TDD Implementation - Stage 2
 - [x] Stage 2 回归运行 demo 用例
 - [x] Stage 2 git commit
 - [x] Stage 2 git push
+- [x] Stage 3 需求分析和验收标准记录
+- [x] Stage 3 先写 `pytest_nodeids` 和 `ci_runner` 失败测试
+- [x] Stage 3 验证 RED
+- [x] Stage 3 实现 node id 读取、失败重试执行器和 summary 输出
+- [x] Stage 3 验证 GREEN
+- [x] Stage 3 运行真实执行器烟测
+- [x] Stage 3 git commit
+- [x] Stage 3 git push
 - **Status:** complete
 
 ### Phase 5: Verification and Delivery
@@ -70,11 +78,16 @@ Phase 4: TDD Implementation - Stage 2
 | Vue 3 前端使用 Element Plus | 用户已确认前端组件库 |
 | Allure 报告第一版打开静态 HTML | 用户已确认报告展示方式 |
 | `AGENTS.md` 和 `README.md` 作为后续 AI 接手入口，必须优先体现 CICD 测试平台定位 | 用户明确要求避免新 AI 丢失开发任务记录和要求 |
+| Stage 3 在 `api-test/tools/` 中沉淀统一执行器 | 后续 Jenkins 和 DRF 都复用同一执行入口，避免重试逻辑分叉 |
+| 执行器运行前清理旧 pytest `lastfailed` cache | 防止历史失败 node id 污染当前运行 summary |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
 |-------|---------|------------|
 | None | 1 | N/A |
+| Stage 3 初始 RED: `ModuleNotFoundError: No module named 'tools'` | 1 | 创建 `api-test/tools/__init__.py`、`pytest_nodeids.py`、`ci_runner.py` |
+| Stage 3 补强 RED: 旧 `lastfailed` 污染当前运行产物 | 1 | 在解析重试目标后、执行 pytest 前清理旧 cache |
+| Stage 3 补强 RED: `retry_count=-1` 未被拒绝 | 1 | 在命令构造和 CLI 入口增加非负校验 |
 
 ## Notes
 - 默认使用简体中文沟通。
