@@ -84,7 +84,22 @@
   - 2026-06-23：运行数据库配置测试确认 GREEN：`cd back-end; python -m pytest tests/test_database_settings.py -v`，结果 1 passed。
   - 2026-06-23：在强制 MySQL 配置下运行账户 API 测试：`cd back-end; python -m pytest tests/test_accounts_api.py -v`，结果 6 passed。
   - 2026-06-23：提交 Stage 5 数据库配置补强：`2a00252 stage5: force backend mysql connection`。
-  - 2026-06-23：执行 `git push` 失败，错误为 `fatal: unable to access 'https://github.com/buer2233/AiApiTest-DWP.git/': Empty reply from server`。
+  - 2026-06-23：首次执行 `git push` 失败，错误为 `fatal: unable to access 'https://github.com/buer2233/AiApiTest-DWP.git/': Empty reply from server`。
+  - 2026-06-23：后续重新推送成功，当前 `main` 已与 `origin/main` 同步，最新远端提交为 `05ad778`。
+  - 2026-06-23：开始 Stage 6：测试任务与失败用例 API。按 TDD 先编写 `test_runs` API 和 Allure 解析失败测试。
+  - 2026-06-23：新增 `back-end/tests/test_allure_results_parser.py` 和 `back-end/tests/test_test_runs_api.py`。
+  - 2026-06-23：运行 Stage 6 初始 RED：`cd back-end; python -m pytest tests/test_allure_results_parser.py -v`，结果 1 error，失败原因是 `apps.test_runs` 不存在。
+  - 2026-06-23：运行 Stage 6 初始 RED：`cd back-end; python -m pytest tests/test_test_runs_api.py -v`，结果 1 error，失败原因是 `apps.test_runs` 不存在。
+  - 2026-06-23：创建 `apps/test_runs` app，新增 `TestRun`、`FailureCase` 模型、首个迁移、Allure 解析服务、`ApiTestRunner` 适配器、serializers、views 和 urls。
+  - 2026-06-23：将 `apps.test_runs` 加入后端 `INSTALLED_APPS`，并挂载 `/api/test-runs/` 路由。
+  - 2026-06-23：首次运行 Stage 6 API 测试遇到 MySQL 长索引错误：`Specified key was too long`，移除 `(test_run, node_id)` 唯一约束。
+  - 2026-06-23：因首次失败迁移污染复用测试库，运行 `python -m pytest tests/test_test_runs_api.py -v --create-db` 重建测试库，随后只剩列表响应结构缺口。
+  - 2026-06-23：补充 `TestRunViewSet.list()` 返回 `count/results`，并设置模型 `__test__ = False` 避免 pytest 误收集 Django 模型类。
+  - 2026-06-23：运行 Stage 6 API 测试确认 GREEN：`cd back-end; python -m pytest tests/test_test_runs_api.py -v`，结果 7 passed。
+  - 2026-06-23：运行 Stage 6 精确测试：`cd back-end; python -m pytest tests/test_allure_results_parser.py tests/test_test_runs_api.py -v`，结果 9 passed。
+  - 2026-06-23：运行 `cd back-end; python manage.py check`，结果 System check identified no issues。
+  - 2026-06-23：运行后端回归：`cd back-end; python -m pytest -v`，结果 19 passed。
+  - 2026-06-23：创建 `docs/test-runs-api.md`，记录 Stage 6 范围、模型、接口、Allure 解析、测试命令和问题处理。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -134,6 +149,14 @@
 | Stage 5 database settings RED | `cd back-end; python -m pytest tests/test_database_settings.py -v` | 捕获 pytest 下 SQLite 回退 | 1 failed: sqlite3 != mysql | passed |
 | Stage 5 database settings GREEN | `cd back-end; python -m pytest tests/test_database_settings.py -v` | 强制 MySQL localhost:3306 配置通过 | 1 passed | passed |
 | Stage 5 accounts under forced MySQL | `cd back-end; python -m pytest tests/test_accounts_api.py -v` | 账户 API 在强制 MySQL 配置下通过 | 6 passed | passed |
+| Stage 6 Allure parser RED | `cd back-end; python -m pytest tests/test_allure_results_parser.py -v` | `apps.test_runs` 缺失导致失败 | 1 error: `ModuleNotFoundError` | passed |
+| Stage 6 API RED | `cd back-end; python -m pytest tests/test_test_runs_api.py -v` | `apps.test_runs` 缺失导致失败 | 1 error: `ModuleNotFoundError` | passed |
+| Stage 6 MySQL index RED | `cd back-end; python -m pytest tests/test_test_runs_api.py -v` | 捕获长 node id 唯一索引不兼容 MySQL | 7 errors: `Specified key was too long` | passed |
+| Stage 6 rebuild test DB | `cd back-end; python -m pytest tests/test_test_runs_api.py -v --create-db` | 清理失败迁移残留并继续验证 | 1 failed, 6 passed | passed |
+| Stage 6 API GREEN | `cd back-end; python -m pytest tests/test_test_runs_api.py -v` | 测试任务和失败重试 API 通过 | 7 passed | passed |
+| Stage 6 focused GREEN | `cd back-end; python -m pytest tests/test_allure_results_parser.py tests/test_test_runs_api.py -v` | Allure 解析与 API 全部通过 | 9 passed | passed |
+| Stage 6 Django check | `cd back-end; python manage.py check` | Django 配置无系统检查问题 | System check identified no issues | passed |
+| Stage 6 backend regression | `cd back-end; python -m pytest -v` | 后端回归全部通过 | 19 passed | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -150,13 +173,16 @@
 | 2026-06-23 | Stage 5 补强 RED：超级管理员默认 `member` | 1 | 新增自定义 `UserManager`，使 `create_superuser()` 默认 `admin` |
 | 2026-06-23 | Stage 5 MySQL warning：默认库不存在 | 1 | 文档记录 `CREATE DATABASE` |
 | 2026-06-23 | Stage 5 数据库配置 RED：pytest 下仍回退 SQLite | 1 | 删除 SQLite 分支，强制 MySQL `localhost:3306` |
-| 2026-06-23 | Stage 5 push 失败：`Empty reply from server` | 1 | 已记录失败原因，等待网络或远程服务恢复后重新执行 `git push` |
+| 2026-06-23 | Stage 5 push 失败：`Empty reply from server` | 1 | 后续重新推送成功，`main` 与 `origin/main` 已同步到 `05ad778` |
+| 2026-06-23 | Stage 6 初始 RED：`ModuleNotFoundError: No module named 'apps.test_runs'` | 1 | 创建 `apps.test_runs` app、模型、服务、序列化器、视图和 URL |
+| 2026-06-23 | Stage 6 MySQL 长索引错误：`Specified key was too long` | 1 | 移除 `(test_run, node_id)` 唯一约束，保留完整 node id 字段 |
+| 2026-06-23 | Stage 6 复用测试库残留：`Table 'test_runs_testrun' already exists` | 1 | 使用 `--create-db` 重建 MySQL 测试库 |
 
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 5 complete |
-| Where am I going? | Stage 6：测试任务与失败用例 API |
+| Where am I? | Stage 6 complete, ready for commit and push |
+| Where am I going? | Stage 7：Jenkins 查询与触发 API |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、RED/GREEN 测试和文档记录 |
+| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、Stage 6 测试任务与失败用例 API、RED/GREEN 测试和文档记录 |

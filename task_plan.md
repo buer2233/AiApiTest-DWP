@@ -4,7 +4,7 @@
 与用户共同设计接口自动化框架的 CICD 和网页端测试平台能力，用户确认需求后再按 TDD 开发。
 
 ## Current Phase
-Phase 4: TDD Implementation - Stage 5 complete, ready for commit and push
+Phase 4: TDD Implementation - Stage 6 complete, ready for commit and push
 
 ## Phases
 
@@ -61,6 +61,13 @@ Phase 4: TDD Implementation - Stage 5 complete, ready for commit and push
 - [x] Stage 5 创建 Django/DRF 工程和 accounts app
 - [x] Stage 5 验证 GREEN
 - [x] Stage 5 编写 `docs/back-end-accounts.md`
+- [x] Stage 5 git push 已重新执行成功，`main` 与 `origin/main` 已同步
+- [x] Stage 6 需求分析和验收标准确认
+- [x] Stage 6 先写测试任务 API 和 Allure 解析失败测试
+- [x] Stage 6 验证 RED
+- [x] Stage 6 实现 `test_runs` 模型、runner 适配、Allure 解析和 DRF API
+- [x] Stage 6 验证 GREEN
+- [x] Stage 6 编写 `docs/test-runs-api.md`
 - **Status:** complete
 
 ### Phase 5: Verification and Delivery
@@ -94,6 +101,8 @@ Phase 4: TDD Implementation - Stage 5 complete, ready for commit and push
 | 执行器运行前清理旧 pytest `lastfailed` cache | 防止历史失败 node id 污染当前运行 summary |
 | Stage 5 所有环境强制使用本地 MySQL `localhost:3306` | 用户明确要求数据库连接不再回退 SQLite 或覆盖到其他主机端口 |
 | `create_superuser()` 默认写入 `role=admin` | 满足“可创建管理员”的验收，同时普通用户默认仍为 `member` |
+| Stage 6 后端通过 `ApiTestRunner` 适配 `api-test/tools/ci_runner.py` | 避免在 DRF 中复制 pytest 命令和重试规则 |
+| Stage 6 报告 API 只返回 `/reports/<run_id>/` 入口，不暴露服务器绝对路径 | 满足报告入口需求，同时把静态 HTML 服务留到 Stage 10 |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
@@ -110,6 +119,9 @@ Phase 4: TDD Implementation - Stage 5 complete, ready for commit and push
 | Stage 5 补强 RED: `create_superuser()` 默认 role 为 `member` | 1 | 新增自定义 `UserManager` 和 manager 迁移 |
 | Stage 5 MySQL 检查 warning: 默认数据库不存在 | 1 | 文档记录本地 MySQL 建库命令 |
 | Stage 5 数据库配置 RED: pytest 下仍回退 SQLite | 1 | 删除 pytest SQLite 分支，强制 `django.db.backends.mysql`、`localhost:3306` |
+| Stage 6 初始 RED: `ModuleNotFoundError: No module named 'apps.test_runs'` | 1 | 创建 `apps.test_runs` app、模型、服务、序列化器、视图和 URL |
+| Stage 6 MySQL 迁移错误: `Specified key was too long` | 1 | 移除 `(test_run, node_id)` 唯一约束，保留长 pytest node id 存储能力 |
+| Stage 6 复用测试库残留: `Table 'test_runs_testrun' already exists` | 1 | 使用 `--create-db` 重建 MySQL 测试库后继续验证 |
 
 ## Notes
 - 默认使用简体中文沟通。

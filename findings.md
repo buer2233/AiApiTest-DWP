@@ -52,6 +52,9 @@
 | Stage 5 所有环境强制使用本地 MySQL `localhost:3306` | 满足用户明确要求，避免 pytest 或运行环境回退 SQLite，也避免通过环境变量切到非本地主机端口 |
 | `accounts.User` 继承 Django `AbstractUser` 并只新增 `role` | 保留 Django username/password/session/admin 基础能力，最小化 Stage 5 实现面 |
 | `create_superuser()` 默认写入 `role=admin` | 保证命令行创建管理员时角色正确；普通用户默认仍为 `member` |
+| Stage 6 `test_runs` app 只适配 `api-test/tools/ci_runner.py` | 后端不复制 pytest 命令、node id 解析或重试规则，避免和 Jenkins 分叉 |
+| Stage 6 失败用例优先从 Allure result JSON 解析，缺失时回退 `summary.failed_nodeids` | 兼顾报告摘要丰富度和执行器最小输出 |
+| Stage 6 报告入口返回 `/reports/<run_id>/` 而不是服务器路径 | 避免泄露本机绝对路径；静态报告服务留到 Stage 10 |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -73,6 +76,10 @@
 | Stage 5 `create_superuser()` 初始默认 role 为 `member` | 增加自定义 `UserManager` 和 manager 迁移，补强测试转绿 |
 | Stage 5 本机默认 MySQL 数据库不存在 | `docs/back-end-accounts.md` 记录 `CREATE DATABASE` 和迁移命令 |
 | Stage 5 pytest 下仍回退 SQLite | 增加数据库配置测试后删除 SQLite 分支，固定 MySQL `localhost:3306` |
+| Stage 6 初始测试无法导入 `apps.test_runs` | 按 TDD 创建 `test_runs` app、模型、服务、序列化器、视图和 URL |
+| Stage 6 MySQL 拒绝 `(test_run, node_id)` 唯一索引 | pytest node id 可能很长，移除该唯一约束，保留完整 node id 字段 |
+| Stage 6 首次失败迁移污染复用测试库 | 使用 `--create-db` 重建 MySQL 测试库后验证通过 |
+| Stage 5 文档与当前配置存在端口不一致 | 文档/计划写 `localhost:3306`，当前 `settings.py` 和测试断言为 `3307`；本轮未扩大修改范围，后续应单独校准 |
 
 ## Resources
 - `AGENTS.md`
