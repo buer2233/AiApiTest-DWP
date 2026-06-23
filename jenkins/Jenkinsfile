@@ -1,2 +1,5 @@
-def pipelineScript = load 'jenkins/scripts/api-test-pipeline.groovy'
-pipelineScript.call()
+node {
+    checkout scm
+    def pipelineScript = load 'jenkins/scripts/api-test-pipeline.groovy'
+    pipelineScript.call()
+}

@@ -15,3 +15,5 @@ api-test/runtime/
 /tests/
 /.claude/
 docs/.hermes-tmp*/
+/server_acount.md
+/.playwright-mcp/

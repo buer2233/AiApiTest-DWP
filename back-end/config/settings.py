@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
+    "drf_spectacular",
     "corsheaders",
     "apps.accounts",
 ]
@@ -63,7 +64,7 @@ DATABASES = {
         "USER": os.getenv("MYSQL_USER", "root"),
         "PASSWORD": os.getenv("MYSQL_PASSWORD", ""),
         "HOST": "localhost",
-        "PORT": "3306",
+        "PORT": os.getenv("MYSQL_PORT", "3307"),
         "OPTIONS": {
             "charset": "utf8mb4",
         },
@@ -87,6 +88,18 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "AiApiTest-DWP API",
+    "DESCRIPTION": "CICD AI 自动化测试平台后端接口文档",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "AUTHENTICATION_WHITELIST": [
+        "rest_framework.authentication.TokenAuthentication",
     ],
 }
 
