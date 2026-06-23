@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 
 import pytest
 
@@ -67,6 +68,28 @@ def test_build_pytest_command_rejects_negative_rerun_count(tmp_path):
             allure_results_dir=tmp_path / "allure-results",
             retry_count=-1,
         )
+
+
+def test_run_ci_tests_defaults_to_current_python_interpreter(tmp_path, monkeypatch):
+    request = ci_runner.RunRequest(
+        api_test_root=tmp_path,
+        run_dir=tmp_path / "runtime" / "ci-runs" / "run-1",
+        retry_mode="module",
+        case_path="test_case/test_gbif_case",
+        clean=True,
+    )
+    calls = {}
+
+    def fake_run(command, **kwargs):
+        calls["command"] = command
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
+
+    ci_runner.run_ci_tests(request)
+
+    assert calls["command"][0] == sys.executable
 
 
 def test_resolve_all_failed_targets_reads_pytest_lastfailed_cache(tmp_path):
@@ -161,6 +184,8 @@ def test_write_summary_creates_required_summary_json(tmp_path):
         "failed_nodeids": failed_nodeids,
         "allure_results_dir": str(run_dir / "allure-results"),
         "allure_report_dir": str(run_dir / "allure-report"),
+        "allure_report_status": "unknown",
+        "allure_report_message": "",
     }
     assert summary == expected
     assert json.loads((run_dir / "summary.json").read_text(encoding="utf-8")) == expected
@@ -228,3 +253,29 @@ def test_run_ci_tests_clears_stale_lastfailed_before_current_pytest_run(tmp_path
     assert json.loads((request.run_dir / "failed_nodeids.json").read_text(encoding="utf-8")) == []
     assert summary["status"] == "passed"
     assert summary["failed_nodeids"] == []
+
+
+def test_run_ci_tests_records_skipped_allure_report_when_cli_is_missing(tmp_path, monkeypatch):
+    request = ci_runner.RunRequest(
+        api_test_root=tmp_path,
+        run_dir=tmp_path / "runtime" / "ci-runs" / "run-1",
+        retry_mode="module",
+        case_path="test_case/test_gbif_case",
+        clean=True,
+    )
+
+    def fake_run(command, **kwargs):
+        (request.run_dir / "allure-results" / "result.json").write_text(
+            "{}",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, stdout="pytest stdout", stderr="")
+
+    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
+
+    summary = ci_runner.run_ci_tests(request, python_executable="python")
+
+    assert summary["status"] == "passed"
+    assert summary["allure_report_status"] == "skipped"
+    assert "Allure CLI" in summary["allure_report_message"]

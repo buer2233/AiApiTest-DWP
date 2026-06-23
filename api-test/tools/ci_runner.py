@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -137,6 +138,8 @@ def write_summary(
     failed_nodeids: list[str],
     allure_results_dir: Path,
     allure_report_dir: Path,
+    allure_report_status: str = "unknown",
+    allure_report_message: str = "",
 ) -> dict:
     """Write and return a compact CI summary."""
     status = "passed" if return_code == 0 else "failed"
@@ -146,6 +149,8 @@ def write_summary(
         "failed_nodeids": normalize_nodeids(failed_nodeids),
         "allure_results_dir": str(Path(allure_results_dir)),
         "allure_report_dir": str(Path(allure_report_dir)),
+        "allure_report_status": allure_report_status,
+        "allure_report_message": allure_report_message,
     }
     output_path = Path(run_dir) / "summary.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -160,10 +165,13 @@ def _write_console_log(run_dir: Path, result: subprocess.CompletedProcess) -> No
     (Path(run_dir) / "console.log").write_text(content, encoding="utf-8")
 
 
-def _generate_allure_report(request: RunRequest) -> None:
+def _generate_allure_report(request: RunRequest) -> dict:
     allure_executable = shutil.which("allure")
     if not allure_executable:
-        return
+        return {
+            "status": "skipped",
+            "message": "Allure CLI was not found in PATH; HTML report was not generated.",
+        }
 
     command = [
         allure_executable,
@@ -173,16 +181,32 @@ def _generate_allure_report(request: RunRequest) -> None:
         str(Path(request.run_dir) / "allure-report"),
         "--clean",
     ]
-    subprocess.run(command, cwd=str(request.api_test_root), check=False)
+    result = subprocess.run(
+        command,
+        cwd=str(request.api_test_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        message = "\n".join(part for part in [result.stdout, result.stderr] if part).strip()
+        return {
+            "status": "failed",
+            "message": message or f"Allure CLI exited with code {result.returncode}.",
+        }
     if request.open_report:
         subprocess.run(
             [allure_executable, "open", str(Path(request.run_dir) / "allure-report")],
             cwd=str(request.api_test_root),
             check=False,
         )
+    return {
+        "status": "generated",
+        "message": "Allure HTML report generated successfully.",
+    }
 
 
-def run_ci_tests(request: RunRequest, python_executable: str = "python") -> dict:
+def run_ci_tests(request: RunRequest, python_executable: str | None = None) -> dict:
     """Run pytest for CI and write console, failed node ids and summary artifacts."""
     request.api_test_root = Path(request.api_test_root)
     request.run_dir = Path(request.run_dir)
@@ -201,6 +225,8 @@ def run_ci_tests(request: RunRequest, python_executable: str = "python") -> dict
             failed_nodeids=[],
             allure_results_dir=allure_results_dir,
             allure_report_dir=allure_report_dir,
+            allure_report_status="skipped",
+            allure_report_message="No pytest targets resolved; Allure HTML report was not generated.",
         )
 
     clear_lastfailed_cache(request.api_test_root)
@@ -209,7 +235,7 @@ def run_ci_tests(request: RunRequest, python_executable: str = "python") -> dict
         allure_results_dir=allure_results_dir,
         clean=request.clean,
         retry_count=request.retry_count,
-        python_executable=python_executable,
+        python_executable=python_executable or sys.executable,
     )
     result = subprocess.run(
         command,
@@ -219,7 +245,7 @@ def run_ci_tests(request: RunRequest, python_executable: str = "python") -> dict
         text=True,
     )
     _write_console_log(request.run_dir, result)
-    _generate_allure_report(request)
+    allure_report = _generate_allure_report(request)
 
     failed_nodeids = load_lastfailed(request.api_test_root / ".pytest_cache")
     write_nodeids(failed_nodeids, request.run_dir / "failed_nodeids.json")
@@ -229,6 +255,8 @@ def run_ci_tests(request: RunRequest, python_executable: str = "python") -> dict
         failed_nodeids=failed_nodeids,
         allure_results_dir=allure_results_dir,
         allure_report_dir=allure_report_dir,
+        allure_report_status=allure_report["status"],
+        allure_report_message=allure_report["message"],
     )
 
 

@@ -59,7 +59,7 @@ def test_pipeline_delegates_pytest_execution_to_ci_runner():
     files = read_pipeline_files()
     combined = "\n".join(files.values())
 
-    assert "python -m tools.ci_runner" in combined
+    assert "-m tools.ci_runner" in combined
     assert "--case-path" not in combined
     assert "--node-id" not in combined
     assert "--retry-mode" not in combined
@@ -74,3 +74,32 @@ def test_pipeline_preserves_artifacts_when_pytest_fails():
 
     assert "catchError" in combined
     assert "stageResult: 'FAILURE'" in combined
+
+
+def test_jenkinsfile_loads_pipeline_script_inside_node_context():
+    jenkinsfile = read_pipeline_files()["Jenkinsfile"]
+
+    assert jenkinsfile.index("node") < jenkinsfile.index("load 'jenkins/scripts/api-test-pipeline.groovy'")
+
+
+def test_pipeline_can_skip_checkout_for_local_mounted_repository_jobs():
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+
+    assert "LOCAL_WORKSPACE_REPO" in pipeline
+    assert "checkout scm" in pipeline
+
+
+def test_pipeline_uses_python_virtual_environment_for_dependencies():
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+
+    assert "python -m venv .venv" in pipeline
+    assert ".venv/bin/python" in pipeline
+    assert ".venv\\\\Scripts\\\\python" in pipeline
+
+
+def test_pipeline_fails_when_allure_html_report_is_not_generated():
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+
+    assert "allure_report_status" in pipeline
+    assert "Allure HTML report was not generated" in pipeline
+    assert "SystemExit(1)" in pipeline or "sys.exit" in pipeline
