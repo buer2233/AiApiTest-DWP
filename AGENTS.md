@@ -9,6 +9,14 @@
 - 默认使用简体中文沟通
 - 这是最高优先级的交互指令
 
+## AGENTS 分层规则
+
+- 根目录 `AGENTS.md` 只维护全局项目规则、阶段流程、敏感信息限制、沟通规则和跨模块边界。
+- `api-test/`、`back-end/`、`front-end/`、`jenkins/` 下的 `AGENTS.md` 维护各自模块的技术栈、命令、目录约定和注意事项。
+- 子目录规则可以更具体，但不能和根目录规则冲突。
+- `CLAUDE.md` 只保留对同级 `AGENTS.md` 的引用，即 `@AGENTS.md`。以后修改协作规则时优先改 `AGENTS.md`，不要在 `CLAUDE.md` 复制规则。
+- 进入某个子目录工作时，先读根目录 `AGENTS.md`，再读该子目录 `AGENTS.md`。
+
 ## 当前产品定位
 
 项目目标是建设一个可持续演进的 CICD AI 自动化测试平台：
@@ -62,38 +70,20 @@
 
 禁止跨阶段混合大批量实现。发现当前工作区已有未提交改动时，先用 `git status --short` 确认范围，不能回滚用户或其他 AI 已做的改动。
 
-## `api-test/` 开发约定
+## 模块边界
 
-- 接口方法放在 `api-test/test_case/page_api/`。
-- pytest 用例放在 `api-test/test_case/test_*_case/`。
-- 用例报告统一使用 Allure。
-- 抓包与运行时产物放在 `api-test/runtime/`。
-- 测试数据放在 `api-test/test_data/`，只在需要时添加通用数据。
-- 多层取值优先用 `get_value()`，单层取值优先用 `.get()`。
-- `runpytest.py` 和后续 `tools/ci_runner.py` 必须使用相对 `api-test/` 的路径，避免写死本机绝对路径。
+- `api-test/` 只负责接口自动化执行能力、pytest node id、失败重试执行器和 Allure 原始结果。
+- `jenkins/` 只负责 Jenkins Pipeline 参数、stage 编排、Windows/Linux 兼容和产物归档。
+- `back-end/` 只负责 DRF API、用户角色、任务数据、失败用例数据、Jenkins 查询/触发和报告入口。
+- `front-end/` 只负责 Vue 3 测试平台界面、登录态、模块通过率、失败用例操作和报告入口。
+- 跨模块逻辑必须优先沉淀到最合适的单一模块，避免 Jenkins、后端和前端重复实现同一规则。
 
-## Jenkins 约定
+## 全局安全规则
 
-- Jenkins 脚本源文件必须放在 `jenkins/` 并纳入 git 管理。
-- Groovy 负责 Jenkins 参数、环境变量和 stage 编排。
-- pytest 执行、失败用例 node id 收集、重试和 summary 输出必须沉淀到 `api-test` 可复用工具中，避免在 Groovy 和后端重复实现。
-- Jenkins Pipeline 必须兼容 Windows `bat` 和 Linux `sh`。
-- 不提交真实 Jenkins URL、用户名或 API token。
-
-## 后端约定
-
-- 使用 Django + Django REST Framework。
-- 认证使用 DRF Token。
-- 默认数据库为本地 MySQL，通过环境变量或本地配置读取，不提交真实凭据。
-- 保留 `admin` 和 `member` 两类用户角色；当前权限可一致，但权限类要预留后续差异化能力。
-- Jenkins client 测试必须使用 fake HTTP 响应，不依赖真实 Jenkins。
-
-## 前端约定
-
-- 使用 Vue 3、Vite、TypeScript、Vue Router、Pinia、Axios、Element Plus。
-- 默认展示可操作测试平台，不做营销落地页。
-- 页面围绕模块通过率、失败用例、重试入口、Jenkins 任务和 Allure 报告入口设计。
-- 保持平台字段通用，不引入具体公司业务模块常量。
+- 不提交真实账号、密码、token、cookie、租户密钥、Jenkins API Token、生产 URL 或敏感地址。
+- 示例配置使用占位符、环境变量或本地私有配置。
+- 报告、日志、抓包、运行时产物不要作为业务代码提交。
+- Jenkins、DRF、Vue 和 pytest 中都保持平台字段通用，不引入具体公司业务模块常量。
 
 ## 文档与记录
 
@@ -102,3 +92,8 @@
 - 重要发现写入 `findings.md`。
 - 执行动作、测试命令和结果写入 `progress.md`。
 - 阶段文档必须包含：范围、实现内容、测试命令、测试结果、已知问题、后续建议。
+
+## Git 规则
+
+- 每个阶段完成后必须单独 `git commit` 和 `git push`。
+

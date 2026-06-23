@@ -45,6 +45,7 @@
 | `all-failed` 模式读取 `.pytest_cache/v/cache/lastfailed` | 该文件是 pytest 原生失败 node id 来源，能保留原始 node id 字符串 |
 | 执行器在本次 pytest 运行前清理旧 `lastfailed` cache | 避免上一次失败用例污染本次成功运行的 `failed_nodeids.json` 和 `summary.json` |
 | `retry_count` 不允许为负数 | Jenkins/后端传参错误时应尽早失败，不生成语义不清的 pytest 命令 |
+| AGENTS 采用根目录总规则 + 子目录模块规则分层 | 根目录维护全局阶段流程和安全规则，`api-test/`、`back-end/`、`front-end/`、`jenkins/` 分别维护模块约定，`CLAUDE.md` 只引用同级 `AGENTS.md` |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -57,6 +58,7 @@
 | 规划文件已有旧任务内容 | 已替换为当前任务计划，并在进度中记录 |
 | Stage 3 初始测试无法导入 `tools` 包 | 按 TDD 创建 `api-test/tools/__init__.py`、`pytest_nodeids.py` 和 `ci_runner.py` |
 | 旧 pytest `lastfailed` cache 会污染当前运行结果 | 增加测试并在执行器运行前清理旧 cache |
+| 根目录和子目录协作规则容易重复维护 | 统一要求所有 `CLAUDE.md` 只写 `@AGENTS.md`，实际规则只维护在同级 `AGENTS.md` |
 
 ## Resources
 - `AGENTS.md`
