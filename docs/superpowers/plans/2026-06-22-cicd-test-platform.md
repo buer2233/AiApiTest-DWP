@@ -116,7 +116,7 @@ D:/AI/AiApiTest-DWP/
 | Stage 3 | pytest node id 与失败重试执行器 | complete | 提供可被 Jenkins 和后端复用的 node id 收集、失败用例重跑能力 |
 | Stage 4 | Jenkins Groovy Pipeline | complete | Jenkins 可执行用例、重试用例、生成 Allure 报告、归档结果 |
 | Stage 5 | DRF 后端基础工程与用户角色 | complete | 建立 DRF Token 认证、本地 MySQL、管理员/普通用户角色 |
-| Stage 6 | 测试任务与失败用例 API | pending | 保存测试任务、失败用例、重试任务、报告路径和执行日志 |
+| Stage 6 | 测试任务与失败用例 API | complete | 保存测试任务、失败用例、重试任务、报告路径和执行日志 |
 | Stage 7 | Jenkins 查询与触发 API | pending | 后端支持 Jenkins job/build 查询、触发、日志查看，并兼容 Windows/Linux |
 | Stage 8 | Vue 3 前端基础与登录 | pending | 建立 Vue 3、Element Plus、登录态、布局、菜单 |
 | Stage 9 | 模块通过率与失败用例页面 | pending | 实现参考截图的模块列表、失败用例弹窗、重试入口 |
@@ -538,7 +538,7 @@ GREEN:
 - Create: `back-end/tests/test_allure_results_parser.py`
 - Create: `docs/test-runs-api.md`
 
-- [ ] **Step 1: 写模型和 API 测试**
+- [x] **Step 1: 写模型和 API 测试**
 
 测试目标：
 - 创建测试任务。
@@ -556,7 +556,7 @@ cd D:\AI\AiApiTest-DWP\back-end
 python -m pytest tests/test_test_runs_api.py -v
 ```
 
-- [ ] **Step 2: 实现数据模型**
+- [x] **Step 2: 实现数据模型**
 
 核心模型：
 
@@ -592,7 +592,7 @@ FailureCase
 - last_retry_run
 ```
 
-- [ ] **Step 3: 实现 Allure 结果解析**
+- [x] **Step 3: 实现 Allure 结果解析**
 
 解析来源：
 
@@ -608,7 +608,7 @@ api-test/runtime/ci-runs/<run_id>/allure-results/*.json
 - 断言/错误信息。
 - 执行状态。
 
-- [ ] **Step 4: 实现 API**
+- [x] **Step 4: 实现 API**
 
 API：
 
@@ -628,6 +628,19 @@ GET  /api/test-runs/{id}/report/
 - 后端可调用 `api-test/tools/ci_runner.py` 或登记 Jenkins 返回的执行结果。
 - `docs/test-runs-api.md` 记录模型、接口、请求响应示例、测试命令和测试结果。
 - 完成单独 `git commit` 和 `git push`。
+
+执行结果：
+
+```text
+RED:
+- tests/test_allure_results_parser.py: ModuleNotFoundError: No module named 'apps.test_runs'
+- tests/test_test_runs_api.py: ModuleNotFoundError: No module named 'apps.test_runs'
+
+GREEN:
+- cd back-end; python -m pytest tests/test_allure_results_parser.py tests/test_test_runs_api.py -v -> 9 passed
+- cd back-end; python manage.py check -> System check identified no issues
+- cd back-end; python -m pytest -v -> 19 passed
+```
 
 ## 12. Stage 7: Jenkins 查询与触发 API
 
@@ -898,8 +911,9 @@ npm test
 | 2026-06-22 | Stage 2 | complete | 迁移接口测试框架到 `api-test/`，新增迁移路径测试，修复 `runpytest.py` 默认入口和忽略规则 | RED: 5 failed；GREEN: 5 passed；回归: 14 passed, 1 skipped，Allure 报告生成成功 | committed and pushed: `60a0711` | Stage 2 完成 |
 | 2026-06-23 | Stage 2 bugfix | complete | 修复 PyCharm 手动运行单测仍引用旧 `test_case` 工作目录的问题，并适配 `api-test/page_api` 结构 | RED: 2 failed；GREEN: 2 passed；迁移测试: 5 passed；等效单测: 1 passed | committed and pushed: `be60899` | 用户已确认 PyCharm 手动测试无问题 |
 | 2026-06-23 | Stage 3 | complete | 新增 pytest node id 读取工具和 CI 重试执行器，支持模块运行、选择 node id、一键失败重试、summary 和运行产物输出 | RED: `tools` 不存在、旧 lastfailed 污染、负数 retry_count；GREEN: 13 passed；回归: 20 passed；烟测: exit code 0 | committed and pushed | Stage 3 完成，具体提交记录见 git 历史 |
-| 2026-06-23 | Stage 4 | complete | 新增 Jenkins 参数兼容适配、Jenkinsfile、Groovy Pipeline、静态验证测试和 Jenkins 文档 | RED: 2 failed/3 failed/1 failed；GREEN: ci_runner 10 passed，Jenkins 静态 4 passed，api-test 回归 22 passed，Jenkins env 烟测 exit code 0 | pending commit and push | 本地未连接真实 Jenkins，已记录验证限制 |
-| 2026-06-23 | Stage 5 | complete | 新增 DRF 后端基础工程、Token 登录/登出/me API、自定义用户角色和权限入口；补强数据库配置为强制 MySQL `localhost:3306` | RED: settings 未配置；补强 RED: createsuperuser 默认 member；数据库配置 RED: pytest 下仍为 SQLite；GREEN: database settings 1 passed，accounts 6 passed，Django check 通过 | committed: `2a00252`; push failed | `git push` 失败：`Empty reply from server`，后端测试已在强制 MySQL 配置下通过 |
+| 2026-06-23 | Stage 4 | complete | 新增 Jenkins 参数兼容适配、Jenkinsfile、Groovy Pipeline、静态验证测试和 Jenkins 文档 | RED: 2 failed/3 failed/1 failed；GREEN: ci_runner 10 passed，Jenkins 静态 4 passed，api-test 回归 22 passed，Jenkins env 烟测 exit code 0 | committed and pushed: `e38e415` | 本地未连接真实 Jenkins，已记录验证限制 |
+| 2026-06-23 | Stage 5 | complete | 新增 DRF 后端基础工程、Token 登录/登出/me API、自定义用户角色和权限入口；补强数据库配置为强制 MySQL `localhost:3306` | RED: settings 未配置；补强 RED: createsuperuser 默认 member；数据库配置 RED: pytest 下仍为 SQLite；GREEN: database settings 1 passed，accounts 6 passed，Django check 通过 | committed and pushed: `05ad778` | 首次 `git push` 曾失败，后续已重新推送成功 |
+| 2026-06-23 | Stage 6 | complete | 新增 `test_runs` app、测试任务/失败用例模型、Allure 失败解析、runner 适配和测试任务/失败重试/报告入口 API | RED: `apps.test_runs` 不存在；GREEN: Stage 6 9 passed，Django check 通过，后端回归 19 passed | pending commit and push | MySQL 长 node id 唯一索引过长，已移除该约束 |
 
 ## 17. 风险与处理策略
 
