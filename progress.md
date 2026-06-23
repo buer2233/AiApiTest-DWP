@@ -67,6 +67,18 @@
   - 2026-06-23：创建 `docs/jenkins-pipeline.md`，记录 Jenkins 参数、脚本说明、测试命令、验证结果和本地未接入真实 Jenkins 的限制。
   - 2026-06-23：运行最终回归：`cd api-test; python -m pytest tests -v`，结果 22 passed；`cd jenkins; python -m pytest tests -v`，结果 4 passed。
   - 2026-06-23：运行 Jenkins 环境变量模式烟测：`cd api-test; python -m tools.ci_runner --from-jenkins-env`，环境变量 `CASE_PATH=test_case/test_gbif_case`、`RETRY_MODE=module`、`RUN_ID=stage4-jenkins-env-smoke`，结果 exit code 0，Allure HTML 生成成功。
+  - 2026-06-23：开始 Stage 5，读取根目录与 `back-end/AGENTS.md`，确认根目录没有 `.codegraph/`，工作区初始仅有用户侧 `AGENTS.md` 非本阶段改动。
+  - 2026-06-23：创建 `back-end/tests/test_accounts_api.py`，覆盖登录 token、登出、当前用户、`admin`/`member` 角色保存、当前平台权限一致和管理员专属权限入口。
+  - 2026-06-23：运行 Stage 5 初始 RED：`cd back-end; python -m pytest tests/test_accounts_api.py -v`，结果 1 error，失败原因是 Django settings 未配置。
+  - 2026-06-23：创建 DRF 后端基础工程：`manage.py`、`config/`、`apps/accounts/`、`requirements.txt`、`pytest.ini` 和 accounts 迁移。
+  - 2026-06-23：运行账户测试时发现 `--reuse-db` 无法识别，原因是当前环境缺少 `pytest-django`；执行 `cd back-end; python -m pip install -r requirements.txt` 成功，pip 提示全局 `django-celery-beat` 依赖旧 Django。
+  - 2026-06-23：运行 Stage 5 初始 GREEN：`cd back-end; python -m pytest tests/test_accounts_api.py -v`，结果 5 passed。
+  - 2026-06-23：补充 `create_superuser()` 默认管理员角色测试，先运行确认 RED：1 failed，默认 role 为 `member`。
+  - 2026-06-23：新增 `UserManager.create_superuser()` 默认 `role=admin`，并补充 `0002_alter_user_managers.py` 迁移。
+  - 2026-06-23：运行补强测试确认 GREEN：`cd back-end; python -m pytest tests/test_accounts_api.py::test_create_superuser_defaults_to_admin_role -v`，结果 1 passed。
+  - 2026-06-23：运行 Stage 5 精确测试：`cd back-end; python -m pytest tests/test_accounts_api.py -v`，结果 6 passed。
+  - 2026-06-23：运行配置检查：`cd back-end; python manage.py check`，结果 System check identified no issues。
+  - 2026-06-23：创建 `docs/back-end-accounts.md`，记录本地 MySQL 配置、迁移命令、测试命令、测试结果和已知问题。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -107,6 +119,12 @@
 | Stage 4 api-test 回归 | `cd api-test; python -m pytest tests -v` | api-test 自身测试全部通过 | 22 passed | passed |
 | Stage 4 Jenkins 回归 | `cd jenkins; python -m pytest tests -v` | Jenkins 静态测试全部通过 | 4 passed | passed |
 | Stage 4 Jenkins env 烟测 | `cd api-test; python -m tools.ci_runner --from-jenkins-env` | Jenkins 环境变量入口可真实执行模块 | exit code 0；Allure HTML 生成成功 | passed |
+| Stage 5 初始 RED | `cd back-end; python -m pytest tests/test_accounts_api.py -v` | Django 工程缺失导致失败 | 1 error: settings 未配置 | passed |
+| Stage 5 环境依赖安装 | `cd back-end; python -m pip install -r requirements.txt` | 补齐后端测试依赖 | 安装成功；提示全局 `django-celery-beat` 依赖旧 Django | passed |
+| Stage 5 初始 GREEN | `cd back-end; python -m pytest tests/test_accounts_api.py -v` | 账户 API 测试通过 | 5 passed | passed |
+| Stage 5 createsuperuser RED | `cd back-end; python -m pytest tests/test_accounts_api.py::test_create_superuser_defaults_to_admin_role -v` | 捕获超级管理员默认角色错误 | 1 failed: `member != admin` | passed |
+| Stage 5 GREEN | `cd back-end; python -m pytest tests/test_accounts_api.py -v` | 登录、角色、权限测试通过 | 6 passed | passed |
+| Stage 5 Django check | `cd back-end; python manage.py check` | Django 配置无系统检查问题 | System check identified no issues | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -118,12 +136,16 @@
 | 2026-06-23 | Stage 4 初始 RED：Jenkins env 适配函数不存在 | 1 | 新增 Jenkins env 适配函数和 CLI 开关 |
 | 2026-06-23 | Stage 4 初始 RED：Jenkins Pipeline 文件不存在 | 1 | 创建 Jenkinsfile 和 Groovy Pipeline |
 | 2026-06-23 | Stage 4 补强 RED：pytest 失败会阻断归档 | 1 | 使用 `catchError` 让归档和 Allure 发布继续执行 |
+| 2026-06-23 | Stage 5 初始 RED：Django settings 未配置 | 1 | 创建后端 Django/DRF 工程和 accounts app |
+| 2026-06-23 | Stage 5 环境错误：`--reuse-db` 无法识别 | 1 | 安装 `pytest-django` 等 `back-end/requirements.txt` 依赖 |
+| 2026-06-23 | Stage 5 补强 RED：超级管理员默认 `member` | 1 | 新增自定义 `UserManager`，使 `create_superuser()` 默认 `admin` |
+| 2026-06-23 | Stage 5 MySQL warning：默认库不存在 | 1 | 文档记录 `CREATE DATABASE`，测试继续使用隔离数据库 |
 
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 4 complete |
-| Where am I going? | Stage 5：DRF 后端基础工程与用户角色 |
+| Where am I? | Stage 5 complete |
+| Where am I going? | Stage 6：测试任务与失败用例 API |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、RED/GREEN 测试和文档记录 |
+| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、RED/GREEN 测试和文档记录 |

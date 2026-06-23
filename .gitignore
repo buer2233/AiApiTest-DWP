@@ -14,3 +14,4 @@ api-test/runtime/
 .idea/
 /tests/
 /.claude/
+docs/.hermes-tmp*/
