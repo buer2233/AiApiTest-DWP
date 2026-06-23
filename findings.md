@@ -55,6 +55,9 @@
 | Stage 6 `test_runs` app 只适配 `api-test/tools/ci_runner.py` | 后端不复制 pytest 命令、node id 解析或重试规则，避免和 Jenkins 分叉 |
 | Stage 6 失败用例优先从 Allure result JSON 解析，缺失时回退 `summary.failed_nodeids` | 兼顾报告摘要丰富度和执行器最小输出 |
 | Stage 6 报告入口返回 `/reports/<run_id>/` 而不是服务器路径 | 避免泄露本机绝对路径；静态报告服务留到 Stage 10 |
+| Stage 7 Jenkins 凭据只从环境变量/Django settings 读取 | 避免提交真实 Jenkins URL、用户名或 API token |
+| Stage 7 Jenkins trigger API 输出 Stage 4 Pipeline 参数名 | `CASE_PATH`、`PYTEST_NODE_IDS`、`RETRY_MODE`、`RETRY_COUNT`、`CLEAN_ALLURE`、`OPEN_REPORT` 保持跨模块一致 |
+| Stage 7 Jenkins client 支持 fake session 注入 | client 单测不依赖真实 Jenkins 服务或网络 |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -80,6 +83,7 @@
 | Stage 6 MySQL 拒绝 `(test_run, node_id)` 唯一索引 | pytest node id 可能很长，移除该唯一约束，保留完整 node id 字段 |
 | Stage 6 首次失败迁移污染复用测试库 | 使用 `--create-db` 重建 MySQL 测试库后验证通过 |
 | Stage 5 文档与当前配置存在端口不一致 | 文档/计划写 `localhost:3306`，当前 `settings.py` 和测试断言为 `3307`；本轮未扩大修改范围，后续应单独校准 |
+| Stage 7 初始测试无法导入 `apps.jenkins_integration` | 按 TDD 创建 Jenkins 集成 app、client、API、迁移和配置入口 |
 
 ## Resources
 - `AGENTS.md`

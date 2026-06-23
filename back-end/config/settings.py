@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "apps.accounts",
     "apps.test_runs",
+    "apps.jenkins_integration",
 ]
 
 MIDDLEWARE = [
@@ -112,3 +113,8 @@ CORS_ALLOWED_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+
+JENKINS_BASE_URL = os.getenv("JENKINS_BASE_URL", "")
+JENKINS_USERNAME = os.getenv("JENKINS_USERNAME", "")
+JENKINS_API_TOKEN = os.getenv("JENKINS_API_TOKEN", "")
+JENKINS_DEFAULT_JOB = os.getenv("JENKINS_DEFAULT_JOB", "api-test")
