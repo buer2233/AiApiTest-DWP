@@ -58,6 +58,10 @@
 | Stage 7 Jenkins 凭据只从环境变量/Django settings 读取 | 避免提交真实 Jenkins URL、用户名或 API token |
 | Stage 7 Jenkins trigger API 输出 Stage 4 Pipeline 参数名 | `CASE_PATH`、`PYTEST_NODE_IDS`、`RETRY_MODE`、`RETRY_COUNT`、`CLEAN_ALLURE`、`OPEN_REPORT` 保持跨模块一致 |
 | Stage 7 Jenkins client 支持 fake session 注入 | client 单测不依赖真实 Jenkins 服务或网络 |
+| Stage 8 前端使用 getdesign Claude `DESIGN.md` 作为设计参考 | 用户明确要求参考 `https://getdesign.md/claude/design-md`，并执行 `npx getdesign@latest add claude` |
+| Stage 8 登录态本地持久化为 `auth.token` 和 `auth.user` | 支持刷新后保持平台壳访问，并让 Axios 拦截器统一追加 DRF Token |
+| Stage 8 路由守卫通过 `createPlatformRouter()` 统一生产和测试入口 | 确保 Vitest 验证真实守卫行为，而不是仅验证静态路由数组 |
+| Stage 8 平台布局只放静态入口和占位卡片 | 遵守阶段边界，模块通过率表格和失败用例弹窗留到 Stage 9 |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -84,6 +88,10 @@
 | Stage 6 首次失败迁移污染复用测试库 | 使用 `--create-db` 重建 MySQL 测试库后验证通过 |
 | Stage 5 文档与当前配置存在端口不一致 | 文档/计划写 `localhost:3306`，当前 `settings.py` 和测试断言为 `3307`；本轮未扩大修改范围，后续应单独校准 |
 | Stage 7 初始测试无法导入 `apps.jenkins_integration` | 按 TDD 创建 Jenkins 集成 app、client、API、迁移和配置入口 |
+| Stage 8 初始前端测试无法解析 `@/api/auth` | 确认 RED 后创建 Vue 3 工程、认证 API、Pinia store、路由和布局 |
+| Stage 8 构建缺少 Node/Vite 类型与第三方声明检查失败 | 添加 `@types/node`、`vite/client`，并启用 `skipLibCheck` 处理依赖声明噪声 |
+| Stage 8 窄桌面平台卡片标题被指标网格挤压 | 提高响应式断点，让平台卡片在内容宽度不足时改为单列 |
+| Stage 8 完整依赖树审计有开发依赖漏洞提示 | `npm audit --omit=dev` 为 0 vulnerabilities；本阶段不使用 `npm audit fix --force` |
 
 ## Resources
 - `AGENTS.md`

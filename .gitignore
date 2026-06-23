@@ -17,3 +17,5 @@ api-test/runtime/
 docs/.hermes-tmp*/
 /server_acount.md
 /.playwright-mcp/
+front-end/node_modules/
+front-end/dist/

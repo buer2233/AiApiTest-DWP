@@ -4,7 +4,7 @@
 与用户共同设计接口自动化框架的 CICD 和网页端测试平台能力，用户确认需求后再按 TDD 开发。
 
 ## Current Phase
-Phase 4: TDD Implementation - Stage 7 complete and pushed
+Phase 4: TDD Implementation - Stage 8 complete, pending git commit/push
 
 ## Phases
 
@@ -78,7 +78,17 @@ Phase 4: TDD Implementation - Stage 7 complete and pushed
 - [x] Stage 7 编写 `docs/jenkins-api.md`
 - [x] Stage 7 git commit
 - [x] Stage 7 git push
-- **Status:** complete
+- [x] Stage 8 需求分析和验收标准确认
+- [x] Stage 8 使用 `frontend-design` 技能并安装 getdesign Claude `DESIGN.md`
+- [x] Stage 8 先写登录态、路由守卫和角色进入平台测试
+- [x] Stage 8 验证 RED
+- [x] Stage 8 实现 Vue 3 工程、Pinia auth store、Vue Router、Axios API、Element Plus 登录页和平台布局
+- [x] Stage 8 验证 GREEN
+- [x] Stage 8 运行构建和浏览器检查
+- [x] Stage 8 编写 `docs/front-end-login.md`
+- [x] Stage 8 git commit
+- [ ] Stage 8 git push
+- **Status:** in_progress
 
 ### Phase 5: Verification and Delivery
 - [ ] 运行相关自动化测试
@@ -115,6 +125,9 @@ Phase 4: TDD Implementation - Stage 7 complete and pushed
 | Stage 6 报告 API 只返回 `/reports/<run_id>/` 入口，不暴露服务器绝对路径 | 满足报告入口需求，同时把静态 HTML 服务留到 Stage 10 |
 | Stage 7 Jenkins client 使用 `requests.Session` 并支持注入 fake session | 真实运行可调用 Jenkins，测试可完全隔离外部服务 |
 | Stage 7 后端触发 API 将前端字段转换为 Stage 4 Pipeline 大写参数 | 保持 Jenkins Pipeline、后端和后续前端的参数契约一致 |
+| Stage 8 前端登录态保存到 localStorage 的 `auth.token` 和 `auth.user` | 页面刷新后可维持本地登录态，后续 API 请求由 Axios 自动带 DRF Token |
+| Stage 8 路由守卫通过 `createPlatformRouter()` 复用到测试和生产路由 | 避免测试只验证静态 routes 而漏掉实际守卫行为 |
+| Stage 8 采用 getdesign Claude `DESIGN.md` 的暖陶土色、奶油画布和深色产品面板 | 满足用户要求的 Claude 简约风格，同时不做营销页 |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
@@ -135,6 +148,10 @@ Phase 4: TDD Implementation - Stage 7 complete and pushed
 | Stage 6 MySQL 迁移错误: `Specified key was too long` | 1 | 移除 `(test_run, node_id)` 唯一约束，保留长 pytest node id 存储能力 |
 | Stage 6 复用测试库残留: `Table 'test_runs_testrun' already exists` | 1 | 使用 `--create-db` 重建 MySQL 测试库后继续验证 |
 | Stage 7 初始 RED: `ModuleNotFoundError: No module named 'apps.jenkins_integration'` | 1 | 创建 `apps.jenkins_integration` app、client、serializers、views、urls 和迁移 |
+| Stage 8 初始 RED: `Failed to resolve import "@/api/auth"` | 1 | 创建前端认证 API、Pinia store、路由、登录页和平台布局 |
+| Stage 8 构建错误: 缺少 `@types/node` | 1 | 添加 `@types/node` 开发依赖 |
+| Stage 8 构建错误: Element Plus / VueUse 第三方声明噪声和 `ImportMeta.env` 类型缺失 | 1 | 在 `tsconfig.json` 添加 `vite/client` 类型并启用 `skipLibCheck` |
+| Stage 8 Playwright 首次连接 dev server 失败 | 1 | 改用后台 `Start-Process` 启动后确认端口可访问 |
 
 ## Notes
 - 默认使用简体中文沟通。
