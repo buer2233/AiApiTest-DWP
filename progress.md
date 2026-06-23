@@ -79,6 +79,12 @@
   - 2026-06-23：运行 Stage 5 精确测试：`cd back-end; python -m pytest tests/test_accounts_api.py -v`，结果 6 passed。
   - 2026-06-23：运行配置检查：`cd back-end; python manage.py check`，结果 System check identified no issues。
   - 2026-06-23：创建 `docs/back-end-accounts.md`，记录本地 MySQL 配置、迁移命令、测试命令、测试结果和已知问题。
+  - 2026-06-23：根据用户要求补强 Stage 5 数据库配置，新增 `back-end/tests/test_database_settings.py`，先运行 RED，确认 pytest 下仍回退 SQLite。
+  - 2026-06-23：删除 `back-end/config/settings.py` 中的 pytest SQLite 分支，强制所有环境使用 MySQL，连接固定为 `localhost:3306`。
+  - 2026-06-23：运行数据库配置测试确认 GREEN：`cd back-end; python -m pytest tests/test_database_settings.py -v`，结果 1 passed。
+  - 2026-06-23：在强制 MySQL 配置下运行账户 API 测试：`cd back-end; python -m pytest tests/test_accounts_api.py -v`，结果 6 passed。
+  - 2026-06-23：提交 Stage 5 数据库配置补强：`2a00252 stage5: force backend mysql connection`。
+  - 2026-06-23：执行 `git push` 失败，错误为 `fatal: unable to access 'https://github.com/buer2233/AiApiTest-DWP.git/': Empty reply from server`。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -125,6 +131,9 @@
 | Stage 5 createsuperuser RED | `cd back-end; python -m pytest tests/test_accounts_api.py::test_create_superuser_defaults_to_admin_role -v` | 捕获超级管理员默认角色错误 | 1 failed: `member != admin` | passed |
 | Stage 5 GREEN | `cd back-end; python -m pytest tests/test_accounts_api.py -v` | 登录、角色、权限测试通过 | 6 passed | passed |
 | Stage 5 Django check | `cd back-end; python manage.py check` | Django 配置无系统检查问题 | System check identified no issues | passed |
+| Stage 5 database settings RED | `cd back-end; python -m pytest tests/test_database_settings.py -v` | 捕获 pytest 下 SQLite 回退 | 1 failed: sqlite3 != mysql | passed |
+| Stage 5 database settings GREEN | `cd back-end; python -m pytest tests/test_database_settings.py -v` | 强制 MySQL localhost:3306 配置通过 | 1 passed | passed |
+| Stage 5 accounts under forced MySQL | `cd back-end; python -m pytest tests/test_accounts_api.py -v` | 账户 API 在强制 MySQL 配置下通过 | 6 passed | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -139,7 +148,9 @@
 | 2026-06-23 | Stage 5 初始 RED：Django settings 未配置 | 1 | 创建后端 Django/DRF 工程和 accounts app |
 | 2026-06-23 | Stage 5 环境错误：`--reuse-db` 无法识别 | 1 | 安装 `pytest-django` 等 `back-end/requirements.txt` 依赖 |
 | 2026-06-23 | Stage 5 补强 RED：超级管理员默认 `member` | 1 | 新增自定义 `UserManager`，使 `create_superuser()` 默认 `admin` |
-| 2026-06-23 | Stage 5 MySQL warning：默认库不存在 | 1 | 文档记录 `CREATE DATABASE`，测试继续使用隔离数据库 |
+| 2026-06-23 | Stage 5 MySQL warning：默认库不存在 | 1 | 文档记录 `CREATE DATABASE` |
+| 2026-06-23 | Stage 5 数据库配置 RED：pytest 下仍回退 SQLite | 1 | 删除 SQLite 分支，强制 MySQL `localhost:3306` |
+| 2026-06-23 | Stage 5 push 失败：`Empty reply from server` | 1 | 已记录失败原因，等待网络或远程服务恢复后重新执行 `git push` |
 
 ## 5-Question Reboot Check
 | Question | Answer |
