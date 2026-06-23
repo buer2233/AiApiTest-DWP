@@ -122,8 +122,8 @@ Authorization: Token <token>
 - 通过环境变量配置：
   - `MYSQL_DATABASE` - 数据库名（默认：`ai_api_test_platform`）
   - `MYSQL_USER` - 用户名（默认：`root`）
-  - `MYSQL_PASSWORD` - 密码
-- `MYSQL_HOST` 和 `MYSQL_PORT` 不再参与配置覆盖，避免测试和运行环境连接到非本地 MySQL。
+- `MYSQL_PASSWORD` - 密码
+- `MYSQL_PORT` - 本地 MySQL 端口，默认 `3307`，用于对齐 Docker Compose 的 `MYSQL_HOST_PORT`。
 
 ## 认证配置
 

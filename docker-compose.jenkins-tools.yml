@@ -1,0 +1,6 @@
+services:
+  jenkins:
+    image: aiapitest-jenkins:lts-jdk17-tools
+    build:
+      context: .
+      dockerfile: docker/jenkins/Dockerfile
