@@ -135,6 +135,13 @@
   - 2026-06-23：创建 `docs/front-end-login.md`，记录 Stage 8 范围、登录流程、路由、设计、TDD、测试命令、浏览器检查和已知问题。
   - 2026-06-23：提交 Stage 8：`stage8: add vue frontend login shell`。
   - 2026-06-23：执行 `git push origin main` 成功，远端 `main` 已更新到 `d6fc6a7`。
+  - 2026-06-23：处理前端登录运行时报错：复现 `http://127.0.0.1:5173/api/auth/login/` 返回 404，定位为 Vite 开发服务缺少 `/api` 到 DRF `127.0.0.1:8000` 的代理。
+  - 2026-06-23：按 TDD 新增 `front-end/tests/vite-config.spec.ts`，先运行 RED，失败原因是 `src/config/devServer` 不存在。
+  - 2026-06-23：新增 `front-end/src/config/devServer.ts` 并在 `front-end/vite.config.ts` 配置 `server.proxy['/api']`。
+  - 2026-06-23：运行代理配置测试确认 GREEN：`cd front-end; npm test -- vite-config.spec.ts`，结果 1 passed。
+  - 2026-06-23：运行前端回归：`cd front-end; npm test`，结果 2 passed，5 tests passed。
+  - 2026-06-23：重启 Vite 前端服务后复测登录代理：`admin/admin` 返回 400，`admin/admin123456` 返回 token 和 `role=admin` 用户信息。
+  - 2026-06-23：运行构建验证：`cd front-end; npm run build` 成功，仍有既有 Vite 第三方注释和 chunk size 警告。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -207,6 +214,10 @@
 | Stage 8 prod audit | `cd front-end; npm audit --omit=dev` | 生产依赖无漏洞 | found 0 vulnerabilities | passed |
 | Stage 8 browser guard | Playwright 打开 `http://localhost:5173/platform` | 未登录跳转登录页 | URL 为 `/login?redirect=/platform` | passed |
 | Stage 8 browser layout | Playwright 注入本地 token 后打开 `/platform` | 平台基础布局可见且无挤压 | 修正响应式断点后截图通过 | passed |
+| Stage 8 proxy RED | `cd front-end; npm test -- vite-config.spec.ts` | 捕获 dev server 代理配置缺失 | 1 failed: `src/config/devServer` 不存在 | passed |
+| Stage 8 proxy GREEN | `cd front-end; npm test -- vite-config.spec.ts` | `/api` 代理到本地 DRF 后端 | 1 passed | passed |
+| Stage 8 proxy regression | `cd front-end; npm test` | 前端全部测试通过 | 2 passed, 5 tests passed | passed |
+| Stage 8 proxied login | `POST http://127.0.0.1:5173/api/auth/login/` | 正确代理到 DRF 登录接口 | `admin/admin123456` 返回 token；`admin/admin` 返回 400 | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -233,6 +244,8 @@
 | 2026-06-23 | Stage 8 构建错误：Element Plus / VueUse 类型声明和 `ImportMeta.env` 类型问题 | 1 | 添加 `vite/client` 类型并启用 `skipLibCheck` |
 | 2026-06-23 | Stage 8 Playwright 首次连接 dev server 被拒绝 | 1 | 改用后台进程启动 Vite 并确认端口 5173 可访问 |
 | 2026-06-23 | Stage 8 窄桌面平台卡片标题被挤压 | 1 | 提高响应式断点，平台卡片在内容宽度不足时改为单列 |
+| 2026-06-23 | Stage 8 登录请求打到 Vite 返回 404 | 1 | 新增 Vite `/api` 代理到 `http://127.0.0.1:8000`，并补测试 |
+| 2026-06-23 | Stage 8 `admin/admin` 登录返回 400 | 1 | 确认是密码错误；DRF 测试管理员密码为 `admin123456` |
 
 ## 5-Question Reboot Check
 | Question | Answer |

@@ -91,6 +91,32 @@ Authorization: Token <drf-token>
 
 `admin` 和 `member` 当前都允许进入平台壳，后续角色差异保留给更细粒度页面能力。
 
+## 开发代理
+
+Vite 开发服务会把 `/api` 代理到本机 DRF 后端：
+
+```text
+/api -> http://127.0.0.1:8000
+```
+
+因此浏览器中登录请求使用：
+
+```text
+POST http://127.0.0.1:5173/api/auth/login/
+```
+
+该请求会被 Vite 转发到：
+
+```text
+POST http://127.0.0.1:8000/api/auth/login/
+```
+
+本地调试时需要同时保证：
+
+- DRF 后端运行在 `127.0.0.1:8000`。
+- Vue/Vite 前端运行在 `127.0.0.1:5173`。
+- 本地测试管理员密码使用 `server_acount.md` 中记录的 DRF 账号密码。
+
 ## 设计
 
 本阶段按用户要求参考 `https://getdesign.md/claude/design-md`，执行：
@@ -198,3 +224,4 @@ npm run dev -- --port 5173
 
 - `npm install` 对完整依赖树报告 5 个开发依赖漏洞；生产依赖审计为 0 漏洞。本阶段不使用 `npm audit fix --force`，避免引入破坏性升级。
 - `vite build` 有第三方 `@vueuse/core` 注释警告和 Element Plus 首包体积大于 500 kB 的提示；Stage 9/10 可在页面增多后再做按需组件和 chunk 拆分。
+- 2026-06-23 运行时发现 Vite 初始配置缺少 `/api` 代理，导致 `http://127.0.0.1:5173/api/auth/login/` 返回 404；已补充代理测试和配置。修复后 `admin/admin` 返回 400 是密码错误，`admin/admin123456` 可登录成功。

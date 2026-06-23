@@ -62,6 +62,7 @@
 | Stage 8 登录态本地持久化为 `auth.token` 和 `auth.user` | 支持刷新后保持平台壳访问，并让 Axios 拦截器统一追加 DRF Token |
 | Stage 8 路由守卫通过 `createPlatformRouter()` 统一生产和测试入口 | 确保 Vitest 验证真实守卫行为，而不是仅验证静态路由数组 |
 | Stage 8 平台布局只放静态入口和占位卡片 | 遵守阶段边界，模块通过率表格和失败用例弹窗留到 Stage 9 |
+| Stage 8 Vite dev server 需要代理 `/api` 到 `http://127.0.0.1:8000` | 前端 Axios 默认 baseURL 为 `/api`，没有代理时浏览器请求会落到 Vite 自身并返回 404 |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -92,6 +93,7 @@
 | Stage 8 构建缺少 Node/Vite 类型与第三方声明检查失败 | 添加 `@types/node`、`vite/client`，并启用 `skipLibCheck` 处理依赖声明噪声 |
 | Stage 8 窄桌面平台卡片标题被指标网格挤压 | 提高响应式断点，让平台卡片在内容宽度不足时改为单列 |
 | Stage 8 完整依赖树审计有开发依赖漏洞提示 | `npm audit --omit=dev` 为 0 vulnerabilities；本阶段不使用 `npm audit fix --force` |
+| 前端登录请求 `admin/admin` 报错 | Vite 代理修复后该请求返回 400，原因是 DRF 测试管理员密码为 `admin123456`，不是 Jenkins 管理员密码 `admin` |
 
 ## Resources
 - `AGENTS.md`
