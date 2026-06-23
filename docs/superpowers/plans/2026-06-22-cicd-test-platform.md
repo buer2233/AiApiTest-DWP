@@ -113,7 +113,7 @@ D:/AI/AiApiTest-DWP/
 |------|------|------|------|
 | Stage 1 | 需求冻结与计划确认 | complete | 固化开发流程、阶段顺序、技术选型和文档规则 |
 | Stage 2 | `api-test/` 迁移与充分测试 | complete | 将分散的测试框架内容全部转移到 `api-test/` 并充分验证 |
-| Stage 3 | pytest node id 与失败重试执行器 | pending | 提供可被 Jenkins 和后端复用的 node id 收集、失败用例重跑能力 |
+| Stage 3 | pytest node id 与失败重试执行器 | complete | 提供可被 Jenkins 和后端复用的 node id 收集、失败用例重跑能力 |
 | Stage 4 | Jenkins Groovy Pipeline | pending | Jenkins 可执行用例、重试用例、生成 Allure 报告、归档结果 |
 | Stage 5 | DRF 后端基础工程与用户角色 | pending | 建立 DRF Token 认证、本地 MySQL、管理员/普通用户角色 |
 | Stage 6 | 测试任务与失败用例 API | pending | 保存测试任务、失败用例、重试任务、报告路径和执行日志 |
@@ -274,7 +274,7 @@ python runpytest.py --case-path test_case/test_gbif_case --clean
 - Modify: `api-test/requirements.txt`
 - Create: `docs/pytest-nodeid-retry-runner.md`
 
-- [ ] **Step 1: 写 node id 读取失败测试**
+- [x] **Step 1: 写 node id 读取失败测试**
 
 测试目标：
 - 从 `.pytest_cache/v/cache/lastfailed` 读取失败 node id。
@@ -290,7 +290,7 @@ python -m pytest tests/test_pytest_nodeids.py -v
 
 预期 RED：`tools.pytest_nodeids` 尚不存在。
 
-- [ ] **Step 2: 实现 `pytest_nodeids.py`**
+- [x] **Step 2: 实现 `pytest_nodeids.py`**
 
 功能：
 - `load_lastfailed(cache_dir: Path) -> list[str]`
@@ -301,7 +301,7 @@ python -m pytest tests/test_pytest_nodeids.py -v
 - 不依赖真实业务用例。
 - cache JSON 损坏时返回清晰异常，调用方可记录错误。
 
-- [ ] **Step 3: 写 CI runner 命令构造测试**
+- [x] **Step 3: 写 CI runner 命令构造测试**
 
 测试目标：
 - 模块运行：`python -m pytest test_case/test_gbif_case --alluredir=<run_dir>/allure-results`
@@ -318,7 +318,7 @@ python -m pytest tests/test_ci_runner.py -v
 
 预期 RED：`tools.ci_runner` 尚不存在。
 
-- [ ] **Step 4: 实现 `ci_runner.py`**
+- [x] **Step 4: 实现 `ci_runner.py`**
 
 命令行参数：
 
@@ -348,6 +348,21 @@ api-test/runtime/ci-runs/<run_id>/
 - 重试能力不写在 Groovy 和 DRF 两处，避免逻辑分叉。
 - `docs/pytest-nodeid-retry-runner.md` 记录 node id 来源、重试模式、测试命令和测试结果。
 - 完成单独 `git commit` 和 `git push`。
+
+执行结果：
+
+```text
+RED:
+- tests/test_pytest_nodeids.py: ModuleNotFoundError: No module named 'tools'
+- tests/test_ci_runner.py: ModuleNotFoundError: No module named 'tools'
+- stale lastfailed 补强测试: 1 failed, 6 passed
+- retry_count 负数边界测试: 1 failed
+
+GREEN:
+- python -m pytest tests/test_pytest_nodeids.py tests/test_ci_runner.py -v -> 13 passed
+- python -m pytest tests -v -> 20 passed
+- python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-smoke --clean -> exit code 0
+```
 
 ## 9. Stage 4: Jenkins Groovy Pipeline
 
@@ -853,7 +868,8 @@ npm test
 | 2026-06-22 | Stage 1 | in_progress | 创建开发计划，记录用户架构、技术选型、10 阶段流程、TDD 和提交推送要求 | 未运行测试，当前为需求/计划阶段 | 未提交 | 等待用户确认进入 Stage 2 |
 | 2026-06-22 | Stage 1 | in_progress | 更新 `AGENTS.md` 和 `README.md`，将旧接口自动化框架说明对齐为 CICD AI 自动化测试平台说明，并补充后续 AI 接手规则 | 文档更新，未运行自动化测试 | 未提交 | 本次只更新核心文档和上下文记录，不进入新阶段实现 |
 | 2026-06-22 | Stage 2 | complete | 迁移接口测试框架到 `api-test/`，新增迁移路径测试，修复 `runpytest.py` 默认入口和忽略规则 | RED: 5 failed；GREEN: 5 passed；回归: 14 passed, 1 skipped，Allure 报告生成成功 | committed and pushed: `60a0711` | Stage 2 完成 |
-| 2026-06-23 | Stage 2 bugfix | complete | 修复 PyCharm 手动运行单测仍引用旧 `test_case` 工作目录的问题，并适配 `api-test/page_api` 结构 | RED: 2 failed；GREEN: 2 passed；迁移测试: 5 passed；等效单测: 1 passed | 待 commit/push | 提交前检查中 |
+| 2026-06-23 | Stage 2 bugfix | complete | 修复 PyCharm 手动运行单测仍引用旧 `test_case` 工作目录的问题，并适配 `api-test/page_api` 结构 | RED: 2 failed；GREEN: 2 passed；迁移测试: 5 passed；等效单测: 1 passed | committed and pushed: `be60899` | 用户已确认 PyCharm 手动测试无问题 |
+| 2026-06-23 | Stage 3 | complete | 新增 pytest node id 读取工具和 CI 重试执行器，支持模块运行、选择 node id、一键失败重试、summary 和运行产物输出 | RED: `tools` 不存在、旧 lastfailed 污染、负数 retry_count；GREEN: 13 passed；回归: 20 passed；烟测: exit code 0 | committed and pushed | Stage 3 完成，具体提交记录见 git 历史 |
 
 ## 17. 风险与处理策略
 

@@ -41,6 +41,10 @@
 | 每阶段完成后单独 commit 和 push | 满足用户对阶段边界和版本管理的要求 |
 | 后端默认本地 MySQL，不再使用 SQLite 作为默认数据库 | 用户已明确指定数据库方案 |
 | `AGENTS.md` 和 `README.md` 必须先反映 CICD 平台定位 | 这两个文件是后续 AI 和工程师最容易先读到的入口，必须避免继续传递旧的单体接口自动化框架定位 |
+| Stage 3 将 pytest node id 与 CI 执行能力放入 `api-test/tools/` | Jenkins Groovy 和 DRF 后端后续只调用统一工具，避免两处重复拼接 pytest 和重试逻辑 |
+| `all-failed` 模式读取 `.pytest_cache/v/cache/lastfailed` | 该文件是 pytest 原生失败 node id 来源，能保留原始 node id 字符串 |
+| 执行器在本次 pytest 运行前清理旧 `lastfailed` cache | 避免上一次失败用例污染本次成功运行的 `failed_nodeids.json` 和 `summary.json` |
+| `retry_count` 不允许为负数 | Jenkins/后端传参错误时应尽早失败，不生成语义不清的 pytest 命令 |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -51,6 +55,8 @@
 | Issue | Resolution |
 |-------|------------|
 | 规划文件已有旧任务内容 | 已替换为当前任务计划，并在进度中记录 |
+| Stage 3 初始测试无法导入 `tools` 包 | 按 TDD 创建 `api-test/tools/__init__.py`、`pytest_nodeids.py` 和 `ci_runner.py` |
+| 旧 pytest `lastfailed` cache 会污染当前运行结果 | 增加测试并在执行器运行前清理旧 cache |
 
 ## Resources
 - `AGENTS.md`
