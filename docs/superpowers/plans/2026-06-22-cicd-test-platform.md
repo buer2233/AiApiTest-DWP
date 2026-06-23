@@ -928,7 +928,7 @@ npm test
 | 2026-06-23 | Stage 4 | complete | 新增 Jenkins 参数兼容适配、Jenkinsfile、Groovy Pipeline、静态验证测试和 Jenkins 文档 | RED: 2 failed/3 failed/1 failed；GREEN: ci_runner 10 passed，Jenkins 静态 4 passed，api-test 回归 22 passed，Jenkins env 烟测 exit code 0 | committed and pushed: `e38e415` | 本地未连接真实 Jenkins，已记录验证限制 |
 | 2026-06-23 | Stage 5 | complete | 新增 DRF 后端基础工程、Token 登录/登出/me API、自定义用户角色和权限入口；补强数据库配置为强制 MySQL `localhost:3306` | RED: settings 未配置；补强 RED: createsuperuser 默认 member；数据库配置 RED: pytest 下仍为 SQLite；GREEN: database settings 1 passed，accounts 6 passed，Django check 通过 | committed and pushed: `05ad778` | 首次 `git push` 曾失败，后续已重新推送成功 |
 | 2026-06-23 | Stage 6 | complete | 新增 `test_runs` app、测试任务/失败用例模型、Allure 失败解析、runner 适配和测试任务/失败重试/报告入口 API | RED: `apps.test_runs` 不存在；GREEN: Stage 6 9 passed，Django check 通过，后端回归 19 passed | committed and pushed: `37eba96` | MySQL 长 node id 唯一索引过长，已移除该约束 |
-| 2026-06-23 | Stage 7 | complete | 新增 Jenkins client、Jenkins 查询/触发 API、Pipeline 参数转换和触发记录模型 | RED: `apps.jenkins_integration` 不存在；GREEN: Stage 7 12 passed，Django check 通过，迁移检查通过，后端回归 31 passed | pending commit and push | 测试使用 fake HTTP/monkeypatch，不依赖真实 Jenkins |
+| 2026-06-23 | Stage 7 | complete | 新增 Jenkins client、Jenkins 查询/触发 API、Pipeline 参数转换和触发记录模型 | RED: `apps.jenkins_integration` 不存在；GREEN: Stage 7 12 passed，Django check 通过，迁移检查通过，后端回归 31 passed | committed and pushed: `8d9c9e4` | 测试使用 fake HTTP/monkeypatch，不依赖真实 Jenkins |
 
 ## 17. 风险与处理策略
 
