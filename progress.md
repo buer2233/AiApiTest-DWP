@@ -100,6 +100,8 @@
   - 2026-06-23：运行 `cd back-end; python manage.py check`，结果 System check identified no issues。
   - 2026-06-23：运行后端回归：`cd back-end; python -m pytest -v`，结果 19 passed。
   - 2026-06-23：创建 `docs/test-runs-api.md`，记录 Stage 6 范围、模型、接口、Allure 解析、测试命令和问题处理。
+  - 2026-06-23：提交 Stage 6：`37eba96 stage6: add test run failure APIs`。
+  - 2026-06-23：执行 `git push` 成功，远端 `main` 已更新到 `37eba96`。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -181,7 +183,7 @@
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 6 complete, ready for commit and push |
+| Where am I? | Stage 6 complete and pushed |
 | Where am I going? | Stage 7：Jenkins 查询与触发 API |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |

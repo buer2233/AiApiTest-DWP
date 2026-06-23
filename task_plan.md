@@ -4,7 +4,7 @@
 与用户共同设计接口自动化框架的 CICD 和网页端测试平台能力，用户确认需求后再按 TDD 开发。
 
 ## Current Phase
-Phase 4: TDD Implementation - Stage 6 complete, ready for commit and push
+Phase 4: TDD Implementation - Stage 6 complete and pushed
 
 ## Phases
 
@@ -68,6 +68,8 @@ Phase 4: TDD Implementation - Stage 6 complete, ready for commit and push
 - [x] Stage 6 实现 `test_runs` 模型、runner 适配、Allure 解析和 DRF API
 - [x] Stage 6 验证 GREEN
 - [x] Stage 6 编写 `docs/test-runs-api.md`
+- [x] Stage 6 git commit
+- [x] Stage 6 git push
 - **Status:** complete
 
 ### Phase 5: Verification and Delivery
