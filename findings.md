@@ -46,6 +46,9 @@
 | 执行器在本次 pytest 运行前清理旧 `lastfailed` cache | 避免上一次失败用例污染本次成功运行的 `failed_nodeids.json` 和 `summary.json` |
 | `retry_count` 不允许为负数 | Jenkins/后端传参错误时应尽早失败，不生成语义不清的 pytest 命令 |
 | AGENTS 采用根目录总规则 + 子目录模块规则分层 | 根目录维护全局阶段流程和安全规则，`api-test/`、`back-end/`、`front-end/`、`jenkins/` 分别维护模块约定，`CLAUDE.md` 只引用同级 `AGENTS.md` |
+| Jenkins 参数通过环境变量传递给 `ci_runner` | Groovy 只负责参数和 stage 编排，pytest 目标解析、node id 拆分、重试和 summary 继续集中在 `api-test/tools/ci_runner.py` |
+| `PYTEST_NODE_IDS` 支持换行和英文逗号 | Jenkins text 参数便于人工粘贴多个 pytest node id，Python 执行器负责去空和去重 |
+| Jenkins `Run API Tests` 使用 `catchError` | pytest 失败时仍要执行归档和 Allure 发布，否则失败 node id 和 summary 无法在构建页查看 |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -59,6 +62,9 @@
 | Stage 3 初始测试无法导入 `tools` 包 | 按 TDD 创建 `api-test/tools/__init__.py`、`pytest_nodeids.py` 和 `ci_runner.py` |
 | 旧 pytest `lastfailed` cache 会污染当前运行结果 | 增加测试并在执行器运行前清理旧 cache |
 | 根目录和子目录协作规则容易重复维护 | 统一要求所有 `CLAUDE.md` 只写 `@AGENTS.md`，实际规则只维护在同级 `AGENTS.md` |
+| Stage 4 初始测试无法找到 Jenkins env 适配函数 | 先写失败测试，再新增 Jenkins env 到 `RunRequest` 的转换入口 |
+| Stage 4 初始 Jenkins 静态测试找不到 Pipeline 文件 | 创建 `jenkins/Jenkinsfile` 和 `jenkins/scripts/api-test-pipeline.groovy` |
+| Stage 4 发现 pytest 失败会阻断归档 | 增加补强测试并用 `catchError` 保留后续归档阶段 |
 
 ## Resources
 - `AGENTS.md`

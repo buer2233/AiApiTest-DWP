@@ -114,7 +114,7 @@ D:/AI/AiApiTest-DWP/
 | Stage 1 | 需求冻结与计划确认 | complete | 固化开发流程、阶段顺序、技术选型和文档规则 |
 | Stage 2 | `api-test/` 迁移与充分测试 | complete | 将分散的测试框架内容全部转移到 `api-test/` 并充分验证 |
 | Stage 3 | pytest node id 与失败重试执行器 | complete | 提供可被 Jenkins 和后端复用的 node id 收集、失败用例重跑能力 |
-| Stage 4 | Jenkins Groovy Pipeline | pending | Jenkins 可执行用例、重试用例、生成 Allure 报告、归档结果 |
+| Stage 4 | Jenkins Groovy Pipeline | complete | Jenkins 可执行用例、重试用例、生成 Allure 报告、归档结果 |
 | Stage 5 | DRF 后端基础工程与用户角色 | pending | 建立 DRF Token 认证、本地 MySQL、管理员/普通用户角色 |
 | Stage 6 | 测试任务与失败用例 API | pending | 保存测试任务、失败用例、重试任务、报告路径和执行日志 |
 | Stage 7 | Jenkins 查询与触发 API | pending | 后端支持 Jenkins job/build 查询、触发、日志查看，并兼容 Windows/Linux |
@@ -374,7 +374,7 @@ GREEN:
 - Modify: `api-test/tests/test_ci_runner.py`
 - Create: `docs/jenkins-pipeline.md`
 
-- [ ] **Step 1: 写 CI runner 的 Jenkins 参数兼容测试**
+- [x] **Step 1: 写 CI runner 的 Jenkins 参数兼容测试**
 
 测试目标：
 - 支持 Jenkins 传入 `CASE_PATH`。
@@ -388,7 +388,7 @@ cd D:\AI\AiApiTest-DWP\api-test
 python -m pytest tests/test_ci_runner.py -v
 ```
 
-- [ ] **Step 2: 实现 Groovy Pipeline 参数**
+- [x] **Step 2: 实现 Groovy Pipeline 参数**
 
 Jenkins 参数：
 
@@ -401,7 +401,7 @@ CLEAN_ALLURE           默认 true
 OPEN_REPORT            默认 false
 ```
 
-- [ ] **Step 3: 实现 Jenkins stages**
+- [x] **Step 3: 实现 Jenkins stages**
 
 Pipeline 阶段：
 
@@ -420,7 +420,7 @@ Publish Allure
 - 实际 pytest 执行、失败 node id 收集、summary 输出由 `api-test/tools/ci_runner.py` 完成。
 - 使用 `isUnix()` 分支兼容 `sh` 和 `bat`。
 
-- [ ] **Step 4: Jenkins 本地验收**
+- [x] **Step 4: Jenkins 本地验收**
 
 在 Jenkins job 中配置仓库根目录后运行。
 
@@ -433,6 +433,22 @@ Publish Allure
 - Jenkins Pipeline 兼容 Windows `bat` 和 Linux `sh`。
 - `docs/jenkins-pipeline.md` 记录 Jenkins 参数、脚本说明、测试命令和验证结果。
 - 完成单独 `git commit` 和 `git push`。
+
+执行结果：
+
+```text
+RED:
+- api-test/tests/test_ci_runner.py: 2 failed, 8 passed，缺少 Jenkins node id 解析和 env -> RunRequest 适配函数
+- jenkins/tests/test_pipeline_static.py: 3 failed，缺少 Jenkinsfile 和 Groovy Pipeline 脚本
+- jenkins/tests/test_pipeline_static.py::test_pipeline_preserves_artifacts_when_pytest_fails: 1 failed，失败后不会继续归档产物
+
+GREEN:
+- cd api-test; python -m pytest tests/test_ci_runner.py -v -> 10 passed
+- cd jenkins; python -m pytest tests/test_pipeline_static.py -v -> 4 passed
+- cd api-test; python -m pytest tests -v -> 22 passed
+- cd jenkins; python -m pytest tests -v -> 4 passed
+- cd api-test; python -m tools.ci_runner --from-jenkins-env -> exit code 0，Allure HTML 生成成功
+```
 
 ## 10. Stage 5: DRF 后端基础工程与用户角色
 
@@ -870,6 +886,7 @@ npm test
 | 2026-06-22 | Stage 2 | complete | 迁移接口测试框架到 `api-test/`，新增迁移路径测试，修复 `runpytest.py` 默认入口和忽略规则 | RED: 5 failed；GREEN: 5 passed；回归: 14 passed, 1 skipped，Allure 报告生成成功 | committed and pushed: `60a0711` | Stage 2 完成 |
 | 2026-06-23 | Stage 2 bugfix | complete | 修复 PyCharm 手动运行单测仍引用旧 `test_case` 工作目录的问题，并适配 `api-test/page_api` 结构 | RED: 2 failed；GREEN: 2 passed；迁移测试: 5 passed；等效单测: 1 passed | committed and pushed: `be60899` | 用户已确认 PyCharm 手动测试无问题 |
 | 2026-06-23 | Stage 3 | complete | 新增 pytest node id 读取工具和 CI 重试执行器，支持模块运行、选择 node id、一键失败重试、summary 和运行产物输出 | RED: `tools` 不存在、旧 lastfailed 污染、负数 retry_count；GREEN: 13 passed；回归: 20 passed；烟测: exit code 0 | committed and pushed | Stage 3 完成，具体提交记录见 git 历史 |
+| 2026-06-23 | Stage 4 | complete | 新增 Jenkins 参数兼容适配、Jenkinsfile、Groovy Pipeline、静态验证测试和 Jenkins 文档 | RED: 2 failed/3 failed/1 failed；GREEN: ci_runner 10 passed，Jenkins 静态 4 passed，api-test 回归 22 passed，Jenkins env 烟测 exit code 0 | pending commit and push | 本地未连接真实 Jenkins，已记录验证限制 |
 
 ## 17. 风险与处理策略
 

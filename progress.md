@@ -52,6 +52,21 @@
   - 2026-06-23：Stage 3 已完成提交和推送，具体 commit hash 见 git 历史。
   - 2026-06-23：按用户要求整理根目录与四个核心子目录的 Markdown 规则文件：根 `AGENTS.md` 保留全局规则；`api-test/`、`back-end/`、`front-end/`、`jenkins/` 均补齐 `README.md`、`AGENTS.md`、`CLAUDE.md`；所有 `CLAUDE.md` 仅引用同级 `AGENTS.md`。
   - 2026-06-23：文档整理后运行 `cd api-test; python -m pytest tests -v`，结果 20 passed。
+  - 2026-06-23：开始 Stage 4，读取根目录和 `api-test/`、`jenkins/` 协作规则，确认根目录没有 `.codegraph/`，工作区初始干净。
+  - 2026-06-23：新增 `api-test/tests/test_ci_runner.py` Jenkins 参数兼容测试，覆盖 `CASE_PATH`、换行/逗号分隔的 `PYTEST_NODE_IDS`、`RETRY_MODE=all-failed`、`RETRY_COUNT=1`。
+  - 2026-06-23：新增 `jenkins/tests/test_pipeline_static.py`，覆盖 Jenkins 参数、必需 stages、`isUnix()`、`sh`/`bat`、调用 `python -m tools.ci_runner`、归档和 Allure 发布。
+  - 2026-06-23：运行 Stage 4 初始 RED：`cd api-test; python -m pytest tests/test_ci_runner.py -v`，结果 2 failed, 8 passed，失败原因是 Jenkins env 适配函数不存在。
+  - 2026-06-23：运行 Stage 4 初始 RED：`cd jenkins; python -m pytest tests/test_pipeline_static.py -v`，结果 3 failed，失败原因是 `Jenkinsfile` 不存在。
+  - 2026-06-23：实现 `parse_jenkins_node_ids()`、`build_run_request_from_jenkins_env()` 和 `--from-jenkins-env`。
+  - 2026-06-23：创建 `jenkins/Jenkinsfile` 和 `jenkins/scripts/api-test-pipeline.groovy`，定义参数、Checkout/Prepare Python/Install/Run/Generate/Archive/Publish stages，并用 `isUnix()` 分支兼容 `sh`/`bat`。
+  - 2026-06-23：运行 `cd api-test; python -m pytest tests/test_ci_runner.py -v`，结果 10 passed。
+  - 2026-06-23：运行 `cd jenkins; python -m pytest tests/test_pipeline_static.py -v`，结果 3 passed。
+  - 2026-06-23：发现 pytest 失败时 Jenkins 会中断后续归档，新增补强 RED：`cd jenkins; python -m pytest tests/test_pipeline_static.py::test_pipeline_preserves_artifacts_when_pytest_fails -v`，结果 1 failed。
+  - 2026-06-23：将 `Run API Tests` 包裹在 `catchError(buildResult: 'FAILURE', stageResult: 'FAILURE')` 中，确保失败后继续归档产物和发布 Allure。
+  - 2026-06-23：运行 `cd jenkins; python -m pytest tests/test_pipeline_static.py -v`，结果 4 passed。
+  - 2026-06-23：创建 `docs/jenkins-pipeline.md`，记录 Jenkins 参数、脚本说明、测试命令、验证结果和本地未接入真实 Jenkins 的限制。
+  - 2026-06-23：运行最终回归：`cd api-test; python -m pytest tests -v`，结果 22 passed；`cd jenkins; python -m pytest tests -v`，结果 4 passed。
+  - 2026-06-23：运行 Jenkins 环境变量模式烟测：`cd api-test; python -m tools.ci_runner --from-jenkins-env`，环境变量 `CASE_PATH=test_case/test_gbif_case`、`RETRY_MODE=module`、`RUN_ID=stage4-jenkins-env-smoke`，结果 exit code 0，Allure HTML 生成成功。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -84,6 +99,14 @@
 | Stage 3 真实烟测 | `cd api-test; python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-smoke --clean` | 执行器可真实运行模块并输出 summary | exit code 0；summary passed；failed_nodeids [] | passed |
 | Stage 3 最终烟测 | `cd api-test; python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id stage3-final --clean` | 最终实现可真实运行模块并生成 Allure HTML | exit code 0；Allure HTML 生成成功 | passed |
 | Markdown 规则文件整理回归 | `cd api-test; python -m pytest tests -v` | 文档新增不影响 api-test 测试发现 | 20 passed | passed |
+| Stage 4 ci_runner RED | `cd api-test; python -m pytest tests/test_ci_runner.py -v` | Jenkins env 适配缺失被测试捕获 | 2 failed, 8 passed | passed |
+| Stage 4 Jenkins 静态 RED | `cd jenkins; python -m pytest tests/test_pipeline_static.py -v` | Jenkins Pipeline 文件缺失被测试捕获 | 3 failed | passed |
+| Stage 4 artifact RED | `cd jenkins; python -m pytest tests/test_pipeline_static.py::test_pipeline_preserves_artifacts_when_pytest_fails -v` | pytest 失败阻断归档被测试捕获 | 1 failed | passed |
+| Stage 4 ci_runner GREEN | `cd api-test; python -m pytest tests/test_ci_runner.py -v` | Jenkins 参数兼容测试通过 | 10 passed | passed |
+| Stage 4 Jenkins 静态 GREEN | `cd jenkins; python -m pytest tests/test_pipeline_static.py -v` | Jenkins 参数、stages、跨平台分支、归档发布检查通过 | 4 passed | passed |
+| Stage 4 api-test 回归 | `cd api-test; python -m pytest tests -v` | api-test 自身测试全部通过 | 22 passed | passed |
+| Stage 4 Jenkins 回归 | `cd jenkins; python -m pytest tests -v` | Jenkins 静态测试全部通过 | 4 passed | passed |
+| Stage 4 Jenkins env 烟测 | `cd api-test; python -m tools.ci_runner --from-jenkins-env` | Jenkins 环境变量入口可真实执行模块 | exit code 0；Allure HTML 生成成功 | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -92,12 +115,15 @@
 | 2026-06-23 | Stage 3 初始 RED：`ModuleNotFoundError: No module named 'tools'` | 1 | 创建 `api-test/tools` 包和实现文件 |
 | 2026-06-23 | Stage 3 补强 RED：旧 `lastfailed` cache 污染当前运行失败列表 | 1 | 在 pytest 执行前清理旧 cache |
 | 2026-06-23 | Stage 3 补强 RED：`retry_count=-1` 未被拒绝 | 1 | 增加非负校验 |
+| 2026-06-23 | Stage 4 初始 RED：Jenkins env 适配函数不存在 | 1 | 新增 Jenkins env 适配函数和 CLI 开关 |
+| 2026-06-23 | Stage 4 初始 RED：Jenkins Pipeline 文件不存在 | 1 | 创建 Jenkinsfile 和 Groovy Pipeline |
+| 2026-06-23 | Stage 4 补强 RED：pytest 失败会阻断归档 | 1 | 使用 `catchError` 让归档和 Allure 发布继续执行 |
 
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 3 complete |
-| Where am I going? | Stage 4：Jenkins Groovy Pipeline |
+| Where am I? | Stage 4 complete |
+| Where am I going? | Stage 5：DRF 后端基础工程与用户角色 |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、RED/GREEN 测试、真实烟测 |
+| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、RED/GREEN 测试和文档记录 |

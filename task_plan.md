@@ -4,7 +4,7 @@
 与用户共同设计接口自动化框架的 CICD 和网页端测试平台能力，用户确认需求后再按 TDD 开发。
 
 ## Current Phase
-Phase 4: TDD Implementation - Stage 3 complete, ready for Stage 4 after commit and push
+Phase 4: TDD Implementation - Stage 4 complete, ready for Stage 5 after commit and push
 
 ## Phases
 
@@ -49,6 +49,12 @@ Phase 4: TDD Implementation - Stage 3 complete, ready for Stage 4 after commit a
 - [x] Stage 3 运行真实执行器烟测
 - [x] Stage 3 git commit
 - [x] Stage 3 git push
+- [x] Stage 4 需求分析和验收标准确认
+- [x] Stage 4 先写 Jenkins 参数兼容测试和 Pipeline 静态测试
+- [x] Stage 4 验证 RED
+- [x] Stage 4 实现 `ci_runner` Jenkins env 适配、Jenkinsfile 和 Groovy Pipeline
+- [x] Stage 4 验证 GREEN
+- [x] Stage 4 编写 `docs/jenkins-pipeline.md`
 - **Status:** complete
 
 ### Phase 5: Verification and Delivery
@@ -88,6 +94,9 @@ Phase 4: TDD Implementation - Stage 3 complete, ready for Stage 4 after commit a
 | Stage 3 初始 RED: `ModuleNotFoundError: No module named 'tools'` | 1 | 创建 `api-test/tools/__init__.py`、`pytest_nodeids.py`、`ci_runner.py` |
 | Stage 3 补强 RED: 旧 `lastfailed` 污染当前运行产物 | 1 | 在解析重试目标后、执行 pytest 前清理旧 cache |
 | Stage 3 补强 RED: `retry_count=-1` 未被拒绝 | 1 | 在命令构造和 CLI 入口增加非负校验 |
+| Stage 4 初始 RED: Jenkins env 适配函数不存在 | 1 | 新增 `parse_jenkins_node_ids()` 和 `build_run_request_from_jenkins_env()` |
+| Stage 4 初始 RED: Jenkinsfile/Groovy Pipeline 不存在 | 1 | 创建 `jenkins/Jenkinsfile` 和 `jenkins/scripts/api-test-pipeline.groovy` |
+| Stage 4 补强 RED: pytest 失败会中断归档阶段 | 1 | `Run API Tests` 使用 `catchError`，失败后继续归档和发布 Allure |
 
 ## Notes
 - 默认使用简体中文沟通。

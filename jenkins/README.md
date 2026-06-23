@@ -2,7 +2,7 @@
 
 `jenkins` 是 AiApiTest-DWP 的 Jenkins Pipeline 和 Groovy 脚本目录，后续负责在 Windows/Linux Jenkins agent 上调用 `api-test`，执行接口自动化测试、失败重试、Allure 报告生成和产物归档。
 
-当前阶段即将进入 Stage 4，实现 Jenkins Groovy Pipeline。
+Stage 4 已实现 Jenkins Groovy Pipeline，当前目录包含 Jenkinsfile、可复用 Groovy 脚本和静态验证测试。
 
 ## 目标职责
 
@@ -19,6 +19,8 @@
 jenkins/
 ├── Jenkinsfile
 ├── README.md
+├── tests/
+│   └── test_pipeline_static.py
 └── scripts/
     └── api-test-pipeline.groovy
 ```

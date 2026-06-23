@@ -99,6 +99,48 @@ def test_resolve_selected_targets_uses_explicit_nodeids(tmp_path):
     assert ci_runner.resolve_pytest_targets(request) == nodeids
 
 
+def test_parse_jenkins_node_ids_accepts_newlines_and_commas():
+    raw_node_ids = """
+    test_case/test_demo.py::TestDemo::test_one,
+    test_case/test_demo.py::TestDemo::test_two
+    test_case/test_demo.py::TestDemo::test_three,
+    test_case/test_demo.py::TestDemo::test_two
+    """
+
+    assert ci_runner.parse_jenkins_node_ids(raw_node_ids) == [
+        "test_case/test_demo.py::TestDemo::test_one",
+        "test_case/test_demo.py::TestDemo::test_two",
+        "test_case/test_demo.py::TestDemo::test_three",
+    ]
+
+
+def test_build_run_request_from_jenkins_env_uses_pipeline_parameters(tmp_path):
+    env = {
+        "CASE_PATH": "test_case/test_gbif_case",
+        "PYTEST_NODE_IDS": "test_case/test_demo.py::TestDemo::test_one,\n"
+        "test_case/test_demo.py::TestDemo::test_two",
+        "RETRY_MODE": "all-failed",
+        "RETRY_COUNT": "1",
+        "CLEAN_ALLURE": "false",
+        "OPEN_REPORT": "true",
+        "RUN_ID": "jenkins-demo-12",
+    }
+
+    request = ci_runner.build_run_request_from_jenkins_env(env, api_test_root=tmp_path)
+
+    assert request.api_test_root == tmp_path
+    assert request.run_dir == tmp_path / "runtime" / "ci-runs" / "jenkins-demo-12"
+    assert request.case_path == "test_case/test_gbif_case"
+    assert request.node_ids == [
+        "test_case/test_demo.py::TestDemo::test_one",
+        "test_case/test_demo.py::TestDemo::test_two",
+    ]
+    assert request.retry_mode == "all-failed"
+    assert request.retry_count == 1
+    assert request.clean is False
+    assert request.open_report is True
+
+
 def test_write_summary_creates_required_summary_json(tmp_path):
     run_dir = tmp_path / "runtime" / "ci-runs" / "run-1"
     failed_nodeids = [

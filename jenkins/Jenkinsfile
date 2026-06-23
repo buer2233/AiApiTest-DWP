@@ -1,0 +1,2 @@
+def pipelineScript = load 'jenkins/scripts/api-test-pipeline.groovy'
+pipelineScript.call()

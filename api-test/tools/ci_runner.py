@@ -1,7 +1,10 @@
 import argparse
 import json
+import os
+import re
 import shutil
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -63,6 +66,52 @@ def resolve_pytest_targets(request: RunRequest) -> list[str]:
             raise ValueError("retry-mode selected requires at least one --node-id")
         return nodeids
     return load_lastfailed(Path(request.api_test_root) / ".pytest_cache")
+
+
+def parse_jenkins_node_ids(raw_value: str | None) -> list[str]:
+    """Parse Jenkins text parameters split by newlines or commas."""
+    if raw_value is None:
+        return []
+    return normalize_nodeids(re.split(r"[\r\n,]+", str(raw_value)))
+
+
+def _parse_bool(raw_value: str | None, default: bool) -> bool:
+    if raw_value is None or str(raw_value).strip() == "":
+        return default
+    return str(raw_value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _parse_retry_count(raw_value: str | None) -> int:
+    if raw_value is None or str(raw_value).strip() == "":
+        return 0
+    retry_count = int(str(raw_value).strip())
+    if retry_count < 0:
+        raise ValueError("retry_count must be greater than or equal to 0")
+    return retry_count
+
+
+def build_run_request_from_jenkins_env(
+    env: Mapping[str, str] | None = None,
+    api_test_root: Path = API_TEST_ROOT,
+) -> RunRequest:
+    """Build a RunRequest from Jenkins parameter environment variables."""
+    source = env or os.environ
+    retry_mode = source.get("RETRY_MODE", "none").strip() or "none"
+    if retry_mode not in VALID_RETRY_MODES:
+        raise ValueError(f"Unsupported retry mode: {retry_mode}")
+
+    run_id = source.get("RUN_ID") or source.get("BUILD_TAG") or source.get("BUILD_NUMBER")
+    return RunRequest(
+        api_test_root=Path(api_test_root),
+        run_dir=build_run_dir(Path(api_test_root), run_id),
+        retry_mode=retry_mode,
+        case_path=source.get("CASE_PATH", "test_case/test_gbif_case").strip()
+        or "test_case/test_gbif_case",
+        node_ids=parse_jenkins_node_ids(source.get("PYTEST_NODE_IDS")),
+        retry_count=_parse_retry_count(source.get("RETRY_COUNT")),
+        clean=_parse_bool(source.get("CLEAN_ALLURE"), True),
+        open_report=_parse_bool(source.get("OPEN_REPORT"), False),
+    )
 
 
 def ensure_run_dirs(run_dir: Path) -> None:
@@ -190,6 +239,11 @@ def build_run_dir(api_test_root: Path, run_id: str | None = None) -> Path:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run api-test pytest cases for CI.")
+    parser.add_argument(
+        "--from-jenkins-env",
+        action="store_true",
+        help="read Jenkins parameters from environment variables",
+    )
     parser.add_argument("--case-path", default="test_case", help="pytest module or case path")
     parser.add_argument("--node-id", action="append", default=[], help="pytest node id, repeatable")
     parser.add_argument(
@@ -217,6 +271,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.from_jenkins_env or os.environ.get("CI_RUNNER_ENV") == "jenkins":
+        request = build_run_request_from_jenkins_env(os.environ, api_test_root=API_TEST_ROOT)
+        summary = run_ci_tests(request)
+        return int(summary["return_code"])
+
     if args.retry_count < 0:
         raise ValueError("retry_count must be greater than or equal to 0")
     request = RunRequest(
