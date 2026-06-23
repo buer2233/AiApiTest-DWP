@@ -116,6 +116,8 @@
   - 2026-06-23：运行 `cd back-end; python manage.py makemigrations --check --dry-run`，结果 No changes detected。
   - 2026-06-23：运行后端回归：`cd back-end; python -m pytest -v`，结果 31 passed。
   - 2026-06-23：创建 `docs/jenkins-api.md`，记录 Jenkins 配置、接口、参数转换、测试命令和 fake Jenkins 验证限制。
+  - 2026-06-23：提交 Stage 7：`8d9c9e4 stage7: add jenkins integration APIs`。
+  - 2026-06-23：执行 `git push` 成功，远端 `main` 已更新到 `8d9c9e4`。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -206,7 +208,7 @@
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 7 complete, ready for commit and push |
+| Where am I? | Stage 7 complete and pushed |
 | Where am I going? | Stage 8：Vue 3 前端基础与登录 |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
