@@ -102,6 +102,20 @@
   - 2026-06-23：创建 `docs/test-runs-api.md`，记录 Stage 6 范围、模型、接口、Allure 解析、测试命令和问题处理。
   - 2026-06-23：提交 Stage 6：`37eba96 stage6: add test run failure APIs`。
   - 2026-06-23：执行 `git push` 成功，远端 `main` 已更新到 `37eba96`。
+  - 2026-06-23：开始 Stage 7：Jenkins 查询与触发 API。按 TDD 先编写 Jenkins client 和 API 失败测试。
+  - 2026-06-23：新增 `back-end/tests/test_jenkins_client.py` 和 `back-end/tests/test_jenkins_api.py`，使用 fake HTTP/session 和 monkeypatch，不依赖真实 Jenkins。
+  - 2026-06-23：运行 Stage 7 初始 RED：`cd back-end; python -m pytest tests/test_jenkins_client.py -v`，结果 1 error，失败原因是 `apps.jenkins_integration` 不存在。
+  - 2026-06-23：运行 Stage 7 初始 RED：`cd back-end; python -m pytest tests/test_jenkins_api.py -v`，结果 5 errors，失败原因是 `apps.jenkins_integration` 不存在。
+  - 2026-06-23：创建 `apps/jenkins_integration` app，新增 Jenkins client、serializers、views、urls、触发记录模型和迁移。
+  - 2026-06-23：将 `apps.jenkins_integration` 加入后端 `INSTALLED_APPS`，并挂载 `/api/jenkins/` 路由。
+  - 2026-06-23：在 `settings.py` 中新增 `JENKINS_BASE_URL`、`JENKINS_USERNAME`、`JENKINS_API_TOKEN`、`JENKINS_DEFAULT_JOB` 环境变量配置入口。
+  - 2026-06-23：运行 Stage 7 client 测试确认 GREEN：`cd back-end; python -m pytest tests/test_jenkins_client.py -v`，结果 7 passed。
+  - 2026-06-23：运行 Stage 7 API 测试确认 GREEN：`cd back-end; python -m pytest tests/test_jenkins_api.py -v`，结果 5 passed。
+  - 2026-06-23：运行 Stage 7 精确测试：`cd back-end; python -m pytest tests/test_jenkins_client.py tests/test_jenkins_api.py -v`，结果 12 passed。
+  - 2026-06-23：运行 `cd back-end; python manage.py check`，结果 System check identified no issues。
+  - 2026-06-23：运行 `cd back-end; python manage.py makemigrations --check --dry-run`，结果 No changes detected。
+  - 2026-06-23：运行后端回归：`cd back-end; python -m pytest -v`，结果 31 passed。
+  - 2026-06-23：创建 `docs/jenkins-api.md`，记录 Jenkins 配置、接口、参数转换、测试命令和 fake Jenkins 验证限制。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -159,6 +173,14 @@
 | Stage 6 focused GREEN | `cd back-end; python -m pytest tests/test_allure_results_parser.py tests/test_test_runs_api.py -v` | Allure 解析与 API 全部通过 | 9 passed | passed |
 | Stage 6 Django check | `cd back-end; python manage.py check` | Django 配置无系统检查问题 | System check identified no issues | passed |
 | Stage 6 backend regression | `cd back-end; python -m pytest -v` | 后端回归全部通过 | 19 passed | passed |
+| Stage 7 client RED | `cd back-end; python -m pytest tests/test_jenkins_client.py -v` | `apps.jenkins_integration` 缺失导致失败 | 1 error: `ModuleNotFoundError` | passed |
+| Stage 7 API RED | `cd back-end; python -m pytest tests/test_jenkins_api.py -v` | `apps.jenkins_integration` 缺失导致失败 | 5 errors: `ModuleNotFoundError` | passed |
+| Stage 7 client GREEN | `cd back-end; python -m pytest tests/test_jenkins_client.py -v` | Jenkins client fake HTTP 测试通过 | 7 passed | passed |
+| Stage 7 API GREEN | `cd back-end; python -m pytest tests/test_jenkins_api.py -v` | Jenkins API fake client 测试通过 | 5 passed | passed |
+| Stage 7 focused GREEN | `cd back-end; python -m pytest tests/test_jenkins_client.py tests/test_jenkins_api.py -v` | Stage 7 精确测试全部通过 | 12 passed | passed |
+| Stage 7 Django check | `cd back-end; python manage.py check` | Django 配置无系统检查问题 | System check identified no issues | passed |
+| Stage 7 migration check | `cd back-end; python manage.py makemigrations --check --dry-run` | 模型和迁移一致 | No changes detected | passed |
+| Stage 7 backend regression | `cd back-end; python -m pytest -v` | 后端回归全部通过 | 31 passed | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -179,12 +201,13 @@
 | 2026-06-23 | Stage 6 初始 RED：`ModuleNotFoundError: No module named 'apps.test_runs'` | 1 | 创建 `apps.test_runs` app、模型、服务、序列化器、视图和 URL |
 | 2026-06-23 | Stage 6 MySQL 长索引错误：`Specified key was too long` | 1 | 移除 `(test_run, node_id)` 唯一约束，保留完整 node id 字段 |
 | 2026-06-23 | Stage 6 复用测试库残留：`Table 'test_runs_testrun' already exists` | 1 | 使用 `--create-db` 重建 MySQL 测试库 |
+| 2026-06-23 | Stage 7 初始 RED：`ModuleNotFoundError: No module named 'apps.jenkins_integration'` | 1 | 创建 Jenkins 集成 app、client、API、配置和迁移 |
 
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 6 complete and pushed |
-| Where am I going? | Stage 7：Jenkins 查询与触发 API |
+| Where am I? | Stage 7 complete, ready for commit and push |
+| Where am I going? | Stage 8：Vue 3 前端基础与登录 |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、Stage 6 测试任务与失败用例 API、RED/GREEN 测试和文档记录 |
+| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、Stage 6 测试任务与失败用例 API、Stage 7 Jenkins 查询与触发 API、RED/GREEN 测试和文档记录 |

@@ -117,7 +117,7 @@ D:/AI/AiApiTest-DWP/
 | Stage 4 | Jenkins Groovy Pipeline | complete | Jenkins 可执行用例、重试用例、生成 Allure 报告、归档结果 |
 | Stage 5 | DRF 后端基础工程与用户角色 | complete | 建立 DRF Token 认证、本地 MySQL、管理员/普通用户角色 |
 | Stage 6 | 测试任务与失败用例 API | complete | 保存测试任务、失败用例、重试任务、报告路径和执行日志 |
-| Stage 7 | Jenkins 查询与触发 API | pending | 后端支持 Jenkins job/build 查询、触发、日志查看，并兼容 Windows/Linux |
+| Stage 7 | Jenkins 查询与触发 API | complete | 后端支持 Jenkins job/build 查询、触发、日志查看，并兼容 Windows/Linux |
 | Stage 8 | Vue 3 前端基础与登录 | pending | 建立 Vue 3、Element Plus、登录态、布局、菜单 |
 | Stage 9 | 模块通过率与失败用例页面 | pending | 实现参考截图的模块列表、失败用例弹窗、重试入口 |
 | Stage 10 | 报告展示、联调、文档和交付 | pending | 打开 Allure 静态 HTML 报告，完成全链路联调和文档交付 |
@@ -654,7 +654,7 @@ GREEN:
 - Create: `back-end/tests/test_jenkins_api.py`
 - Create: `docs/jenkins-api.md`
 
-- [ ] **Step 1: 写 Jenkins client 测试**
+- [x] **Step 1: 写 Jenkins client 测试**
 
 测试目标：
 - 查询 job 列表。
@@ -671,7 +671,7 @@ cd D:\AI\AiApiTest-DWP\back-end
 python -m pytest tests/test_jenkins_client.py tests/test_jenkins_api.py -v
 ```
 
-- [ ] **Step 2: 实现 Jenkins client**
+- [x] **Step 2: 实现 Jenkins client**
 
 配置项：
 
@@ -698,6 +698,20 @@ POST /api/jenkins/jobs/{job_name}/build/
 - 后端 Jenkins API 与 `jenkins/` 中的 Pipeline 参数保持一致。
 - `docs/jenkins-api.md` 记录 Jenkins 配置、Windows/Linux 兼容注意事项、测试命令和测试结果。
 - 完成单独 `git commit` 和 `git push`。
+
+执行结果：
+
+```text
+RED:
+- tests/test_jenkins_client.py: ModuleNotFoundError: No module named 'apps.jenkins_integration'
+- tests/test_jenkins_api.py: ModuleNotFoundError: No module named 'apps.jenkins_integration'
+
+GREEN:
+- cd back-end; python -m pytest tests/test_jenkins_client.py tests/test_jenkins_api.py -v -> 12 passed
+- cd back-end; python manage.py check -> System check identified no issues
+- cd back-end; python manage.py makemigrations --check --dry-run -> No changes detected
+- cd back-end; python -m pytest -v -> 31 passed
+```
 
 ## 13. Stage 8: Vue 3 前端基础与登录
 
@@ -914,6 +928,7 @@ npm test
 | 2026-06-23 | Stage 4 | complete | 新增 Jenkins 参数兼容适配、Jenkinsfile、Groovy Pipeline、静态验证测试和 Jenkins 文档 | RED: 2 failed/3 failed/1 failed；GREEN: ci_runner 10 passed，Jenkins 静态 4 passed，api-test 回归 22 passed，Jenkins env 烟测 exit code 0 | committed and pushed: `e38e415` | 本地未连接真实 Jenkins，已记录验证限制 |
 | 2026-06-23 | Stage 5 | complete | 新增 DRF 后端基础工程、Token 登录/登出/me API、自定义用户角色和权限入口；补强数据库配置为强制 MySQL `localhost:3306` | RED: settings 未配置；补强 RED: createsuperuser 默认 member；数据库配置 RED: pytest 下仍为 SQLite；GREEN: database settings 1 passed，accounts 6 passed，Django check 通过 | committed and pushed: `05ad778` | 首次 `git push` 曾失败，后续已重新推送成功 |
 | 2026-06-23 | Stage 6 | complete | 新增 `test_runs` app、测试任务/失败用例模型、Allure 失败解析、runner 适配和测试任务/失败重试/报告入口 API | RED: `apps.test_runs` 不存在；GREEN: Stage 6 9 passed，Django check 通过，后端回归 19 passed | committed and pushed: `37eba96` | MySQL 长 node id 唯一索引过长，已移除该约束 |
+| 2026-06-23 | Stage 7 | complete | 新增 Jenkins client、Jenkins 查询/触发 API、Pipeline 参数转换和触发记录模型 | RED: `apps.jenkins_integration` 不存在；GREEN: Stage 7 12 passed，Django check 通过，迁移检查通过，后端回归 31 passed | pending commit and push | 测试使用 fake HTTP/monkeypatch，不依赖真实 Jenkins |
 
 ## 17. 风险与处理策略
 

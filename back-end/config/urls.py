@@ -22,4 +22,5 @@ urlpatterns = [
     ),
     path("api/auth/", include("apps.accounts.urls")),
     path("api/test-runs/", include("apps.test_runs.urls")),
+    path("api/jenkins/", include("apps.jenkins_integration.urls")),
 ]
