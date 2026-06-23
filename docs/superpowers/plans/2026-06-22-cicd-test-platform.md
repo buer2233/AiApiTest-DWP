@@ -949,6 +949,7 @@ npm test
 | 2026-06-23 | Stage 6 | complete | 新增 `test_runs` app、测试任务/失败用例模型、Allure 失败解析、runner 适配和测试任务/失败重试/报告入口 API | RED: `apps.test_runs` 不存在；GREEN: Stage 6 9 passed，Django check 通过，后端回归 19 passed | committed and pushed: `37eba96` | MySQL 长 node id 唯一索引过长，已移除该约束 |
 | 2026-06-23 | Stage 7 | complete | 新增 Jenkins client、Jenkins 查询/触发 API、Pipeline 参数转换和触发记录模型 | RED: `apps.jenkins_integration` 不存在；GREEN: Stage 7 12 passed，Django check 通过，迁移检查通过，后端回归 31 passed | committed and pushed: `8d9c9e4` | 测试使用 fake HTTP/monkeypatch，不依赖真实 Jenkins |
 | 2026-06-23 | Stage 8 | complete | 新增 Vue 3/Vite/TypeScript 前端工程、Pinia 登录态、Vue Router 路由守卫、Axios 认证 API、Element Plus 登录页和平台基础布局，并按 getdesign Claude `DESIGN.md` 落地简约风格 | RED: `@/api/auth` 缺失；GREEN: `npm test -- auth.spec.ts` 4 passed，`npm test` 4 passed，`npm run build` 成功，生产依赖审计 0 vulnerabilities | committed and pushed: `d6fc6a7` | 浏览器检查通过；开发依赖审计仍有漏洞提示，暂不强制升级 |
+| 2026-06-23 | Docker services support | complete | 统一 MySQL 和 Jenkins 两个 Docker 服务，新增 Compose、`.env.example`、一键启动脚本、可选 Jenkins 工具链镜像和部署文档 | RED: Docker 部署静态测试 4 failed；GREEN: Docker/Jenkins 静态测试 15 passed；Compose 默认和可选 override 配置校验通过；脚本语法检查通过 | not committed | 当前已有同名运行容器，未执行 `docker compose up` 覆盖；工具链镜像构建因网络/下载超时改为可选 |
 
 ## 17. 风险与处理策略
 

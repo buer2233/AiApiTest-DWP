@@ -88,6 +88,10 @@ Phase 4: TDD Implementation - Stage 8 complete, pending git commit/push
 - [x] Stage 8 编写 `docs/front-end-login.md`
 - [x] Stage 8 git commit
 - [x] Stage 8 git push
+- [x] Docker Compose 统一 MySQL 和 Jenkins 服务配置
+- [x] 新增 `.env.example`、PowerShell/Bash 一键部署脚本和 Docker 部署文档
+- [x] 新增可选 Jenkins 工具链 Dockerfile/override
+- [x] 验证 Docker 部署静态测试、Compose config 和脚本语法检查
 - **Status:** complete
 
 ### Phase 5: Verification and Delivery

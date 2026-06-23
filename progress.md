@@ -142,6 +142,15 @@
   - 2026-06-23：运行前端回归：`cd front-end; npm test`，结果 2 passed，5 tests passed。
   - 2026-06-23：重启 Vite 前端服务后复测登录代理：`admin/admin` 返回 400，`admin/admin123456` 返回 token 和 `role=admin` 用户信息。
   - 2026-06-23：运行构建验证：`cd front-end; npm run build` 成功，仍有既有 Vite 第三方注释和 chunk size 警告。
+  - 2026-06-23：按用户要求统一当前两个 Docker 容器信息，反查 Jenkins 容器为 `jenkins/jenkins:lts-jdk17`、端口 `8080:8080` 和 `50001:50000`、卷 `aiapitest-jenkins-home`，MySQL 容器为 `mysql:8.4`、端口 `127.0.0.1:3307:3306`、卷 `aiapitest-mysql-data`。
+  - 2026-06-23：先写 `jenkins/tests/test_docker_deployment_static.py`，运行确认 RED：4 failed，失败原因是 `docker-compose.yml`、`.env.example` 和一键脚本不存在。
+  - 2026-06-23：新增 `docker-compose.yml`、`.env.example`、`scripts/deploy-docker.ps1`、`scripts/deploy-docker.sh` 和 `docs/docker-services.md`，统一 MySQL/Jenkins 服务、端口、卷和本地配置。
+  - 2026-06-23：新增 `docker/jenkins/Dockerfile` 和 `docker-compose.jenkins-tools.yml`，把 Jenkins 容器内 Python、git、Allure CLI 工具链作为可选镜像构建路径。
+  - 2026-06-23：将 `.env` 加入 `.gitignore`，避免本地数据库密码入库；更新 `README.md` 和 `docs/back-end-accounts.md` 的 Docker/MySQL 配置说明。
+  - 2026-06-23：运行 Docker 部署静态测试和 Jenkins 静态回归：`cd jenkins; python -m pytest tests/test_docker_deployment_static.py tests/test_pipeline_static.py -v`，结果 15 passed。
+  - 2026-06-23：运行 Compose 配置校验：`docker compose --env-file .env.example config` 和 `docker compose --env-file .env.example -f docker-compose.yml -f docker-compose.jenkins-tools.yml config`，均成功解析。
+  - 2026-06-23：运行一键脚本语法检查：`bash -n scripts/deploy-docker.sh` 和 PowerShell Parser 检查 `scripts/deploy-docker.ps1`，均通过。
+  - 2026-06-23：尝试构建 Jenkins 工具链镜像 `docker compose --env-file .env.example build jenkins`，两次超时；为保证新机器一键启动稳定，默认 Compose 改用官方 Jenkins 镜像，工具链镜像保留为可选 override。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -218,6 +227,12 @@
 | Stage 8 proxy GREEN | `cd front-end; npm test -- vite-config.spec.ts` | `/api` 代理到本地 DRF 后端 | 1 passed | passed |
 | Stage 8 proxy regression | `cd front-end; npm test` | 前端全部测试通过 | 2 passed, 5 tests passed | passed |
 | Stage 8 proxied login | `POST http://127.0.0.1:5173/api/auth/login/` | 正确代理到 DRF 登录接口 | `admin/admin123456` 返回 token；`admin/admin` 返回 400 | passed |
+| Docker deployment RED | `cd jenkins; python -m pytest tests/test_docker_deployment_static.py -v` | 部署文件缺失导致失败 | 4 failed，缺少 Compose、env 示例和脚本 | passed |
+| Docker deployment GREEN | `cd jenkins; python -m pytest tests/test_docker_deployment_static.py tests/test_pipeline_static.py -v` | Docker 部署静态测试和 Jenkins 回归通过 | 15 passed | passed |
+| Docker Compose config | `docker compose --env-file .env.example config` | 默认 Compose 可解析 | 成功输出 MySQL/Jenkins 服务、端口、卷和网络 | passed |
+| Docker Compose tools override config | `docker compose --env-file .env.example -f docker-compose.yml -f docker-compose.jenkins-tools.yml config` | 可选 Jenkins 工具链 override 可解析 | 成功输出 build 配置和 `aiapitest-jenkins:lts-jdk17-tools` 镜像 | passed |
+| Docker scripts syntax | `bash -n scripts/deploy-docker.sh` 和 PowerShell Parser | 一键脚本无语法错误 | 均通过 | passed |
+| Jenkins tools image build | `docker compose --env-file .env.example build jenkins` | 构建工具链镜像 | 超时，改为可选 override；默认部署不依赖构建 | documented |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -246,6 +261,7 @@
 | 2026-06-23 | Stage 8 窄桌面平台卡片标题被挤压 | 1 | 提高响应式断点，平台卡片在内容宽度不足时改为单列 |
 | 2026-06-23 | Stage 8 登录请求打到 Vite 返回 404 | 1 | 新增 Vite `/api` 代理到 `http://127.0.0.1:8000`，并补测试 |
 | 2026-06-23 | Stage 8 `admin/admin` 登录返回 400 | 1 | 确认是密码错误；DRF 测试管理员密码为 `admin123456` |
+| 2026-06-23 | Jenkins 工具链 Dockerfile 构建超时 | 2 | 默认 Compose 使用官方 Jenkins 镜像快速启动；工具链镜像通过 `docker-compose.jenkins-tools.yml` 可选启用 |
 
 ## 5-Question Reboot Check
 | Question | Answer |
