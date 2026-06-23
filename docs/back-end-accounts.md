@@ -29,7 +29,8 @@ back-end/
 │       ├── permissions.py             # 权限类
 │       └── migrations/                # 数据库迁移
 └── tests/
-    └── test_accounts_api.py           # 测试文件
+    ├── test_accounts_api.py           # 账户 API 测试
+    └── test_database_settings.py      # 数据库配置测试
 ```
 
 ## 用户模型
@@ -115,18 +116,14 @@ Authorization: Token <token>
 
 ## 数据库配置
 
-### 测试环境
-- 使用 SQLite（`.pytest-db.sqlite3`）
-- 自动检测 pytest 环境
-
-### 生产环境
-- 使用 MySQL
+### 所有环境
+- 强制使用本地 MySQL，不再按 pytest 环境回退 SQLite。
+- 连接地址固定为 `localhost:3306`。
 - 通过环境变量配置：
   - `MYSQL_DATABASE` - 数据库名（默认：`ai_api_test_platform`）
   - `MYSQL_USER` - 用户名（默认：`root`）
   - `MYSQL_PASSWORD` - 密码
-  - `MYSQL_HOST` - 主机（默认：`127.0.0.1`）
-  - `MYSQL_PORT` - 端口（默认：`3306`）
+- `MYSQL_HOST` 和 `MYSQL_PORT` 不再参与配置覆盖，避免测试和运行环境连接到非本地 MySQL。
 
 ## 认证配置
 
@@ -153,12 +150,14 @@ pip install -r requirements.txt
 
 ```bash
 cd back-end
+python -m pytest tests/test_database_settings.py -v
 python -m pytest tests/test_accounts_api.py -v
 ```
 
 ## 测试结果
 
 ```
+tests/test_database_settings.py::test_database_connection_is_forced_to_local_mysql PASSED
 tests/test_accounts_api.py::test_user_can_login_receive_token_read_current_user_and_logout PASSED
 tests/test_accounts_api.py::test_admin_and_member_roles_can_be_saved PASSED
 tests/test_accounts_api.py::test_create_superuser_defaults_to_admin_role PASSED
@@ -166,7 +165,7 @@ tests/test_accounts_api.py::test_admin_and_member_can_access_platform_api_with_s
 tests/test_accounts_api.py::test_admin_and_member_can_access_platform_api_with_same_permissions[member] PASSED
 tests/test_accounts_api.py::test_permissions_keep_admin_only_entrypoint PASSED
 
-6 passed in 4.65s
+7 passed across database settings and accounts tests
 ```
 
 ## 数据库迁移
@@ -196,7 +195,7 @@ python manage.py makemigrations --check --dry-run
 - [x] 账户测试通过
 - [x] 可创建管理员和普通用户
 - [x] 使用 DRF Token 认证
-- [x] 默认使用本地 MySQL（测试时使用 SQLite）
+- [x] 强制使用本地 MySQL `localhost:3306`
 
 ## 后续步骤
 

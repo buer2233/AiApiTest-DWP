@@ -32,7 +32,7 @@
 | R16 | 阶段流程 | 每个阶段单独进行需求分析、编写测试用例、开发、测试 |
 | R17 | 版本管理 | 每个阶段开发和测试完成后，单独执行 `git commit` 和 `git push` |
 | R18 | 后端认证 | 使用 DRF Token |
-| R19 | 后端数据库 | 默认直接使用本地 MySQL 数据库 |
+| R19 | 后端数据库 | 强制使用本地 MySQL 数据库，连接 `localhost:3306` |
 | R20 | 前端组件库 | 使用 Element Plus |
 | R21 | Jenkins 脚本管理 | Groovy/Jenkins 脚本源文件存放在 `jenkins/`，通过 git 版本管理 |
 | R22 | Jenkins 兼容性 | Jenkins 脚本确认兼容 Windows 和 Linux |
@@ -48,7 +48,7 @@
 | Git 流程 | 每个阶段完成后单独 `git commit`，随后 `git push` |
 | 文档位置 | 所有开发和测试文档统一放在 `docs/` |
 | 后端认证 | DRF Token |
-| 后端数据库 | 本地 MySQL |
+| 后端数据库 | 本地 MySQL `localhost:3306` |
 | 前端组件库 | Element Plus |
 | Jenkins 脚本 | 源文件放在 `jenkins/`，纳入 git 版本管理 |
 | Jenkins 兼容 | Windows 和 Linux 双兼容 |
@@ -485,7 +485,7 @@ python -m pytest tests/test_accounts_api.py -v
 - [x] **Step 2: 创建 Django/DRF 工程**
 
 默认配置：
-- 本地 MySQL 数据库。
+- 本地 MySQL 数据库，连接地址固定为 `localhost:3306`。
 - `AUTH_USER_MODEL = "accounts.User"`。
 - DRF Token 认证。
 - CORS 允许本地前端开发地址。
@@ -899,7 +899,7 @@ npm test
 | 2026-06-23 | Stage 2 bugfix | complete | 修复 PyCharm 手动运行单测仍引用旧 `test_case` 工作目录的问题，并适配 `api-test/page_api` 结构 | RED: 2 failed；GREEN: 2 passed；迁移测试: 5 passed；等效单测: 1 passed | committed and pushed: `be60899` | 用户已确认 PyCharm 手动测试无问题 |
 | 2026-06-23 | Stage 3 | complete | 新增 pytest node id 读取工具和 CI 重试执行器，支持模块运行、选择 node id、一键失败重试、summary 和运行产物输出 | RED: `tools` 不存在、旧 lastfailed 污染、负数 retry_count；GREEN: 13 passed；回归: 20 passed；烟测: exit code 0 | committed and pushed | Stage 3 完成，具体提交记录见 git 历史 |
 | 2026-06-23 | Stage 4 | complete | 新增 Jenkins 参数兼容适配、Jenkinsfile、Groovy Pipeline、静态验证测试和 Jenkins 文档 | RED: 2 failed/3 failed/1 failed；GREEN: ci_runner 10 passed，Jenkins 静态 4 passed，api-test 回归 22 passed，Jenkins env 烟测 exit code 0 | pending commit and push | 本地未连接真实 Jenkins，已记录验证限制 |
-| 2026-06-23 | Stage 5 | complete | 新增 DRF 后端基础工程、Token 登录/登出/me API、自定义用户角色和权限入口 | RED: settings 未配置；补强 RED: createsuperuser 默认 member；GREEN: accounts 6 passed，Django check 通过 | pending commit and push | 本机默认 MySQL 数据库未创建，文档已记录建库和迁移命令 |
+| 2026-06-23 | Stage 5 | complete | 新增 DRF 后端基础工程、Token 登录/登出/me API、自定义用户角色和权限入口；补强数据库配置为强制 MySQL `localhost:3306` | RED: settings 未配置；补强 RED: createsuperuser 默认 member；数据库配置 RED: pytest 下仍为 SQLite；GREEN: database settings 1 passed，accounts 6 passed，Django check 通过 | committed: `2a00252`; push failed | `git push` 失败：`Empty reply from server`，后端测试已在强制 MySQL 配置下通过 |
 
 ## 17. 风险与处理策略
 
@@ -911,7 +911,7 @@ npm test
 | 失败用例 node id 解析不稳定 | 重试无法精确选择用例 | 使用 pytest cache 和 Allure result 双来源校验 |
 | 前后端一次性范围过大 | 交付周期长 | 先 Jenkins，再后端 API，再前端页面，每阶段独立验收 |
 | 用户权限当前一致但后续要区分 | 返工权限模型 | 第一版就建立角色字段和权限类入口 |
-| 本地 MySQL 环境未准备 | 后端阶段测试无法连接数据库 | Stage 5 前确认数据库名、用户、密码通过环境变量配置，不写入仓库 |
+| 本地 MySQL 环境未准备 | 后端阶段测试无法连接数据库 | Stage 5 前确认数据库名、用户、密码通过环境变量配置，不写入仓库；主机端口固定为 `localhost:3306` |
 | 每阶段必须 push | 远程仓库或凭据异常会阻塞阶段完成 | 阶段末单独记录 push 命令和结果，失败时记录原因并等待处理 |
 
 ## 18. 当前不纳入第一版的能力

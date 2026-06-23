@@ -92,7 +92,7 @@ Phase 4: TDD Implementation - Stage 5 complete, ready for commit and push
 | `AGENTS.md` 和 `README.md` 作为后续 AI 接手入口，必须优先体现 CICD 测试平台定位 | 用户明确要求避免新 AI 丢失开发任务记录和要求 |
 | Stage 3 在 `api-test/tools/` 中沉淀统一执行器 | 后续 Jenkins 和 DRF 都复用同一执行入口，避免重试逻辑分叉 |
 | 执行器运行前清理旧 pytest `lastfailed` cache | 防止历史失败 node id 污染当前运行 summary |
-| Stage 5 测试环境使用 SQLite，运行配置默认 MySQL | 本地/CI 单元测试不应依赖真实 MySQL 凭据；实际服务默认按用户要求连接本地 MySQL |
+| Stage 5 所有环境强制使用本地 MySQL `localhost:3306` | 用户明确要求数据库连接不再回退 SQLite 或覆盖到其他主机端口 |
 | `create_superuser()` 默认写入 `role=admin` | 满足“可创建管理员”的验收，同时普通用户默认仍为 `member` |
 
 ## Errors Encountered
@@ -108,7 +108,8 @@ Phase 4: TDD Implementation - Stage 5 complete, ready for commit and push
 | Stage 5 初始 RED: Django settings 未配置 | 1 | 创建 `back-end/config`、`manage.py`、`pytest.ini` 和 accounts app |
 | Stage 5 环境错误: `--reuse-db` 无法识别 | 1 | 安装 `back-end/requirements.txt` 补齐 `pytest-django` |
 | Stage 5 补强 RED: `create_superuser()` 默认 role 为 `member` | 1 | 新增自定义 `UserManager` 和 manager 迁移 |
-| Stage 5 MySQL 检查 warning: 默认数据库不存在 | 1 | 文档记录本地 MySQL 建库命令，测试使用隔离数据库 |
+| Stage 5 MySQL 检查 warning: 默认数据库不存在 | 1 | 文档记录本地 MySQL 建库命令 |
+| Stage 5 数据库配置 RED: pytest 下仍回退 SQLite | 1 | 删除 pytest SQLite 分支，强制 `django.db.backends.mysql`、`localhost:3306` |
 
 ## Notes
 - 默认使用简体中文沟通。

@@ -49,8 +49,7 @@
 | Jenkins 参数通过环境变量传递给 `ci_runner` | Groovy 只负责参数和 stage 编排，pytest 目标解析、node id 拆分、重试和 summary 继续集中在 `api-test/tools/ci_runner.py` |
 | `PYTEST_NODE_IDS` 支持换行和英文逗号 | Jenkins text 参数便于人工粘贴多个 pytest node id，Python 执行器负责去空和去重 |
 | Jenkins `Run API Tests` 使用 `catchError` | pytest 失败时仍要执行归档和 Allure 发布，否则失败 node id 和 summary 无法在构建页查看 |
-| Stage 5 后端运行配置默认使用本地 MySQL | 满足用户确认的后端数据库方案，凭据通过环境变量读取 |
-| Stage 5 pytest 使用 SQLite 测试库 | 账户 API 单元测试不依赖真实 MySQL 密码和本机数据库状态 |
+| Stage 5 所有环境强制使用本地 MySQL `localhost:3306` | 满足用户明确要求，避免 pytest 或运行环境回退 SQLite，也避免通过环境变量切到非本地主机端口 |
 | `accounts.User` 继承 Django `AbstractUser` 并只新增 `role` | 保留 Django username/password/session/admin 基础能力，最小化 Stage 5 实现面 |
 | `create_superuser()` 默认写入 `role=admin` | 保证命令行创建管理员时角色正确；普通用户默认仍为 `member` |
 
@@ -73,6 +72,7 @@
 | Stage 5 当前环境缺少 `pytest-django` | 执行 `python -m pip install -r back-end/requirements.txt` 补齐依赖 |
 | Stage 5 `create_superuser()` 初始默认 role 为 `member` | 增加自定义 `UserManager` 和 manager 迁移，补强测试转绿 |
 | Stage 5 本机默认 MySQL 数据库不存在 | `docs/back-end-accounts.md` 记录 `CREATE DATABASE` 和迁移命令 |
+| Stage 5 pytest 下仍回退 SQLite | 增加数据库配置测试后删除 SQLite 分支，固定 MySQL `localhost:3306` |
 
 ## Resources
 - `AGENTS.md`
