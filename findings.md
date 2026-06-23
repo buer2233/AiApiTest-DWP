@@ -49,6 +49,10 @@
 | Jenkins 参数通过环境变量传递给 `ci_runner` | Groovy 只负责参数和 stage 编排，pytest 目标解析、node id 拆分、重试和 summary 继续集中在 `api-test/tools/ci_runner.py` |
 | `PYTEST_NODE_IDS` 支持换行和英文逗号 | Jenkins text 参数便于人工粘贴多个 pytest node id，Python 执行器负责去空和去重 |
 | Jenkins `Run API Tests` 使用 `catchError` | pytest 失败时仍要执行归档和 Allure 发布，否则失败 node id 和 summary 无法在构建页查看 |
+| Stage 5 后端运行配置默认使用本地 MySQL | 满足用户确认的后端数据库方案，凭据通过环境变量读取 |
+| Stage 5 pytest 使用 SQLite 测试库 | 账户 API 单元测试不依赖真实 MySQL 密码和本机数据库状态 |
+| `accounts.User` 继承 Django `AbstractUser` 并只新增 `role` | 保留 Django username/password/session/admin 基础能力，最小化 Stage 5 实现面 |
+| `create_superuser()` 默认写入 `role=admin` | 保证命令行创建管理员时角色正确；普通用户默认仍为 `member` |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -65,6 +69,10 @@
 | Stage 4 初始测试无法找到 Jenkins env 适配函数 | 先写失败测试，再新增 Jenkins env 到 `RunRequest` 的转换入口 |
 | Stage 4 初始 Jenkins 静态测试找不到 Pipeline 文件 | 创建 `jenkins/Jenkinsfile` 和 `jenkins/scripts/api-test-pipeline.groovy` |
 | Stage 4 发现 pytest 失败会阻断归档 | 增加补强测试并用 `catchError` 保留后续归档阶段 |
+| Stage 5 初始账户测试无法收集 | 创建 Django settings、urls、accounts app 和 pytest 配置后解决 |
+| Stage 5 当前环境缺少 `pytest-django` | 执行 `python -m pip install -r back-end/requirements.txt` 补齐依赖 |
+| Stage 5 `create_superuser()` 初始默认 role 为 `member` | 增加自定义 `UserManager` 和 manager 迁移，补强测试转绿 |
+| Stage 5 本机默认 MySQL 数据库不存在 | `docs/back-end-accounts.md` 记录 `CREATE DATABASE` 和迁移命令 |
 
 ## Resources
 - `AGENTS.md`

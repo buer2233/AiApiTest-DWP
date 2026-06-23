@@ -4,7 +4,7 @@
 与用户共同设计接口自动化框架的 CICD 和网页端测试平台能力，用户确认需求后再按 TDD 开发。
 
 ## Current Phase
-Phase 4: TDD Implementation - Stage 4 complete, ready for Stage 5 after commit and push
+Phase 4: TDD Implementation - Stage 5 complete, ready for commit and push
 
 ## Phases
 
@@ -55,6 +55,12 @@ Phase 4: TDD Implementation - Stage 4 complete, ready for Stage 5 after commit a
 - [x] Stage 4 实现 `ci_runner` Jenkins env 适配、Jenkinsfile 和 Groovy Pipeline
 - [x] Stage 4 验证 GREEN
 - [x] Stage 4 编写 `docs/jenkins-pipeline.md`
+- [x] Stage 5 需求分析和验收标准确认
+- [x] Stage 5 先写登录、角色和权限测试
+- [x] Stage 5 验证 RED
+- [x] Stage 5 创建 Django/DRF 工程和 accounts app
+- [x] Stage 5 验证 GREEN
+- [x] Stage 5 编写 `docs/back-end-accounts.md`
 - **Status:** complete
 
 ### Phase 5: Verification and Delivery
@@ -86,6 +92,8 @@ Phase 4: TDD Implementation - Stage 4 complete, ready for Stage 5 after commit a
 | `AGENTS.md` 和 `README.md` 作为后续 AI 接手入口，必须优先体现 CICD 测试平台定位 | 用户明确要求避免新 AI 丢失开发任务记录和要求 |
 | Stage 3 在 `api-test/tools/` 中沉淀统一执行器 | 后续 Jenkins 和 DRF 都复用同一执行入口，避免重试逻辑分叉 |
 | 执行器运行前清理旧 pytest `lastfailed` cache | 防止历史失败 node id 污染当前运行 summary |
+| Stage 5 测试环境使用 SQLite，运行配置默认 MySQL | 本地/CI 单元测试不应依赖真实 MySQL 凭据；实际服务默认按用户要求连接本地 MySQL |
+| `create_superuser()` 默认写入 `role=admin` | 满足“可创建管理员”的验收，同时普通用户默认仍为 `member` |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
@@ -97,6 +105,10 @@ Phase 4: TDD Implementation - Stage 4 complete, ready for Stage 5 after commit a
 | Stage 4 初始 RED: Jenkins env 适配函数不存在 | 1 | 新增 `parse_jenkins_node_ids()` 和 `build_run_request_from_jenkins_env()` |
 | Stage 4 初始 RED: Jenkinsfile/Groovy Pipeline 不存在 | 1 | 创建 `jenkins/Jenkinsfile` 和 `jenkins/scripts/api-test-pipeline.groovy` |
 | Stage 4 补强 RED: pytest 失败会中断归档阶段 | 1 | `Run API Tests` 使用 `catchError`，失败后继续归档和发布 Allure |
+| Stage 5 初始 RED: Django settings 未配置 | 1 | 创建 `back-end/config`、`manage.py`、`pytest.ini` 和 accounts app |
+| Stage 5 环境错误: `--reuse-db` 无法识别 | 1 | 安装 `back-end/requirements.txt` 补齐 `pytest-django` |
+| Stage 5 补强 RED: `create_superuser()` 默认 role 为 `member` | 1 | 新增自定义 `UserManager` 和 manager 迁移 |
+| Stage 5 MySQL 检查 warning: 默认数据库不存在 | 1 | 文档记录本地 MySQL 建库命令，测试使用隔离数据库 |
 
 ## Notes
 - 默认使用简体中文沟通。
