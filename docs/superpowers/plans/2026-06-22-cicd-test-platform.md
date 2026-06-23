@@ -913,7 +913,7 @@ npm test
 | 2026-06-23 | Stage 3 | complete | 新增 pytest node id 读取工具和 CI 重试执行器，支持模块运行、选择 node id、一键失败重试、summary 和运行产物输出 | RED: `tools` 不存在、旧 lastfailed 污染、负数 retry_count；GREEN: 13 passed；回归: 20 passed；烟测: exit code 0 | committed and pushed | Stage 3 完成，具体提交记录见 git 历史 |
 | 2026-06-23 | Stage 4 | complete | 新增 Jenkins 参数兼容适配、Jenkinsfile、Groovy Pipeline、静态验证测试和 Jenkins 文档 | RED: 2 failed/3 failed/1 failed；GREEN: ci_runner 10 passed，Jenkins 静态 4 passed，api-test 回归 22 passed，Jenkins env 烟测 exit code 0 | committed and pushed: `e38e415` | 本地未连接真实 Jenkins，已记录验证限制 |
 | 2026-06-23 | Stage 5 | complete | 新增 DRF 后端基础工程、Token 登录/登出/me API、自定义用户角色和权限入口；补强数据库配置为强制 MySQL `localhost:3306` | RED: settings 未配置；补强 RED: createsuperuser 默认 member；数据库配置 RED: pytest 下仍为 SQLite；GREEN: database settings 1 passed，accounts 6 passed，Django check 通过 | committed and pushed: `05ad778` | 首次 `git push` 曾失败，后续已重新推送成功 |
-| 2026-06-23 | Stage 6 | complete | 新增 `test_runs` app、测试任务/失败用例模型、Allure 失败解析、runner 适配和测试任务/失败重试/报告入口 API | RED: `apps.test_runs` 不存在；GREEN: Stage 6 9 passed，Django check 通过，后端回归 19 passed | pending commit and push | MySQL 长 node id 唯一索引过长，已移除该约束 |
+| 2026-06-23 | Stage 6 | complete | 新增 `test_runs` app、测试任务/失败用例模型、Allure 失败解析、runner 适配和测试任务/失败重试/报告入口 API | RED: `apps.test_runs` 不存在；GREEN: Stage 6 9 passed，Django check 通过，后端回归 19 passed | committed and pushed: `37eba96` | MySQL 长 node id 唯一索引过长，已移除该约束 |
 
 ## 17. 风险与处理策略
 
