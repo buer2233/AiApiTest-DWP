@@ -2,7 +2,7 @@
 
 import allure
 
-from test_case.page_api.public.base_api import BaseAPI
+from page_api.public.base_api import BaseAPI
 
 
 class GbifAPI(BaseAPI):
