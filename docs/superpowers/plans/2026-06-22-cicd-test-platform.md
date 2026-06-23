@@ -118,7 +118,7 @@ D:/AI/AiApiTest-DWP/
 | Stage 5 | DRF 后端基础工程与用户角色 | complete | 建立 DRF Token 认证、本地 MySQL、管理员/普通用户角色 |
 | Stage 6 | 测试任务与失败用例 API | complete | 保存测试任务、失败用例、重试任务、报告路径和执行日志 |
 | Stage 7 | Jenkins 查询与触发 API | complete | 后端支持 Jenkins job/build 查询、触发、日志查看，并兼容 Windows/Linux |
-| Stage 8 | Vue 3 前端基础与登录 | pending | 建立 Vue 3、Element Plus、登录态、布局、菜单 |
+| Stage 8 | Vue 3 前端基础与登录 | complete | 建立 Vue 3、Element Plus、登录态、布局、菜单 |
 | Stage 9 | 模块通过率与失败用例页面 | pending | 实现参考截图的模块列表、失败用例弹窗、重试入口 |
 | Stage 10 | 报告展示、联调、文档和交付 | pending | 打开 Allure 静态 HTML 报告，完成全链路联调和文档交付 |
 
@@ -728,7 +728,7 @@ GREEN:
 - Create: `front-end/tests/auth.spec.ts`
 - Create: `docs/front-end-login.md`
 
-- [ ] **Step 1: 写前端登录测试**
+- [x] **Step 1: 写前端登录测试**
 
 测试目标：
 - 未登录访问平台页跳转到登录页。
@@ -738,11 +738,11 @@ GREEN:
 运行：
 
 ```powershell
-cd D:\AI\AiApiTest-DWP\front-end
+cd D:\AI\Hermes\dev\AiApiTest-DWP\front-end
 npm test -- auth.spec.ts
 ```
 
-- [ ] **Step 2: 创建 Vue 3 工程**
+- [x] **Step 2: 创建 Vue 3 工程**
 
 默认依赖：
 - Vue 3
@@ -755,7 +755,7 @@ npm test -- auth.spec.ts
 - Vitest
 - Vue Test Utils
 
-- [ ] **Step 3: 实现基础布局**
+- [x] **Step 3: 实现基础布局**
 
 页面结构参考截图：
 - 顶部导航。
@@ -768,6 +768,25 @@ npm test -- auth.spec.ts
 - 本地前端可启动。
 - `docs/front-end-login.md` 记录前端启动命令、登录流程、测试命令和测试结果。
 - 完成单独 `git commit` 和 `git push`。
+
+执行结果：
+
+```text
+RED:
+- npm test -- auth.spec.ts -> 1 failed，失败原因是 `@/api/auth` 等 Stage 8 前端实现模块不存在。
+
+GREEN:
+- npm test -- auth.spec.ts -> 1 passed, 4 tests passed
+- npm test -> 1 passed, 4 tests passed
+- npm run build -> built successfully
+- npm audit --omit=dev -> found 0 vulnerabilities
+
+浏览器检查:
+- http://localhost:5173/platform 未登录跳转到 /login?redirect=/platform。
+- 注入本地测试 token 后可进入平台基础布局。
+- 修复窄桌面下 Stage 8 卡片标题被指标网格挤压的问题。
+- 移动宽度登录页无文本重叠，表单可滚动访问。
+```
 
 ## 14. Stage 9: 模块通过率与失败用例页面
 
@@ -929,6 +948,7 @@ npm test
 | 2026-06-23 | Stage 5 | complete | 新增 DRF 后端基础工程、Token 登录/登出/me API、自定义用户角色和权限入口；补强数据库配置为强制 MySQL `localhost:3306` | RED: settings 未配置；补强 RED: createsuperuser 默认 member；数据库配置 RED: pytest 下仍为 SQLite；GREEN: database settings 1 passed，accounts 6 passed，Django check 通过 | committed and pushed: `05ad778` | 首次 `git push` 曾失败，后续已重新推送成功 |
 | 2026-06-23 | Stage 6 | complete | 新增 `test_runs` app、测试任务/失败用例模型、Allure 失败解析、runner 适配和测试任务/失败重试/报告入口 API | RED: `apps.test_runs` 不存在；GREEN: Stage 6 9 passed，Django check 通过，后端回归 19 passed | committed and pushed: `37eba96` | MySQL 长 node id 唯一索引过长，已移除该约束 |
 | 2026-06-23 | Stage 7 | complete | 新增 Jenkins client、Jenkins 查询/触发 API、Pipeline 参数转换和触发记录模型 | RED: `apps.jenkins_integration` 不存在；GREEN: Stage 7 12 passed，Django check 通过，迁移检查通过，后端回归 31 passed | committed and pushed: `8d9c9e4` | 测试使用 fake HTTP/monkeypatch，不依赖真实 Jenkins |
+| 2026-06-23 | Stage 8 | complete | 新增 Vue 3/Vite/TypeScript 前端工程、Pinia 登录态、Vue Router 路由守卫、Axios 认证 API、Element Plus 登录页和平台基础布局，并按 getdesign Claude `DESIGN.md` 落地简约风格 | RED: `@/api/auth` 缺失；GREEN: `npm test -- auth.spec.ts` 4 passed，`npm test` 4 passed，`npm run build` 成功，生产依赖审计 0 vulnerabilities | committed，待 push | 浏览器检查通过；开发依赖审计仍有漏洞提示，暂不强制升级 |
 
 ## 17. 风险与处理策略
 

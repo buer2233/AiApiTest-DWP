@@ -118,6 +118,22 @@
   - 2026-06-23：创建 `docs/jenkins-api.md`，记录 Jenkins 配置、接口、参数转换、测试命令和 fake Jenkins 验证限制。
   - 2026-06-23：提交 Stage 7：`8d9c9e4 stage7: add jenkins integration APIs`。
   - 2026-06-23：执行 `git push` 成功，远端 `main` 已更新到 `8d9c9e4`。
+  - 2026-06-23：开始 Stage 8：Vue 3 前端基础与登录。按用户要求使用 `frontend-design` 技能，并参考 getdesign Claude 设计风格。
+  - 2026-06-23：执行 `npx getdesign@latest add claude` 成功，在 `front-end/DESIGN.md` 安装 Claude 风格设计参考。
+  - 2026-06-23：创建 `front-end/tests/auth.spec.ts`、`tests/setup.ts`、`package.json`、`vite.config.ts` 和 `tsconfig.json`，先写未登录跳转、登录保存 token/user、admin/member 进入平台测试。
+  - 2026-06-23：运行 Stage 8 初始 RED：`cd front-end; npm test -- auth.spec.ts`，结果 1 failed，失败原因是 `@/api/auth` 等前端实现模块不存在。
+  - 2026-06-23：创建 Vue 3 前端基础工程：`src/main.ts`、`src/App.vue`、`src/router/index.ts`、`src/stores/auth.ts`、`src/api/http.ts`、`src/api/auth.ts`、`src/views/LoginView.vue`、`src/layouts/AppLayout.vue`、`src/styles/main.css`。
+  - 2026-06-23：运行 Stage 8 初始 GREEN 前发现测试未复用生产路由守卫，修正为 `createPlatformRouter()` 统一生产和测试入口，并在测试 setup 的 `beforeEach` 清理 localStorage。
+  - 2026-06-23：运行 Stage 8 精确测试确认 GREEN：`cd front-end; npm test -- auth.spec.ts`，结果 1 passed，4 tests passed。
+  - 2026-06-23：运行 `npm run build` 首次失败，缺少 `@types/node`；添加依赖后再次构建遇到第三方类型声明和 `ImportMeta.env` 类型问题，添加 `vite/client` 并启用 `skipLibCheck` 后构建通过。
+  - 2026-06-23：运行前端全量测试：`cd front-end; npm test`，结果 1 passed，4 tests passed。
+  - 2026-06-23：运行构建验证：`cd front-end; npm run build`，结果 built successfully；记录 Vite 第三方注释和首包体积警告。
+  - 2026-06-23：运行生产依赖审计：`cd front-end; npm audit --omit=dev`，结果 found 0 vulnerabilities；完整依赖树仍有开发依赖漏洞提示，暂不强制升级。
+  - 2026-06-23：启动 Vite 开发服务并用 Playwright 检查：未登录访问 `/platform` 跳转到 `/login?redirect=/platform`；注入本地测试 token 后可进入平台基础布局。
+  - 2026-06-23：浏览器截图发现窄桌面下 Stage 8 卡片标题被指标网格挤压，调整响应式断点后复查通过。
+  - 2026-06-23：移动视口检查登录页无文本重叠，表单可向下滚动访问。
+  - 2026-06-23：创建 `docs/front-end-login.md`，记录 Stage 8 范围、登录流程、路由、设计、TDD、测试命令、浏览器检查和已知问题。
+  - 2026-06-23：提交 Stage 8：`stage8: add vue frontend login shell`。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -183,6 +199,13 @@
 | Stage 7 Django check | `cd back-end; python manage.py check` | Django 配置无系统检查问题 | System check identified no issues | passed |
 | Stage 7 migration check | `cd back-end; python manage.py makemigrations --check --dry-run` | 模型和迁移一致 | No changes detected | passed |
 | Stage 7 backend regression | `cd back-end; python -m pytest -v` | 后端回归全部通过 | 31 passed | passed |
+| Stage 8 auth RED | `cd front-end; npm test -- auth.spec.ts` | 前端实现模块缺失导致失败 | 1 failed: `Failed to resolve import "@/api/auth"` | passed |
+| Stage 8 auth GREEN | `cd front-end; npm test -- auth.spec.ts` | 登录和路由守卫测试通过 | 1 passed, 4 tests passed | passed |
+| Stage 8 frontend regression | `cd front-end; npm test` | 前端测试全部通过 | 1 passed, 4 tests passed | passed |
+| Stage 8 build | `cd front-end; npm run build` | TypeScript 检查和 Vite 构建通过 | built successfully；存在第三方注释和 chunk size 警告 | passed |
+| Stage 8 prod audit | `cd front-end; npm audit --omit=dev` | 生产依赖无漏洞 | found 0 vulnerabilities | passed |
+| Stage 8 browser guard | Playwright 打开 `http://localhost:5173/platform` | 未登录跳转登录页 | URL 为 `/login?redirect=/platform` | passed |
+| Stage 8 browser layout | Playwright 注入本地 token 后打开 `/platform` | 平台基础布局可见且无挤压 | 修正响应式断点后截图通过 | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -204,12 +227,17 @@
 | 2026-06-23 | Stage 6 MySQL 长索引错误：`Specified key was too long` | 1 | 移除 `(test_run, node_id)` 唯一约束，保留完整 node id 字段 |
 | 2026-06-23 | Stage 6 复用测试库残留：`Table 'test_runs_testrun' already exists` | 1 | 使用 `--create-db` 重建 MySQL 测试库 |
 | 2026-06-23 | Stage 7 初始 RED：`ModuleNotFoundError: No module named 'apps.jenkins_integration'` | 1 | 创建 Jenkins 集成 app、client、API、配置和迁移 |
+| 2026-06-23 | Stage 8 初始 RED：`Failed to resolve import "@/api/auth"` | 1 | 创建认证 API、Pinia store、路由、登录页和平台布局 |
+| 2026-06-23 | Stage 8 构建错误：缺少 `@types/node` | 1 | 添加 `@types/node` 开发依赖 |
+| 2026-06-23 | Stage 8 构建错误：Element Plus / VueUse 类型声明和 `ImportMeta.env` 类型问题 | 1 | 添加 `vite/client` 类型并启用 `skipLibCheck` |
+| 2026-06-23 | Stage 8 Playwright 首次连接 dev server 被拒绝 | 1 | 改用后台进程启动 Vite 并确认端口 5173 可访问 |
+| 2026-06-23 | Stage 8 窄桌面平台卡片标题被挤压 | 1 | 提高响应式断点，平台卡片在内容宽度不足时改为单列 |
 
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 7 complete and pushed |
-| Where am I going? | Stage 8：Vue 3 前端基础与登录 |
+| Where am I? | Stage 8 complete，已 git commit，待 git push |
+| Where am I going? | Stage 9：模块通过率与失败用例页面 |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、Stage 6 测试任务与失败用例 API、Stage 7 Jenkins 查询与触发 API、RED/GREEN 测试和文档记录 |
+| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、Stage 6 测试任务与失败用例 API、Stage 7 Jenkins 查询与触发 API、Stage 8 Vue 3 前端基础与登录、RED/GREEN 测试和文档记录 |
