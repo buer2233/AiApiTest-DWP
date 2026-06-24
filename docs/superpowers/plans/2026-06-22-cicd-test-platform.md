@@ -990,7 +990,7 @@ GREEN:
 | 2026-06-23 | Docker services support | complete | 统一 MySQL 和 Jenkins 两个 Docker 服务，新增 Compose、`.env.example`、一键启动脚本、可选 Jenkins 工具链镜像和部署文档 | RED: Docker 部署静态测试 4 failed；GREEN: Docker/Jenkins 静态测试 15 passed；Compose 默认和可选 override 配置校验通过；脚本语法检查通过 | not committed | 当前已有同名运行容器，未执行 `docker compose up` 覆盖；工具链镜像构建因网络/下载超时改为可选 |
 | 2026-06-24 | Stage 9 | complete | 新增模块通过率页、测试任务 API 前端封装、模块运行表格、筛选条、失败用例弹窗、失败重试/一键失败重试/模块重试/Jenkins/Allure 入口，并延续 Claude 风格 | RED: `@/api/testRuns` 缺失；GREEN: Stage 9 精确测试 7 passed，前端全量 12 passed，`npm run build` 成功 | committed and pushed: `f094edf` | Playwright 已检查桌面和移动端；Element Plus 在 jsdom 中使用测试专用 stub |
 | 2026-06-24 | Project info assets | complete | 新增 `project-info/AGENTS.md`、`project-info/CLAUDE.md`，生成项目架构图，覆盖 api-test、Jenkins、DRF、Vue 3 前端、Docker、Allure 报告和失败重试链路 | 图像生成完成；原始图 `1672x941`，4K 版本 `3840x2160` | not committed | 本次只处理项目说明资料和上下文记录，未触碰既有前端未提交改动 |
-| 2026-06-24 | Stage 10 | complete | 新增受控 Allure 静态报告服务、报告根目录安全校验、模块表格报告入口测试、运行手册和最终集成报告 | RED: 后端报告缺 index/静态路由/根目录约束，前端缺报告入口触发点；GREEN: 后端 34 passed，前端 13 passed，api-test 26 passed，Jenkins 15 passed，真实 api-test 14 passed, 1 skipped | ready to commit and push | `.idea/workspace.xml` 仅本地恢复 PyCharm 配置，不纳入提交；真实 Jenkins 需人工环境验证 |
+| 2026-06-24 | Stage 10 | complete | 新增受控 Allure 静态报告服务、报告根目录安全校验、模块表格报告入口测试、运行手册和最终集成报告 | RED: 后端报告缺 index/静态路由/根目录约束，前端缺报告入口触发点；GREEN: 后端 34 passed，前端 13 passed，api-test 26 passed，Jenkins 15 passed，真实 api-test 14 passed, 1 skipped | committed and pushed: `3fea369` | `.idea/workspace.xml` 仅本地恢复 PyCharm 配置，不纳入提交；真实 Jenkins 需人工环境验证 |
 
 ## 17. 风险与处理策略
 
