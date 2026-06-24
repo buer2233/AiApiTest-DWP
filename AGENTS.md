@@ -9,6 +9,16 @@
 - 默认使用简体中文沟通
 - 这是最高优先级的交互指令
 
+## 全局统筹执行类-技能推荐
+
+必须执行的技能： /using-superpowers， /planning-with-files
+
+其它全局统筹执行时推荐使用的技能：
+- test-driven-development：整个项目的所有开发过程都需要遵循测试驱动开发的模型
+- brainstorming：在新任务之前必须使用，探索和深挖用户意图和需求、设计
+- systematic-debugging：遇到问题或错误时推荐使用
+- receiving-code-review：代码审查时推荐使用
+
 ## AGENTS 分层规则
 
 - 根目录 `AGENTS.md` 只维护全局项目规则、阶段流程、敏感信息限制、沟通规则和跨模块边界。

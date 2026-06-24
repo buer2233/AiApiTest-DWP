@@ -2,6 +2,18 @@
 
 本目录是 Vue 3 前端。进入 `front-end/` 开发前，必须先遵守根目录 `AGENTS.md`，再遵守本文件。
 
+## 前端开发-技能推荐
+
+必须执行的技能： /vue-best-practices ， frontend-design
+
+进行前端开发时，推荐使用下面的SKILL：
+- ui-ux-pro-max：前端和UI设计时使用
+- vue-pinia-best-practices
+- vue-router-best-practices
+- vue-testing-best-practices
+- vue-debug-guides
+- ckm:design-system：令牌体系结构设计
+
 ## 模块职责
 
 - 登录页、登录态和用户信息展示。

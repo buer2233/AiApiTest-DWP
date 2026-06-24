@@ -2,6 +2,15 @@
 
 本目录是 Django REST Framework 后端。进入 `back-end/` 开发前，必须先遵守根目录 `AGENTS.md`，再遵守本文件。
 
+## 后端开发-技能推荐
+
+进行后端开发时推荐使用下面的技能：
+- django-tdd：进行django后端开发时需要使用的TDD开发流程
+- api-design：REST API 设计、状态码、分页、错误模型
+- python-patterns：Python 风格、类型、健壮性和可维护性
+- python-testing： pytest 策略、fixture、mock、参数化
+- systematic-debugging：遇到问题或错误时推荐使用
+
 ## 模块职责
 
 - 用户登录、登出、当前用户信息。
