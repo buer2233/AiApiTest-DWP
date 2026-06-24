@@ -4,7 +4,7 @@
 与用户共同设计接口自动化框架的 CICD 和网页端测试平台能力，用户确认需求后再按 TDD 开发。
 
 ## Current Phase
-Phase 5: Verification and Delivery - Stage 10 complete, commit and push pending
+Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services runbook and Playwright login verification complete
 
 ## Phases
 
@@ -110,6 +110,10 @@ Phase 5: Verification and Delivery - Stage 10 complete, commit and push pending
 - [x] 总结改动和后续建议
 - [x] 按用户要求逐个读取 `back-end` Python 文件并补齐详细中文注释
 - [x] 验证后端注释补齐不影响功能：`compileall`、Django check、迁移检查、后端 pytest 均通过
+- [x] 编写当前项目所有服务快速启动说明文档
+- [x] 启动 Docker MySQL 和 Jenkins
+- [x] 启动 DRF 后端和 Vue 3 前端
+- [x] 使用 Playwright 验证登录进入测试平台
 - **Status:** complete
 
 ## Key Questions

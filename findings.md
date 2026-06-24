@@ -74,6 +74,8 @@
 | Stage 10 Allure 报告服务只允许 `ALLURE_REPORTS_ROOT` 内路径 | 后端返回 `/reports/<run_id>/` 前会确认 `report_path/index.html` 存在，且 `report_path` 位于配置根目录下，避免泄露任意本地目录 |
 | Stage 10 前端报告入口继续复用 `GET /api/test-runs/{id}/report/` | 保持 Stage 6/9 已建立的接口契约，模块表格和失败弹窗都打开后端返回的受控 URL |
 | 后端注释补齐不改变业务行为 | 本次只新增文件级、类级、方法级和关键步骤注释；`compileall`、Django check、迁移检查和后端 34 条测试均通过 |
+| 快速启动文档按 Docker 默认端口对齐 | `docs/quick-start-all-services.md` 以 Docker MySQL `127.0.0.1:3307`、Jenkins `8080`、后端 `8000`、前端 `5173` 为默认本地启动路径 |
+| 复用旧 MySQL 数据卷时密码以数据卷真实状态为准 | `.env` 只影响后续容器环境，不会修改已有 `aiapitest-mysql-data` 内 root 密码；本次本机旧数据卷 root 可空密码登录，因此后端启动验收使用空密码环境变量 |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -114,6 +116,10 @@
 | Stage 10 报告路径需要避免任意目录暴露 | 增加 `ALLURE_REPORTS_ROOT` 和根目录约束测试，根目录外报告路径返回 404 |
 | Stage 10 api-test 回归因本地 PyCharm 配置缺少 `api-test/runpytest.py` 配置失败 | 该文件是未跟踪 IDE 状态；已本地恢复运行配置用于满足现有本地测试，不纳入 Stage 10 提交 |
 | 后端注释补齐需要覆盖测试和迁移文件 | 已逐个直接读取 `back-end` 下 Python 文件，并为业务代码、配置、迁移、测试和包初始化文件添加对应说明 |
+| Docker daemon 初始未运行 | 已启动 Docker Desktop 并等待 `docker info` 成功后继续部署 |
+| `docker compose up` 遇到同名容器冲突 | 本机已有 `aiapitest-mysql`、`aiapitest-jenkins` 旧容器；未删除容器和数据卷，改用 `docker start` 复用 |
+| `.env` 示例密码和旧 MySQL 数据卷 root 密码不一致 | 通过 `docker exec aiapitest-mysql mysqladmin ping -uroot --silent` 确认旧数据卷 root 空密码可用；本次后端运行环境设置为空密码完成验收，并在快速启动文档补充排查说明 |
+| PowerShell 直接 `Start-Process npm` 启动前端异常 | 改用 `cmd /c npm run dev -- --host 127.0.0.1 --port 5173 > .vite-dev.log 2>&1` 启动并保留本地临时日志 |
 
 ## Resources
 - `AGENTS.md`
@@ -126,3 +132,4 @@
 - 参考图 1：模块通过率列表页包含顶部导航、左侧菜单、筛选区、模块/库类型页签、模块表格、通过率、运行时间，以及“一键失败重试”“模块重试”“更多”菜单；更多菜单含近 7 天、近 30 天、上传报告、Jenkins 任务、环境比对、作废等入口。
 - 参考图 2：失败用例弹窗包含用例名、来源、日期、错误类型、执行状态等筛选项，支持选择失败用例，展示用例名、用例描述、错误类型、断言、执行状态、错误信息/确认信息；顶部有 Jenkins 任务、测试账号、替换测试账号、更多菜单；更多菜单含失败重试和一键失败重试。
 - Stage 9 浏览器检查：`/platform` 注入本地登录态和 mock 测试任务数据后可展示模块通过率；点击失败重试可打开失败用例弹窗；桌面和移动端无明显文本重叠，控制台无 warning/error。
+- 2026-06-24 快速启动验收：Playwright 清空浏览器存储后访问 `http://127.0.0.1:5173/platform`，自动跳转 `/login?redirect=/platform`；使用本地演示账号 `admin/admin123456` 登录后进入 `/platform`，页面显示平台菜单、模块通过率、Jenkins 任务、Allure 报告入口和 admin 用户信息。控制台唯一错误为 `favicon.ico` 404，不影响登录链路。

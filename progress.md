@@ -291,6 +291,11 @@
 | Backend comments Django check | `cd back-end; python manage.py check` | 注释补齐不影响 Django 配置加载 | System check identified no issues | passed |
 | Backend comments migration check | `cd back-end; python manage.py makemigrations --check --dry-run` | 注释补齐不引入模型迁移变化 | No changes detected | passed |
 | Backend comments regression | `cd back-end; python -m pytest -v` | 注释补齐不影响后端功能 | 34 passed | passed |
+| Quick start Docker daemon check | `docker compose version` / `docker info` | Docker Compose 可用，Docker daemon 初始未运行后启动 Docker Desktop | Compose v5.1.4；Docker Desktop 启动后 `DOCKER_READY` | passed |
+| Quick start Docker services | `docker start aiapitest-mysql aiapitest-jenkins` | 复用本机已有 Docker 容器启动 MySQL 和 Jenkins | MySQL `127.0.0.1:3307` running；Jenkins `8080/50001` running | passed |
+| Quick start backend | `python manage.py check` / `python manage.py shell -c ...` / `python manage.py runserver 127.0.0.1:8000` | 后端连接 Docker MySQL，创建本地演示管理员并启动 API 服务 | Django check 通过；登录接口返回 admin 用户；`/api/docs/` 可访问 | passed |
+| Quick start frontend | `cmd /c npm run dev -- --host 127.0.0.1 --port 5173` | 启动 Vue 3 前端开发服务 | Vite ready，`http://127.0.0.1:5173/platform` 可访问 | passed |
+| Quick start Playwright login | Playwright 打开 `/platform`，输入 `admin/admin123456` 登录 | 验证完整浏览器登录链路 | 匿名跳转 `/login?redirect=/platform`，登录后进入 `/platform`；唯一 console error 为 favicon 404 | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -327,6 +332,10 @@
 | 2026-06-24 | Stage 10 安全 RED：`report_path` 可指向 `ALLURE_REPORTS_ROOT` 外部目录 | 1 | 增加报告根目录配置和 `Path.relative_to()` 约束 |
 | 2026-06-24 | Stage 10 前端 RED：模块表格 Allure 报告入口缺少稳定触发点 | 1 | 给下拉项增加 `data-test`，保持原事件流 |
 | 2026-06-24 | Stage 10 回归：`api-test` 因本地 `.idea/workspace.xml` 缺少 `api-test/runpytest.py` 配置失败 | 1 | 本地恢复未跟踪 PyCharm 配置，随后 `api-test` 回归 26 passed |
+| 2026-06-24 | Docker daemon 未运行导致 `docker compose up` 无法连接 Docker API | 1 | 启动 Docker Desktop 并等待 `docker info` 成功 |
+| 2026-06-24 | `docker compose up` 因同名 `aiapitest-mysql` 容器冲突失败 | 1 | 确认旧容器属于本项目且端口正确，改用 `docker start` 复用，不删除数据卷 |
+| 2026-06-24 | 新 `.env` 示例密码和旧 MySQL 数据卷 root 密码不一致，后端连接报 `Access denied` | 1 | 确认旧数据卷 root 空密码可登录，本次后端启动使用空密码环境变量，并在快速启动文档记录排查方式 |
+| 2026-06-24 | 直接 `Start-Process npm` 未成功启动 Vite | 1 | 改用 `cmd /c npm run dev -- --host 127.0.0.1 --port 5173 > .vite-dev.log 2>&1` 启动 |
 
 ## Session: 2026-06-24 Backend Comment Completion
 
@@ -337,6 +346,20 @@
   - 覆盖范围包含 `manage.py`、`config/`、`apps/accounts/`、`apps/test_runs/`、`apps/jenkins_integration/`、迁移文件、包初始化文件和 `tests/` 下所有测试文件。
   - 使用 AST 检查确认 `back-end` 下所有类和函数均已有 docstring。
   - 运行 `python -m compileall -q .`、`python manage.py check`、`python manage.py makemigrations --check --dry-run` 和 `python -m pytest -v`，均通过。
+
+## Session: 2026-06-24 Quick Start All Services
+
+- **Status:** complete
+- Actions taken:
+  - 新增 `docs/quick-start-all-services.md`，覆盖 Docker MySQL/Jenkins、DRF 后端、Vue 3 前端、本地演示管理员、Playwright 登录验收、排查和停止命令。
+  - 执行 `docker compose version` 确认 Compose 可用；首次 `docker compose up` 因 Docker daemon 未运行失败，启动 Docker Desktop 后恢复。
+  - 发现本机已有 `aiapitest-mysql` 和 `aiapitest-jenkins` 旧容器，未删除容器和数据卷，使用 `docker start` 复用启动。
+  - Jenkins HTTP 登录页已就绪，MySQL 端口 `127.0.0.1:3307` 连通。
+  - 发现新 `.env` 示例密码与旧 MySQL 数据卷 root 密码不一致；确认旧数据卷 root 空密码可用，后端本次运行使用空密码环境变量完成验收。
+  - 执行后端 `python manage.py check` 通过，创建本地演示管理员 `admin/admin123456`，启动 `127.0.0.1:8000`。
+  - 启动 Vite 前端到 `127.0.0.1:5173`，并通过 `.vite-dev.log` 确认 Vite ready。
+  - 后端登录接口返回本地 admin 用户和 token，未在文档中记录 token 值。
+  - Playwright 清空浏览器存储后访问 `/platform`，确认匿名跳转登录页；输入 `admin/admin123456` 登录后进入平台首页。
 
 ## 5-Question Reboot Check
 | Question | Answer |
