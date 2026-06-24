@@ -4,7 +4,7 @@
 与用户共同设计接口自动化框架的 CICD 和网页端测试平台能力，用户确认需求后再按 TDD 开发。
 
 ## Current Phase
-Phase 4: TDD Implementation - Stage 8 complete, pending git commit/push
+Phase 4: TDD Implementation - Stage 9 complete, pending git commit/push
 
 ## Phases
 
@@ -92,6 +92,16 @@ Phase 4: TDD Implementation - Stage 8 complete, pending git commit/push
 - [x] 新增 `.env.example`、PowerShell/Bash 一键部署脚本和 Docker 部署文档
 - [x] 新增可选 Jenkins 工具链 Dockerfile/override
 - [x] 验证 Docker 部署静态测试、Compose config 和脚本语法检查
+- [x] Stage 9 需求分析和验收标准确认
+- [x] Stage 9 使用 `frontend-design`、`canvas-design` 和现有 Vue/Element Plus 模式；`frontend-patterns` 当前环境不可用
+- [x] Stage 9 先写模块通过率页面和失败用例弹窗测试
+- [x] Stage 9 验证 RED
+- [x] Stage 9 实现测试任务 API 前端封装、模块运行表格、筛选条、失败用例弹窗和重试/报告/Jenkins 入口
+- [x] Stage 9 验证 GREEN
+- [x] Stage 9 运行构建和浏览器检查
+- [x] Stage 9 编写 `docs/module-pass-rate-and-failures.md` 和 `docs/stage9-visual-philosophy.md`
+- [ ] Stage 9 git commit
+- [ ] Stage 9 git push
 - **Status:** complete
 
 ### Phase 5: Verification and Delivery
@@ -156,6 +166,8 @@ Phase 4: TDD Implementation - Stage 8 complete, pending git commit/push
 | Stage 8 构建错误: 缺少 `@types/node` | 1 | 添加 `@types/node` 开发依赖 |
 | Stage 8 构建错误: Element Plus / VueUse 第三方声明噪声和 `ImportMeta.env` 类型缺失 | 1 | 在 `tsconfig.json` 添加 `vite/client` 类型并启用 `skipLibCheck` |
 | Stage 8 Playwright 首次连接 dev server 失败 | 1 | 改用后台 `Start-Process` 启动后确认端口可访问 |
+| Stage 9 初始 RED: `@/api/testRuns` 不存在 | 1 | 新增测试任务 API 前端封装和页面组件 |
+| Stage 9 jsdom 错误: Element Plus `ElTable`/`ElSelect` 递归更新 | 1 | 在测试中使用轻量 Element Plus stub，保留业务组件真实实现 |
 
 ## Notes
 - 默认使用简体中文沟通。

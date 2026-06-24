@@ -65,6 +65,12 @@
 | Stage 8 Vite dev server 需要代理 `/api` 到 `http://127.0.0.1:8000` | 前端 Axios 默认 baseURL 为 `/api`，没有代理时浏览器请求会落到 Vite 自身并返回 404 |
 | Docker Compose 统一 MySQL 和 Jenkins 两个服务 | 使用根目录 `docker-compose.yml` 管理 `mysql:8.4` 和 `jenkins/jenkins:lts-jdk17`，保留与现有容器一致的容器名、数据卷和默认端口，`.env` 本地化配置且不入库 |
 | Jenkins 工具链镜像作为可选 override | 默认 Compose 优先快速拉起官方 Jenkins；需要容器内直接执行 pytest/Allure 时，再用 `docker-compose.jenkins-tools.yml` 构建带 Python、git、Allure CLI 的镜像，避免一键部署被外网下载阻塞 |
+| `project-info/` 用于项目说明资料和架构图 | 该目录只沉淀架构图、架构说明书、执行流程图等交接资料，不放业务实现代码、运行产物或敏感配置 |
+| 项目架构图同时保留原始生成图和 4K 放大图 | 内置图像生成工具实际输出约 `1672x941`，已复制到 `project-info/project-architecture.png`，并额外生成 `3840x2160` 的 `project-info/project-architecture-4k.png` 作为交付查看版本 |
+| Stage 9 前端直接适配 Stage 6 `test_runs` API | 模块通过率、失败用例弹窗、选择重试、一键失败重试、模块重试和报告入口复用后端既有契约 |
+| Stage 9 使用测试专用 Element Plus stub | `el-table`/`el-select` 在 jsdom 中出现递归更新；stub 保留文本渲染、v-model、按钮点击和 row slot 行为，业务代码仍用真实 Element Plus |
+| Stage 9 保持 Claude 风格的操作台界面 | 深色模块页头、奶油指标卡、紧凑筛选条和表格，避免营销页或装饰性卡片堆叠 |
+| `frontend-patterns` 技能当前环境不可用 | 已通过技能列表、文件搜索和延迟工具搜索确认未找到，Stage 9 以现有 Vue/Element Plus 项目模式补位 |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -97,6 +103,9 @@
 | Stage 8 完整依赖树审计有开发依赖漏洞提示 | `npm audit --omit=dev` 为 0 vulnerabilities；本阶段不使用 `npm audit fix --force` |
 | 前端登录请求 `admin/admin` 报错 | Vite 代理修复后该请求返回 400，原因是 DRF 测试管理员密码为 `admin123456`，不是 Jenkins 管理员密码 `admin` |
 | Jenkins 工具链镜像构建超时 | 默认 Compose 改为官方 Jenkins 镜像快速启动，保留 `docker-compose.jenkins-tools.yml` 作为可选工具链镜像 |
+| 用户消息中写作 `AGENGT.md` | 按仓库既有分层规则理解为 `AGENTS.md`，已在 `project-info/` 创建 `AGENTS.md`，并让同级 `CLAUDE.md` 仅引用 `@AGENTS.md` |
+| Stage 9 初始前端测试无法解析 `@/api/testRuns` | 确认 RED 后创建测试任务 API 封装、模块页面、表格、筛选和失败用例弹窗 |
+| Element Plus 表格和选择器在 jsdom 中递归更新 | 前端测试改用轻量 stub，避免测试环境测量/teleport 噪声；Playwright 仍验证真实 Element Plus 渲染 |
 
 ## Resources
 - `AGENTS.md`
@@ -108,3 +117,4 @@
 ## Visual/Browser Findings
 - 参考图 1：模块通过率列表页包含顶部导航、左侧菜单、筛选区、模块/库类型页签、模块表格、通过率、运行时间，以及“一键失败重试”“模块重试”“更多”菜单；更多菜单含近 7 天、近 30 天、上传报告、Jenkins 任务、环境比对、作废等入口。
 - 参考图 2：失败用例弹窗包含用例名、来源、日期、错误类型、执行状态等筛选项，支持选择失败用例，展示用例名、用例描述、错误类型、断言、执行状态、错误信息/确认信息；顶部有 Jenkins 任务、测试账号、替换测试账号、更多菜单；更多菜单含失败重试和一键失败重试。
+- Stage 9 浏览器检查：`/platform` 注入本地登录态和 mock 测试任务数据后可展示模块通过率；点击失败重试可打开失败用例弹窗；桌面和移动端无明显文本重叠，控制台无 warning/error。
