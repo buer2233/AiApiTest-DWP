@@ -175,6 +175,14 @@
   - 2026-06-24：新增 `project-info/项目架构说明书.md`，用简体中文详细说明项目定位、总体架构、技术栈、测试执行链路、失败重试、报告产物、Docker 职责、模块边界和后续演进方向。
   - 2026-06-24：根据 `project-info/项目架构说明书.md` 使用 imagegen 重新生成中文项目说明图，保存为 `project-info/project-architecture-cn.png`，实际尺寸 `1536x1024`。
   - 2026-06-24：基于中文项目说明图输出等比 4K 画布版本 `project-info/project-architecture-cn-4k.png`，尺寸 `3840x2160`。
+  - 2026-06-24：开始 Stage 10：报告展示、联调、文档和交付。按方案 A 实现后端受控 Allure 静态 HTML 报告服务。
+  - 2026-06-24：后端先补 `tests/test_test_runs_api.py` 报告测试，确认 RED：缺失 `index.html` 仍返回报告 URL，`/reports/<run_id>/` 未挂载。
+  - 2026-06-24：新增 `serve_allure_report()`、`ALLURE_REPORTS_ROOT` 和 `/reports/<run_id>/`、`/reports/<run_id>/<path>` 路由。
+  - 2026-06-24：补强后端安全 RED，确认 `report_path` 指向报告根目录外部时仍被接受；随后限制 `report_path` 必须位于 `ALLURE_REPORTS_ROOT` 下。
+  - 2026-06-24：前端补 `module-pass-rate.spec.ts` 报告入口测试，确认 RED：模块表格 Allure 报告入口缺少稳定触发点。
+  - 2026-06-24：给 `ModuleRunTable.vue` 的 Allure 报告下拉项增加稳定 `data-test`，继续通过既有 `openReport` 事件打开后端返回的 URL。
+  - 2026-06-24：创建 `docs/test-platform-runbook.md` 和 `docs/final-integration-report.md`，记录运行、报告访问、失败重试、Jenkins、验证结果和已知限制。
+  - 2026-06-24：运行真实 `api-test` demo：`python runpytest.py --case-path test_case/test_gbif_case --clean`，结果 14 passed, 1 skipped，Allure HTML 生成成功。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -268,6 +276,17 @@
 | Stage 9 frontend regression | `cd front-end; npm test` | 前端全部测试通过 | 4 files passed，12 tests passed | passed |
 | Stage 9 build | `cd front-end; npm run build` | TypeScript 检查和 Vite 构建通过 | built successfully；存在既有 VueUse 注释和 chunk size warning | passed |
 | Stage 9 browser check | Playwright 打开 `http://127.0.0.1:5173/platform` 并 mock API | 模块页和失败弹窗真实 Element Plus 渲染可用 | 桌面/移动端可读，控制台无 warning/error | passed |
+| Stage 10 backend report RED | `cd back-end; python -m pytest tests/test_test_runs_api.py -v` | 报告缺失和静态路由缺口被测试捕获 | 2 failed, 7 passed | passed |
+| Stage 10 backend report security RED | `cd back-end; python -m pytest tests/test_test_runs_api.py -v` | 报告根目录外路径被测试捕获 | 1 failed, 9 passed | passed |
+| Stage 10 backend GREEN | `cd back-end; python -m pytest tests/test_test_runs_api.py -v` | 报告 URL、静态 HTML、根目录安全约束通过 | 10 passed | passed |
+| Stage 10 frontend report RED | `cd front-end; npm test -- module-pass-rate.spec.ts` | 模块表格报告入口缺少稳定触发点 | 1 failed, 3 passed | passed |
+| Stage 10 frontend report GREEN | `cd front-end; npm test -- module-pass-rate.spec.ts` | 模块表格报告入口打开后端返回 URL | 4 tests passed | passed |
+| Stage 10 backend regression | `cd back-end; python -m pytest -v` | 后端全部测试通过 | 34 passed | passed |
+| Stage 10 frontend regression | `cd front-end; npm test` | 前端全部测试通过 | 4 files passed, 13 tests passed | passed |
+| Stage 10 frontend build | `cd front-end; npm run build` | TypeScript 检查和 Vite 构建通过 | built successfully；保留既有 VueUse 注释和 chunk size warning | passed |
+| Stage 10 api-test regression | `cd api-test; python -m pytest tests -v` | api-test 自身测试通过 | 26 passed | passed |
+| Stage 10 jenkins regression | `cd jenkins; python -m pytest tests -v` | Jenkins/Docker 静态测试通过 | 15 passed | passed |
+| Stage 10 api-test smoke | `cd api-test; python runpytest.py --case-path test_case/test_gbif_case --clean` | demo 模块可执行并生成 Allure HTML | 14 passed, 1 skipped；报告生成到 `api-test/report/allure-report/20260624_162003` | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -300,12 +319,16 @@
 | 2026-06-24 | Stage 9 初始 RED：`@/api/testRuns` 缺失 | 1 | 创建测试任务 API 封装和 Stage 9 页面组件 |
 | 2026-06-24 | Stage 9 jsdom 错误：Element Plus `ElTable`/`ElSelect` 递归更新 | 1 | 前端测试改用轻量 Element Plus stub，业务运行仍使用真实 Element Plus |
 | 2026-06-24 | Stage 9 构建错误：测试 mock 响应 status 字段被推断为 `string` | 1 | 为 mock 响应补充 `PaginatedResponse<TestRun>` / `PaginatedResponse<FailureCase>` 类型 |
+| 2026-06-24 | Stage 10 RED：报告缺少 `index.html` 仍返回 URL，且 `/reports/<run_id>/` 未挂载 | 1 | 增加报告存在性校验和受控静态路由 |
+| 2026-06-24 | Stage 10 安全 RED：`report_path` 可指向 `ALLURE_REPORTS_ROOT` 外部目录 | 1 | 增加报告根目录配置和 `Path.relative_to()` 约束 |
+| 2026-06-24 | Stage 10 前端 RED：模块表格 Allure 报告入口缺少稳定触发点 | 1 | 给下拉项增加 `data-test`，保持原事件流 |
+| 2026-06-24 | Stage 10 回归：`api-test` 因本地 `.idea/workspace.xml` 缺少 `api-test/runpytest.py` 配置失败 | 1 | 本地恢复未跟踪 PyCharm 配置，随后 `api-test` 回归 26 passed |
 
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 9 complete and pushed |
-| Where am I going? | Stage 10：报告展示、联调、文档和交付 |
+| Where am I? | Stage 10 complete，等待提交和推送 |
+| Where am I going? | 提交并推送 Stage 10，随后进入后续真实 Jenkins/部署级验收 |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、Stage 6 测试任务与失败用例 API、Stage 7 Jenkins 查询与触发 API、Stage 8 Vue 3 前端基础与登录、Stage 9 模块通过率与失败用例页面、RED/GREEN 测试和文档记录 |
+| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、Stage 6 测试任务与失败用例 API、Stage 7 Jenkins 查询与触发 API、Stage 8 Vue 3 前端基础与登录、Stage 9 模块通过率与失败用例页面、Stage 10 受控 Allure 报告服务、最终联调验证和文档记录 |

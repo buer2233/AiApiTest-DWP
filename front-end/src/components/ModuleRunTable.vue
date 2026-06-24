@@ -104,7 +104,9 @@ function runDate(run: TestRun) {
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item @click="emit('openJenkins', row)">Jenkins 任务</el-dropdown-item>
-                  <el-dropdown-item @click="emit('openReport', row)">Allure 报告</el-dropdown-item>
+                  <el-dropdown-item :data-test="`open-report-${row.id}`" @click="emit('openReport', row)">
+                    Allure 报告
+                  </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>

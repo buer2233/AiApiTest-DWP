@@ -13,6 +13,7 @@
 - 通过 `jenkins/` 中的 Groovy Pipeline 在 Jenkins 上触发本地接口自动化执行。
 - 通过 `back-end/` 中的 DRF 服务管理用户、测试任务、失败用例、报告路径和 Jenkins 记录。
 - 通过 `front-end/` 中的 Vue 3 页面展示模块通过率、失败用例、重试入口、Jenkins 任务入口和 Allure 报告入口。
+- 通过 `back-end/` 受控服务 `/reports/<run_id>/` 打开 Allure 静态 HTML 报告。
 - 所有阶段的需求、测试、实现和验证记录统一沉淀到 `docs/`。
 - 项目架构说明书参考: `/project-info/项目架构说明书.md`
 
@@ -113,6 +114,12 @@ api-test/report/allure-report/<timestamp>/
 ## Docker 快速部署 MySQL 和 Jenkins
 
 本项目支持通过 Docker 快速部署本地 MySQL 和 Jenkins。详细部署说明见 [docker/DEPLOYMENT.md](docker/DEPLOYMENT.md)。
+
+## 平台运行手册
+
+第一版平台运行、报告访问、失败重试和验证命令见 [docs/test-platform-runbook.md](docs/test-platform-runbook.md)。
+
+最终联调记录见 [docs/final-integration-report.md](docs/final-integration-report.md)。
 
 ## 平台开发约定
 

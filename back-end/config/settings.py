@@ -118,3 +118,8 @@ JENKINS_BASE_URL = os.getenv("JENKINS_BASE_URL", "")
 JENKINS_USERNAME = os.getenv("JENKINS_USERNAME", "")
 JENKINS_API_TOKEN = os.getenv("JENKINS_API_TOKEN", "")
 JENKINS_DEFAULT_JOB = os.getenv("JENKINS_DEFAULT_JOB", "api-test")
+
+ALLURE_REPORTS_ROOT = os.getenv(
+    "ALLURE_REPORTS_ROOT",
+    str(BASE_DIR.parent / "api-test" / "runtime" / "ci-runs"),
+)

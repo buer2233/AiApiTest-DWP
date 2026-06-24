@@ -4,7 +4,7 @@
 与用户共同设计接口自动化框架的 CICD 和网页端测试平台能力，用户确认需求后再按 TDD 开发。
 
 ## Current Phase
-Phase 5: Verification and Delivery - Stage 9 complete and pushed, Stage 10 pending
+Phase 5: Verification and Delivery - Stage 10 complete, commit and push pending
 
 ## Phases
 
@@ -105,10 +105,10 @@ Phase 5: Verification and Delivery - Stage 9 complete and pushed, Stage 10 pendi
 - **Status:** complete
 
 ### Phase 5: Verification and Delivery
-- [ ] 运行相关自动化测试
-- [ ] 验证报告生成和平台流程
-- [ ] 总结改动和后续建议
-- **Status:** pending
+- [x] 运行相关自动化测试
+- [x] 验证报告生成和平台流程
+- [x] 总结改动和后续建议
+- **Status:** complete
 
 ## Key Questions
 1. 网页端测试平台是新增在本仓库内，还是对接已有平台？
@@ -142,6 +142,8 @@ Phase 5: Verification and Delivery - Stage 9 complete and pushed, Stage 10 pendi
 | Stage 8 前端登录态保存到 localStorage 的 `auth.token` 和 `auth.user` | 页面刷新后可维持本地登录态，后续 API 请求由 Axios 自动带 DRF Token |
 | Stage 8 路由守卫通过 `createPlatformRouter()` 复用到测试和生产路由 | 避免测试只验证静态 routes 而漏掉实际守卫行为 |
 | Stage 8 采用 getdesign Claude `DESIGN.md` 的暖陶土色、奶油画布和深色产品面板 | 满足用户要求的 Claude 简约风格，同时不做营销页 |
+| Stage 10 后端只服务 `ALLURE_REPORTS_ROOT` 下的 Allure HTML | 满足静态报告打开需求，同时避免 `report_path` 变成任意本地目录暴露入口 |
+| Stage 10 继续使用 `/api/test-runs/{id}/report/` 返回前端入口 URL | 保持 Stage 6/9 既有前后端契约，前端只打开后端返回的受控 URL |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
@@ -168,6 +170,10 @@ Phase 5: Verification and Delivery - Stage 9 complete and pushed, Stage 10 pendi
 | Stage 8 Playwright 首次连接 dev server 失败 | 1 | 改用后台 `Start-Process` 启动后确认端口可访问 |
 | Stage 9 初始 RED: `@/api/testRuns` 不存在 | 1 | 新增测试任务 API 前端封装和页面组件 |
 | Stage 9 jsdom 错误: Element Plus `ElTable`/`ElSelect` 递归更新 | 1 | 在测试中使用轻量 Element Plus stub，保留业务组件真实实现 |
+| Stage 10 报告 API RED: 缺失 `index.html` 时仍返回报告 URL | 1 | `_report_index_exists()` 校验 `report_path/index.html` |
+| Stage 10 静态报告 RED: `/reports/<run_id>/` 未挂载 | 1 | 新增 `serve_allure_report()` 和 URL 路由 |
+| Stage 10 安全补强 RED: `report_path` 可指向报告根目录外部 | 1 | 新增 `ALLURE_REPORTS_ROOT` 并限制报告目录必须在该根目录下 |
+| Stage 10 前端 RED: 模块表格 Allure 报告入口缺少稳定触发点 | 1 | 给报告下拉项增加 `data-test` 并覆盖 `window.open()` 行为 |
 
 ## Notes
 - 默认使用简体中文沟通。

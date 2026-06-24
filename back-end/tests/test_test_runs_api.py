@@ -263,13 +263,17 @@ def test_retry_module_uses_module_path_as_case_path():
     }
 
 
-def test_report_endpoint_returns_report_url_without_leaking_server_path():
+def test_report_endpoint_returns_report_url_without_leaking_server_path(tmp_path, settings):
+    settings.ALLURE_REPORTS_ROOT = str(tmp_path)
     user = create_user("report-user")
+    report_dir = tmp_path / "allure-report"
+    report_dir.mkdir()
+    (report_dir / "index.html").write_text("<html></html>", encoding="utf-8")
     test_run = TestRunModel.objects.create(
         run_id="report-run",
         case_path="test_case/test_gbif_case",
         status=TestRunModel.Status.PASSED,
-        report_path="api-test/runtime/ci-runs/report-run/allure-report",
+        report_path=str(report_dir),
         triggered_by=user,
     )
     client = authenticated_client(user)
@@ -281,3 +285,66 @@ def test_report_endpoint_returns_report_url_without_leaking_server_path():
         "report_url": "/reports/report-run/",
         "run_id": "report-run",
     }
+
+
+def test_report_endpoint_requires_existing_allure_index(tmp_path, settings):
+    settings.ALLURE_REPORTS_ROOT = str(tmp_path)
+    user = create_user("missing-report-user")
+    report_dir = tmp_path / "missing-report"
+    report_dir.mkdir()
+    test_run = TestRunModel.objects.create(
+        run_id="missing-report-run",
+        case_path="test_case/test_gbif_case",
+        status=TestRunModel.Status.PASSED,
+        report_path=str(report_dir),
+        triggered_by=user,
+    )
+    client = authenticated_client(user)
+
+    response = client.get(f"/api/test-runs/{test_run.id}/report/")
+
+    assert response.status_code == 404
+    assert response.data == {"detail": "Report is not available."}
+
+
+def test_report_static_entry_serves_allure_index(tmp_path, settings):
+    settings.ALLURE_REPORTS_ROOT = str(tmp_path)
+    user = create_user("static-report-user")
+    report_dir = tmp_path / "allure-report"
+    report_dir.mkdir()
+    (report_dir / "index.html").write_text("<html><body>Allure Report</body></html>", encoding="utf-8")
+    TestRunModel.objects.create(
+        run_id="static-report-run",
+        case_path="test_case/test_gbif_case",
+        status=TestRunModel.Status.PASSED,
+        report_path=str(report_dir),
+        triggered_by=user,
+    )
+    client = authenticated_client(user)
+
+    response = client.get("/reports/static-report-run/")
+
+    assert response.status_code == 200
+    assert b"Allure Report" in b"".join(response.streaming_content)
+
+
+def test_report_static_entry_rejects_paths_outside_report_root(tmp_path, settings):
+    settings.ALLURE_REPORTS_ROOT = str(tmp_path / "allowed")
+    user = create_user("unsafe-report-user")
+    report_dir = tmp_path / "outside" / "allure-report"
+    report_dir.mkdir(parents=True)
+    (report_dir / "index.html").write_text("<html><body>Unsafe</body></html>", encoding="utf-8")
+    test_run = TestRunModel.objects.create(
+        run_id="unsafe-report-run",
+        case_path="test_case/test_gbif_case",
+        status=TestRunModel.Status.PASSED,
+        report_path=str(report_dir),
+        triggered_by=user,
+    )
+    client = authenticated_client(user)
+
+    api_response = client.get(f"/api/test-runs/{test_run.id}/report/")
+    static_response = client.get("/reports/unsafe-report-run/")
+
+    assert api_response.status_code == 404
+    assert static_response.status_code == 404
