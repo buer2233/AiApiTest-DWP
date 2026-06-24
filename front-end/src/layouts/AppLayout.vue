@@ -5,11 +5,11 @@ import {
   FolderOpened,
   Link,
   Menu as MenuIcon,
-  Refresh,
   SwitchButton,
 } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
 
+import ModulePassRateView from '@/views/ModulePassRateView.vue';
 import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
@@ -63,50 +63,7 @@ async function handleLogout() {
       </el-header>
 
       <el-main class="platform-main">
-        <section class="toolbar-band">
-          <div>
-            <p class="eyebrow">Platform shell</p>
-            <h1>接口自动化执行概览</h1>
-          </div>
-          <div class="toolbar-actions">
-            <el-button :icon="Refresh" type="primary">一键失败重试</el-button>
-            <el-button plain>Jenkins 任务</el-button>
-          </div>
-        </section>
-
-        <section class="filter-strip">
-          <el-input placeholder="用例包名 / 模块名" />
-          <el-select placeholder="执行状态" value="">
-            <el-option label="全部" value="" />
-            <el-option label="通过" value="passed" />
-            <el-option label="失败" value="failed" />
-          </el-select>
-          <el-button plain>查询</el-button>
-        </section>
-
-        <section class="stage-card">
-          <div class="stage-card-copy">
-            <span class="badge">Stage 8</span>
-            <h2>登录态与基础布局已就绪</h2>
-            <p>
-              Stage 9 会在这里接入模块通过率表格、失败用例弹窗、选择重试和报告入口。
-            </p>
-          </div>
-          <div class="metric-grid">
-            <div>
-              <span>用户角色</span>
-              <strong>{{ auth.user?.role }}</strong>
-            </div>
-            <div>
-              <span>认证状态</span>
-              <strong>Token</strong>
-            </div>
-            <div>
-              <span>下一阶段</span>
-              <strong>模块通过率</strong>
-            </div>
-          </div>
-        </section>
+        <ModulePassRateView />
       </el-main>
     </el-container>
   </el-container>

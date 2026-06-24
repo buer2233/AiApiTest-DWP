@@ -151,6 +151,25 @@
   - 2026-06-23：运行 Compose 配置校验：`docker compose --env-file .env.example config` 和 `docker compose --env-file .env.example -f docker-compose.yml -f docker-compose.jenkins-tools.yml config`，均成功解析。
   - 2026-06-23：运行一键脚本语法检查：`bash -n scripts/deploy-docker.sh` 和 PowerShell Parser 检查 `scripts/deploy-docker.ps1`，均通过。
   - 2026-06-23：尝试构建 Jenkins 工具链镜像 `docker compose --env-file .env.example build jenkins`，两次超时；为保证新机器一键启动稳定，默认 Compose 改用官方 Jenkins 镜像，工具链镜像保留为可选 override。
+  - 2026-06-24：开始 Stage 9：模块通过率与失败用例页面。读取 Stage 9 上下文，确认 `frontend-patterns` 技能当前环境不可用，使用 `frontend-design`、`canvas-design` 和现有 Vue/Element Plus 项目模式补位。
+  - 2026-06-24：新增 `front-end/tests/module-pass-rate.spec.ts` 和 `front-end/tests/failure-cases-dialog.spec.ts`，先写模块列表、客户端筛选、模块重试、失败用例筛选、选择重试、一键失败重试和报告入口测试。
+  - 2026-06-24：运行 Stage 9 初始 RED：`cd front-end; npm test -- module-pass-rate.spec.ts`，失败原因是 `@/api/testRuns` 不存在。
+  - 2026-06-24：运行 Stage 9 初始 RED：`cd front-end; npm test -- failure-cases-dialog.spec.ts`，失败原因是 `@/api/testRuns` 不存在。
+  - 2026-06-24：创建 `front-end/src/api/testRuns.ts`、`RunFilters.vue`、`ModuleRunTable.vue`、`FailureCasesDialog.vue`、`ModulePassRateView.vue`，并将 `AppLayout.vue` 的 Stage 8 占位替换为模块通过率页面。
+  - 2026-06-24：实现后首次运行 Stage 9 测试遇到 Element Plus `ElTable`/`ElSelect` 在 jsdom 中递归更新，新增 `front-end/tests/element-plus-stubs.ts` 作为测试专用轻量 stub。
+  - 2026-06-24：运行 Stage 9 精确测试确认 GREEN：`npm test -- module-pass-rate.spec.ts` 3 passed，`npm test -- failure-cases-dialog.spec.ts` 4 passed。
+  - 2026-06-24：运行前端全量测试：`cd front-end; npm test`，结果 4 files passed，12 tests passed。
+  - 2026-06-24：运行构建验证：`cd front-end; npm run build` 成功，仍有既有 `@vueuse/core` 注释和大 chunk warning。
+  - 2026-06-24：补齐 Stage 9 Claude 风格 CSS：深色模块页头、奶油指标卡、筛选条、表格、通过率 pill、失败用例弹窗和移动端响应式。
+  - 2026-06-24：复用 Vite 服务 `http://127.0.0.1:5173/platform`，通过 Playwright 注入本地登录态并 mock Stage 9 API；确认模块通过率页和失败用例弹窗可渲染，桌面/移动端无明显文本重叠，控制台无 warning/error。
+  - 2026-06-24：创建 `docs/module-pass-rate-and-failures.md` 和 `docs/stage9-visual-philosophy.md`，记录 Stage 9 范围、TDD、设计、测试命令、浏览器检查和已知问题。
+  - 2026-06-24：开始 `project-info/` 项目说明资料任务，读取根目录 `AGENTS.md`、主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 和 `docker/DEPLOYMENT.md`。
+  - 2026-06-24：确认根目录没有 `.codegraph/`，当前工作区已有前端 Stage 9 相关未提交改动，本次仅新增/修改 `project-info/` 和上下文记录文件，不触碰前端改动。
+  - 2026-06-24：创建 `project-info/AGENTS.md`，约定该目录用于架构图、架构说明书、执行流程图等项目说明资料，不放业务实现代码、运行产物或敏感配置。
+  - 2026-06-24：创建 `project-info/CLAUDE.md`，内容仅为 `@AGENTS.md`。
+  - 2026-06-24：使用 imagegen 技能生成项目架构图，覆盖 Vue 3 前端、DRF 后端、Jenkins Pipeline、api-test 执行器、Allure 报告、Docker MySQL/Jenkins 和完整执行/重试/报告链路。
+  - 2026-06-24：将生成图复制到 `project-info/project-architecture.png`，实际尺寸 `1672x941`。
+  - 2026-06-24：基于生成图额外输出 `project-info/project-architecture-4k.png`，尺寸 `3840x2160`，用于满足 4K 查看和交付需求。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -233,6 +252,15 @@
 | Docker Compose tools override config | `docker compose --env-file .env.example -f docker-compose.yml -f docker-compose.jenkins-tools.yml config` | 可选 Jenkins 工具链 override 可解析 | 成功输出 build 配置和 `aiapitest-jenkins:lts-jdk17-tools` 镜像 | passed |
 | Docker scripts syntax | `bash -n scripts/deploy-docker.sh` 和 PowerShell Parser | 一键脚本无语法错误 | 均通过 | passed |
 | Jenkins tools image build | `docker compose --env-file .env.example build jenkins` | 构建工具链镜像 | 超时，改为可选 override；默认部署不依赖构建 | documented |
+| Project architecture image | imagegen 生成并复制到 `project-info/project-architecture.png` | 架构图覆盖 api-test、Jenkins、DRF、Vue 前端、Docker、Allure 报告链路 | 生成图尺寸 `1672x941`，内容完整 | passed |
+| 4K architecture image | 本地高质量放大到 `project-info/project-architecture-4k.png` | 提供 4K 分辨率版本 | `3840x2160`，文件已写入 `project-info/` | passed |
+| Stage 9 module page RED | `cd front-end; npm test -- module-pass-rate.spec.ts` | `@/api/testRuns` 缺失导致失败 | failed: import `@/api/testRuns` 不存在 | passed |
+| Stage 9 failure dialog RED | `cd front-end; npm test -- failure-cases-dialog.spec.ts` | `@/api/testRuns` 缺失导致失败 | failed: import `@/api/testRuns` 不存在 | passed |
+| Stage 9 module page GREEN | `cd front-end; npm test -- module-pass-rate.spec.ts` | 模块页展示、筛选和模块重试通过 | 1 file passed，3 tests passed | passed |
+| Stage 9 failure dialog GREEN | `cd front-end; npm test -- failure-cases-dialog.spec.ts` | 失败用例筛选、选择重试、一键重试和报告入口通过 | 1 file passed，4 tests passed | passed |
+| Stage 9 frontend regression | `cd front-end; npm test` | 前端全部测试通过 | 4 files passed，12 tests passed | passed |
+| Stage 9 build | `cd front-end; npm run build` | TypeScript 检查和 Vite 构建通过 | built successfully；存在既有 VueUse 注释和 chunk size warning | passed |
+| Stage 9 browser check | Playwright 打开 `http://127.0.0.1:5173/platform` 并 mock API | 模块页和失败弹窗真实 Element Plus 渲染可用 | 桌面/移动端可读，控制台无 warning/error | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -262,12 +290,15 @@
 | 2026-06-23 | Stage 8 登录请求打到 Vite 返回 404 | 1 | 新增 Vite `/api` 代理到 `http://127.0.0.1:8000`，并补测试 |
 | 2026-06-23 | Stage 8 `admin/admin` 登录返回 400 | 1 | 确认是密码错误；DRF 测试管理员密码为 `admin123456` |
 | 2026-06-23 | Jenkins 工具链 Dockerfile 构建超时 | 2 | 默认 Compose 使用官方 Jenkins 镜像快速启动；工具链镜像通过 `docker-compose.jenkins-tools.yml` 可选启用 |
+| 2026-06-24 | Stage 9 初始 RED：`@/api/testRuns` 缺失 | 1 | 创建测试任务 API 封装和 Stage 9 页面组件 |
+| 2026-06-24 | Stage 9 jsdom 错误：Element Plus `ElTable`/`ElSelect` 递归更新 | 1 | 前端测试改用轻量 Element Plus stub，业务运行仍使用真实 Element Plus |
+| 2026-06-24 | Stage 9 构建错误：测试 mock 响应 status 字段被推断为 `string` | 1 | 为 mock 响应补充 `PaginatedResponse<TestRun>` / `PaginatedResponse<FailureCase>` 类型 |
 
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Stage 8 complete and pushed |
-| Where am I going? | Stage 9：模块通过率与失败用例页面 |
+| Where am I? | Stage 9 complete, pending git commit/push |
+| Where am I going? | Stage 10：报告展示、联调、文档和交付 |
 | What's the goal? | 为现有接口自动化框架设计并实现 CICD 与网页端测试平台能力 |
 | What have I learned? | 见 `findings.md` |
-| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、Stage 6 测试任务与失败用例 API、Stage 7 Jenkins 查询与触发 API、Stage 8 Vue 3 前端基础与登录、RED/GREEN 测试和文档记录 |
+| What have I done? | 已完成 Stage 2 迁移、PyCharm 旧路径修复、Stage 3 node id 与 CI 执行器、Stage 4 Jenkins Groovy Pipeline、Stage 5 DRF 后端基础工程与用户角色、Stage 6 测试任务与失败用例 API、Stage 7 Jenkins 查询与触发 API、Stage 8 Vue 3 前端基础与登录、Stage 9 模块通过率与失败用例页面、RED/GREEN 测试和文档记录 |

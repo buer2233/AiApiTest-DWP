@@ -119,7 +119,7 @@ D:/AI/AiApiTest-DWP/
 | Stage 6 | 测试任务与失败用例 API | complete | 保存测试任务、失败用例、重试任务、报告路径和执行日志 |
 | Stage 7 | Jenkins 查询与触发 API | complete | 后端支持 Jenkins job/build 查询、触发、日志查看，并兼容 Windows/Linux |
 | Stage 8 | Vue 3 前端基础与登录 | complete | 建立 Vue 3、Element Plus、登录态、布局、菜单 |
-| Stage 9 | 模块通过率与失败用例页面 | pending | 实现参考截图的模块列表、失败用例弹窗、重试入口 |
+| Stage 9 | 模块通过率与失败用例页面 | complete | 实现参考截图的模块列表、失败用例弹窗、重试入口 |
 | Stage 10 | 报告展示、联调、文档和交付 | pending | 打开 Allure 静态 HTML 报告，完成全链路联调和文档交付 |
 
 ## 5. 阶段开发规则
@@ -800,7 +800,7 @@ GREEN:
 - Create: `front-end/tests/failure-cases-dialog.spec.ts`
 - Create: `docs/module-pass-rate-and-failures.md`
 
-- [ ] **Step 1: 写模块列表测试**
+- [x] **Step 1: 写模块列表测试**
 
 测试目标：
 - 展示日期、用例包名、模块名、负责人、自动化负责人、通过率、运行时间、操作。
@@ -815,7 +815,7 @@ cd D:\AI\AiApiTest-DWP\front-end
 npm test -- module-pass-rate.spec.ts
 ```
 
-- [ ] **Step 2: 写失败用例弹窗测试**
+- [x] **Step 2: 写失败用例弹窗测试**
 
 测试目标：
 - 弹窗展示失败用例列表。
@@ -832,7 +832,7 @@ cd D:\AI\AiApiTest-DWP\front-end
 npm test -- failure-cases-dialog.spec.ts
 ```
 
-- [ ] **Step 3: 实现页面**
+- [x] **Step 3: 实现页面**
 
 设计约束：
 - 不做营销页，默认进入可操作测试平台。
@@ -844,6 +844,25 @@ npm test -- failure-cases-dialog.spec.ts
 - 页面可完成模块查看、失败用例查看、选择重试、打开报告。
 - `docs/module-pass-rate-and-failures.md` 记录页面功能、接口依赖、测试命令和测试结果。
 - 完成单独 `git commit` 和 `git push`。
+
+执行结果：
+
+```text
+RED:
+- npm test -- module-pass-rate.spec.ts -> 初始失败，`@/api/testRuns` 缺失
+- npm test -- failure-cases-dialog.spec.ts -> 初始失败，`@/api/testRuns` 缺失
+- 实现后首次 jsdom 运行遇到 Element Plus table/select 递归更新，改用测试专用轻量 stub 验证页面行为
+
+GREEN:
+- npm test -- module-pass-rate.spec.ts -> 3 passed
+- npm test -- failure-cases-dialog.spec.ts -> 4 passed
+- npm test -> 4 files passed, 12 tests passed
+- npm run build -> built successfully，保留既有 VueUse 注释和大 chunk warning
+
+浏览器检查:
+- Playwright 复用 Vite dev server，注入本地登录态并 mock Stage 9 API。
+- `/platform` 可展示模块通过率和失败用例弹窗；桌面/移动端无明显文本重叠；控制台无 warning/error。
+```
 
 ## 15. Stage 10: 报告展示、联调、文档和交付
 
@@ -950,6 +969,8 @@ npm test
 | 2026-06-23 | Stage 7 | complete | 新增 Jenkins client、Jenkins 查询/触发 API、Pipeline 参数转换和触发记录模型 | RED: `apps.jenkins_integration` 不存在；GREEN: Stage 7 12 passed，Django check 通过，迁移检查通过，后端回归 31 passed | committed and pushed: `8d9c9e4` | 测试使用 fake HTTP/monkeypatch，不依赖真实 Jenkins |
 | 2026-06-23 | Stage 8 | complete | 新增 Vue 3/Vite/TypeScript 前端工程、Pinia 登录态、Vue Router 路由守卫、Axios 认证 API、Element Plus 登录页和平台基础布局，并按 getdesign Claude `DESIGN.md` 落地简约风格 | RED: `@/api/auth` 缺失；GREEN: `npm test -- auth.spec.ts` 4 passed，`npm test` 4 passed，`npm run build` 成功，生产依赖审计 0 vulnerabilities | committed and pushed: `d6fc6a7` | 浏览器检查通过；开发依赖审计仍有漏洞提示，暂不强制升级 |
 | 2026-06-23 | Docker services support | complete | 统一 MySQL 和 Jenkins 两个 Docker 服务，新增 Compose、`.env.example`、一键启动脚本、可选 Jenkins 工具链镜像和部署文档 | RED: Docker 部署静态测试 4 failed；GREEN: Docker/Jenkins 静态测试 15 passed；Compose 默认和可选 override 配置校验通过；脚本语法检查通过 | not committed | 当前已有同名运行容器，未执行 `docker compose up` 覆盖；工具链镜像构建因网络/下载超时改为可选 |
+| 2026-06-24 | Stage 9 | complete | 新增模块通过率页、测试任务 API 前端封装、模块运行表格、筛选条、失败用例弹窗、失败重试/一键失败重试/模块重试/Jenkins/Allure 入口，并延续 Claude 风格 | RED: `@/api/testRuns` 缺失；GREEN: Stage 9 精确测试 7 passed，前端全量 12 passed，`npm run build` 成功 | pending commit/push | Playwright 已检查桌面和移动端；Element Plus 在 jsdom 中使用测试专用 stub |
+| 2026-06-24 | Project info assets | complete | 新增 `project-info/AGENTS.md`、`project-info/CLAUDE.md`，生成项目架构图，覆盖 api-test、Jenkins、DRF、Vue 3 前端、Docker、Allure 报告和失败重试链路 | 图像生成完成；原始图 `1672x941`，4K 版本 `3840x2160` | not committed | 本次只处理项目说明资料和上下文记录，未触碰既有前端未提交改动 |
 
 ## 17. 风险与处理策略
 
