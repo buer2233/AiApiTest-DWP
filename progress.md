@@ -172,6 +172,9 @@
   - 2026-06-24：使用 imagegen 技能生成项目架构图，覆盖 Vue 3 前端、DRF 后端、Jenkins Pipeline、api-test 执行器、Allure 报告、Docker MySQL/Jenkins 和完整执行/重试/报告链路。
   - 2026-06-24：将生成图复制到 `project-info/project-architecture.png`，实际尺寸 `1672x941`。
   - 2026-06-24：基于生成图额外输出 `project-info/project-architecture-4k.png`，尺寸 `3840x2160`，用于满足 4K 查看和交付需求。
+  - 2026-06-24：新增 `project-info/项目架构说明书.md`，用简体中文详细说明项目定位、总体架构、技术栈、测试执行链路、失败重试、报告产物、Docker 职责、模块边界和后续演进方向。
+  - 2026-06-24：根据 `project-info/项目架构说明书.md` 使用 imagegen 重新生成中文项目说明图，保存为 `project-info/project-architecture-cn.png`，实际尺寸 `1536x1024`。
+  - 2026-06-24：基于中文项目说明图输出等比 4K 画布版本 `project-info/project-architecture-cn-4k.png`，尺寸 `3840x2160`。
 - Files created/modified:
   - `task_plan.md`
   - `findings.md`
@@ -256,6 +259,8 @@
 | Jenkins tools image build | `docker compose --env-file .env.example build jenkins` | 构建工具链镜像 | 超时，改为可选 override；默认部署不依赖构建 | documented |
 | Project architecture image | imagegen 生成并复制到 `project-info/project-architecture.png` | 架构图覆盖 api-test、Jenkins、DRF、Vue 前端、Docker、Allure 报告链路 | 生成图尺寸 `1672x941`，内容完整 | passed |
 | 4K architecture image | 本地高质量放大到 `project-info/project-architecture-4k.png` | 提供 4K 分辨率版本 | `3840x2160`，文件已写入 `project-info/` | passed |
+| 中文项目说明图 | imagegen 根据 `project-info/项目架构说明书.md` 重新生成中文架构图 | 中文说明覆盖六个架构区域和 10 步链路 | 原始生成图 `1536x1024`，已保存到 `project-info/project-architecture-cn.png` | passed |
+| 中文项目说明图 4K 版 | 本地等比放入 4K 画布 | 提供 `3840x2160` 中文说明图 | `project-info/project-architecture-cn-4k.png` 尺寸为 `3840x2160` | passed |
 | Stage 9 module page RED | `cd front-end; npm test -- module-pass-rate.spec.ts` | `@/api/testRuns` 缺失导致失败 | failed: import `@/api/testRuns` 不存在 | passed |
 | Stage 9 failure dialog RED | `cd front-end; npm test -- failure-cases-dialog.spec.ts` | `@/api/testRuns` 缺失导致失败 | failed: import `@/api/testRuns` 不存在 | passed |
 | Stage 9 module page GREEN | `cd front-end; npm test -- module-pass-rate.spec.ts` | 模块页展示、筛选和模块重试通过 | 1 file passed，3 tests passed | passed |
