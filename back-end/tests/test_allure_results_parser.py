@@ -1,3 +1,7 @@
+"""Allure 结果解析测试。
+本文件验证后端能从 Allure 原始 JSON 中提取失败用例，并能安全处理缺失目录。
+"""
+
 import json
 from pathlib import Path
 
@@ -5,6 +9,12 @@ from apps.test_runs.services.allure_results_parser import parse_allure_failures
 
 
 def write_result(results_dir: Path, filename: str, payload: dict):
+    """写入一份测试用 Allure result JSON。
+    Args:
+        results_dir: 临时 Allure 结果目录。
+        filename: 结果文件名。
+        payload: 写入文件的 JSON 内容。
+    """
     results_dir.mkdir(parents=True, exist_ok=True)
     (results_dir / filename).write_text(
         json.dumps(payload, ensure_ascii=False),
@@ -13,6 +23,7 @@ def write_result(results_dir: Path, filename: str, payload: dict):
 
 
 def test_parse_allure_failures_extracts_failed_case_details(tmp_path):
+    """验证解析器只提取失败用例并转换为 FailureCase 所需字段。"""
     results_dir = tmp_path / "allure-results"
     write_result(
         results_dir,
@@ -59,6 +70,7 @@ def test_parse_allure_failures_extracts_failed_case_details(tmp_path):
 
 
 def test_parse_allure_failures_returns_empty_list_for_missing_directory(tmp_path):
+    """验证 Allure 结果目录不存在时返回空列表而不是抛异常。"""
     failures = parse_allure_failures(tmp_path / "missing-results")
 
     assert failures == []

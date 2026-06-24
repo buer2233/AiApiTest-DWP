@@ -108,6 +108,8 @@ Phase 5: Verification and Delivery - Stage 10 complete, commit and push pending
 - [x] 运行相关自动化测试
 - [x] 验证报告生成和平台流程
 - [x] 总结改动和后续建议
+- [x] 按用户要求逐个读取 `back-end` Python 文件并补齐详细中文注释
+- [x] 验证后端注释补齐不影响功能：`compileall`、Django check、迁移检查、后端 pytest 均通过
 - **Status:** complete
 
 ## Key Questions
@@ -144,6 +146,7 @@ Phase 5: Verification and Delivery - Stage 10 complete, commit and push pending
 | Stage 8 采用 getdesign Claude `DESIGN.md` 的暖陶土色、奶油画布和深色产品面板 | 满足用户要求的 Claude 简约风格，同时不做营销页 |
 | Stage 10 后端只服务 `ALLURE_REPORTS_ROOT` 下的 Allure HTML | 满足静态报告打开需求，同时避免 `report_path` 变成任意本地目录暴露入口 |
 | Stage 10 继续使用 `/api/test-runs/{id}/report/` 返回前端入口 URL | 保持 Stage 6/9 既有前后端契约，前端只打开后端返回的受控 URL |
+| 后端注释补齐只做可读性维护 | 不改变业务逻辑、模型字段、路由和测试断言；验证通过后单独提交推送 |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |

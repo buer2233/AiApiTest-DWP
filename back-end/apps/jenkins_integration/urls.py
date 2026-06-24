@@ -1,3 +1,7 @@
+"""Jenkins 集成 API 路由模块。
+本模块声明 Jenkins job、build、console log 和触发构建接口，统一挂载到 `/api/jenkins/`。
+"""
+
 from django.urls import path
 
 from .views import (

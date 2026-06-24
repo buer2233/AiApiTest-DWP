@@ -1,17 +1,31 @@
+"""测试任务与失败用例模型模块。
+本模块保存一次接口自动化执行的任务摘要、报告路径、触发来源和失败用例明细。
+后端、前端和 Jenkins 集成都围绕这些模型展示执行结果、发起重试和打开 Allure 报告。
+"""
+
 from django.conf import settings
 from django.db import models
 
 
 class TestRun(models.Model):
+    """接口自动化测试任务记录。
+    一条记录对应一次 pytest/CI 执行，包含执行参数、状态、产物路径、触发人和重试父任务。
+    """
+
+    # 避免 pytest 把 Django 模型类误识别为测试类。
     __test__ = False
 
     class RetryMode(models.TextChoices):
+        """测试任务重试模式。"""
+
         NONE = "none", "None"
         SELECTED = "selected", "Selected"
         ALL_FAILED = "all-failed", "All Failed"
         MODULE = "module", "Module"
 
     class Status(models.TextChoices):
+        """测试任务执行状态。"""
+
         PENDING = "pending", "Pending"
         RUNNING = "running", "Running"
         PASSED = "passed", "Passed"
@@ -19,6 +33,8 @@ class TestRun(models.Model):
         ERROR = "error", "Error"
 
     class TriggerSource(models.TextChoices):
+        """测试任务触发来源。"""
+
         API = "api", "API"
         JENKINS = "jenkins", "Jenkins"
         MANUAL = "manual", "Manual"
@@ -66,22 +82,34 @@ class TestRun(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        """测试任务默认按最新创建时间倒序展示。"""
+
         ordering = ["-created_at", "-id"]
 
     def __str__(self):
+        """返回任务唯一运行 ID，便于 Django admin 和日志展示。"""
         return self.run_id
 
 
 class FailureCase(models.Model):
+    """失败用例记录。
+    一条记录对应某次测试任务中的一个失败或 broken 用例，保存 pytest node id 和重试状态。
+    """
+
+    # 避免 pytest 把 Django 模型类误识别为测试类。
     __test__ = False
 
     class Status(models.TextChoices):
+        """Allure/pytest 失败用例状态。"""
+
         FAILED = "failed", "Failed"
         BROKEN = "broken", "Broken"
         SKIPPED = "skipped", "Skipped"
         UNKNOWN = "unknown", "Unknown"
 
     class RetryStatus(models.TextChoices):
+        """失败用例后续重试结果。"""
+
         NOT_RETRIED = "not-retried", "Not Retried"
         PASSED = "passed", "Passed"
         FAILED = "failed", "Failed"
@@ -118,7 +146,10 @@ class FailureCase(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        """失败用例按创建顺序稳定展示，方便前端列表和测试断言。"""
+
         ordering = ["id"]
 
     def __str__(self):
+        """返回 pytest node id，便于定位失败用例。"""
         return self.node_id

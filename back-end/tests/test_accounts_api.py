@@ -1,3 +1,7 @@
+"""账户认证与角色权限测试。
+本文件覆盖登录 token、当前用户、登出、角色保存、超级管理员默认角色和权限入口。
+"""
+
 import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
@@ -10,6 +14,14 @@ pytestmark = pytest.mark.django_db
 
 
 def create_user(username: str, role: str, password: str = "local-test-pass"):
+    """创建测试用户。
+    Args:
+        username: 测试用户名。
+        role: 平台角色。
+        password: 测试密码。
+    Returns:
+        User: 已创建的测试用户。
+    """
     user_model = get_user_model()
     return user_model.objects.create_user(
         username=username,
@@ -19,6 +31,7 @@ def create_user(username: str, role: str, password: str = "local-test-pass"):
 
 
 def test_user_can_login_receive_token_read_current_user_and_logout():
+    """验证用户可完成登录、读取当前用户和登出完整流程。"""
     user_model = get_user_model()
     user = create_user("stage5-admin", user_model.Role.ADMIN)
     client = APIClient()
@@ -52,6 +65,7 @@ def test_user_can_login_receive_token_read_current_user_and_logout():
 
 
 def test_admin_and_member_roles_can_be_saved():
+    """验证 admin/member 两种平台角色可以被正确保存。"""
     user_model = get_user_model()
 
     admin = create_user("role-admin", user_model.Role.ADMIN)
@@ -63,6 +77,7 @@ def test_admin_and_member_roles_can_be_saved():
 
 
 def test_create_superuser_defaults_to_admin_role():
+    """验证命令行创建超级管理员时默认写入 admin 角色。"""
     user_model = get_user_model()
 
     admin = user_model.objects.create_superuser(
@@ -77,6 +92,7 @@ def test_create_superuser_defaults_to_admin_role():
 
 @pytest.mark.parametrize("role", ["admin", "member"])
 def test_admin_and_member_can_access_platform_api_with_same_permissions(role):
+    """验证第一版 admin 和 member 都能访问平台基础 API。"""
     user = create_user(f"platform-{role}", role)
     client = APIClient()
     client.force_authenticate(user=user)
@@ -88,6 +104,7 @@ def test_admin_and_member_can_access_platform_api_with_same_permissions(role):
 
 
 def test_permissions_keep_admin_only_entrypoint():
+    """验证权限模块保留管理员专属判断入口。"""
     user_model = get_user_model()
     admin = create_user("permission-admin", user_model.Role.ADMIN)
     member = create_user("permission-member", user_model.Role.MEMBER)
