@@ -1,3 +1,7 @@
+"""accounts 初始迁移。
+本迁移创建自定义 User 模型，并在 Django 默认用户字段基础上增加平台 role 字段。
+"""
+
 # Generated for Stage 5 accounts bootstrap.
 
 import django.contrib.auth.models
@@ -7,6 +11,8 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    """创建账户用户表的初始迁移。"""
+
     initial = True
 
     dependencies = [

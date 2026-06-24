@@ -1,3 +1,7 @@
+"""测试任务与失败用例 API 测试。
+本文件用 fake api-test runner 验证任务创建、列表详情、失败用例查询、三类重试和 Allure 报告访问。
+"""
+
 import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -10,14 +14,28 @@ pytestmark = pytest.mark.django_db
 
 
 class FakeApiTestRunner:
+    """用于替代真实 api-test 执行器的测试替身。
+    记录调用参数，并按重试模式返回固定 summary，避免 API 测试启动真实 pytest。
+    """
+
     calls = []
 
     @classmethod
     def reset(cls):
+        """清空执行器调用记录。"""
         cls.calls = []
 
     @classmethod
     def run(cls, *, case_path, node_ids=None, retry_mode="none", retry_count=0):
+        """模拟 api-test runner 执行结果。
+        Args:
+            case_path: 测试模块路径。
+            node_ids: 指定重跑的 pytest node id。
+            retry_mode: 重试模式。
+            retry_count: 重试次数。
+        Returns:
+            dict: 与真实 runner summary 兼容的执行摘要。
+        """
         cls.calls.append(
             {
                 "case_path": case_path,
@@ -49,6 +67,7 @@ class FakeApiTestRunner:
 
 
 def create_user(username="stage6-user", role="member"):
+    """创建测试任务 API 测试用户。"""
     user_model = get_user_model()
     return user_model.objects.create_user(
         username=username,
@@ -58,6 +77,7 @@ def create_user(username="stage6-user", role="member"):
 
 
 def authenticated_client(user=None):
+    """返回已认证的 DRF APIClient。"""
     client = APIClient()
     client.force_authenticate(user=user or create_user())
     return client
@@ -65,6 +85,7 @@ def authenticated_client(user=None):
 
 @pytest.fixture(autouse=True)
 def fake_runner(monkeypatch):
+    """自动把视图层 ApiTestRunner 替换为 fake 实现。"""
     FakeApiTestRunner.reset()
     monkeypatch.setattr(
         "apps.test_runs.views.ApiTestRunner",
@@ -73,6 +94,7 @@ def fake_runner(monkeypatch):
 
 
 def test_create_test_run_records_summary_and_failure_cases():
+    """验证创建测试任务会保存 summary 并登记失败用例。"""
     client = authenticated_client()
 
     response = client.post(
@@ -103,6 +125,7 @@ def test_create_test_run_records_summary_and_failure_cases():
 
 
 def test_list_and_detail_test_runs():
+    """验证测试任务列表和详情接口返回任务摘要与失败数量。"""
     user = create_user("list-user")
     test_run = TestRunModel.objects.create(
         run_id="stored-run",
@@ -136,6 +159,7 @@ def test_list_and_detail_test_runs():
 
 
 def test_failure_cases_endpoint_returns_failures_for_run():
+    """验证失败用例接口只返回指定任务下的失败用例。"""
     user = create_user("failure-user")
     test_run = TestRunModel.objects.create(
         run_id="failure-run",
@@ -165,6 +189,7 @@ def test_failure_cases_endpoint_returns_failures_for_run():
 
 
 def test_retry_selected_failure_cases_creates_retry_run_and_marks_retry_status():
+    """验证选择失败用例重试会创建子任务并回写重试状态。"""
     user = create_user("retry-selected-user")
     original = TestRunModel.objects.create(
         run_id="original-selected",
@@ -203,6 +228,7 @@ def test_retry_selected_failure_cases_creates_retry_run_and_marks_retry_status()
 
 
 def test_retry_all_failed_uses_all_failed_node_ids():
+    """验证一键失败重试会收集原任务下所有 failed 用例 node id。"""
     user = create_user("retry-all-user")
     original = TestRunModel.objects.create(
         run_id="original-all",
@@ -236,6 +262,7 @@ def test_retry_all_failed_uses_all_failed_node_ids():
 
 
 def test_retry_module_uses_module_path_as_case_path():
+    """验证模块重试会把 module_path 作为 case_path 交给执行器。"""
     user = create_user("retry-module-user")
     original = TestRunModel.objects.create(
         run_id="original-module",
@@ -264,6 +291,7 @@ def test_retry_module_uses_module_path_as_case_path():
 
 
 def test_report_endpoint_returns_report_url_without_leaking_server_path(tmp_path, settings):
+    """验证报告 API 返回受控 URL 且不暴露服务器绝对路径。"""
     settings.ALLURE_REPORTS_ROOT = str(tmp_path)
     user = create_user("report-user")
     report_dir = tmp_path / "allure-report"
@@ -288,6 +316,7 @@ def test_report_endpoint_returns_report_url_without_leaking_server_path(tmp_path
 
 
 def test_report_endpoint_requires_existing_allure_index(tmp_path, settings):
+    """验证报告目录缺少 index.html 时报告 API 返回 404。"""
     settings.ALLURE_REPORTS_ROOT = str(tmp_path)
     user = create_user("missing-report-user")
     report_dir = tmp_path / "missing-report"
@@ -308,6 +337,7 @@ def test_report_endpoint_requires_existing_allure_index(tmp_path, settings):
 
 
 def test_report_static_entry_serves_allure_index(tmp_path, settings):
+    """验证 `/reports/<run_id>/` 可以服务 Allure 首页。"""
     settings.ALLURE_REPORTS_ROOT = str(tmp_path)
     user = create_user("static-report-user")
     report_dir = tmp_path / "allure-report"
@@ -329,6 +359,7 @@ def test_report_static_entry_serves_allure_index(tmp_path, settings):
 
 
 def test_report_static_entry_rejects_paths_outside_report_root(tmp_path, settings):
+    """验证报告服务拒绝 ALLURE_REPORTS_ROOT 外部路径。"""
     settings.ALLURE_REPORTS_ROOT = str(tmp_path / "allowed")
     user = create_user("unsafe-report-user")
     report_dir = tmp_path / "outside" / "allure-report"

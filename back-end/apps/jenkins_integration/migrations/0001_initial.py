@@ -1,9 +1,15 @@
+"""jenkins_integration 初始迁移。
+本迁移创建 JenkinsBuildRecord，用于保存平台触发 Jenkins 构建时的审计记录。
+"""
+
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    """创建 Jenkins 构建触发记录模型的初始迁移。"""
+
     initial = True
 
     dependencies = [

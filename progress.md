@@ -287,6 +287,10 @@
 | Stage 10 api-test regression | `cd api-test; python -m pytest tests -v` | api-test 自身测试通过 | 26 passed | passed |
 | Stage 10 jenkins regression | `cd jenkins; python -m pytest tests -v` | Jenkins/Docker 静态测试通过 | 15 passed | passed |
 | Stage 10 api-test smoke | `cd api-test; python runpytest.py --case-path test_case/test_gbif_case --clean` | demo 模块可执行并生成 Allure HTML | 14 passed, 1 skipped；报告生成到 `api-test/report/allure-report/20260624_162003` | passed |
+| Backend comments compile check | `cd back-end; python -m compileall -q .` | 后端所有 Python 文件语法可编译 | 无输出，退出码 0 | passed |
+| Backend comments Django check | `cd back-end; python manage.py check` | 注释补齐不影响 Django 配置加载 | System check identified no issues | passed |
+| Backend comments migration check | `cd back-end; python manage.py makemigrations --check --dry-run` | 注释补齐不引入模型迁移变化 | No changes detected | passed |
+| Backend comments regression | `cd back-end; python -m pytest -v` | 注释补齐不影响后端功能 | 34 passed | passed |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
@@ -323,6 +327,16 @@
 | 2026-06-24 | Stage 10 安全 RED：`report_path` 可指向 `ALLURE_REPORTS_ROOT` 外部目录 | 1 | 增加报告根目录配置和 `Path.relative_to()` 约束 |
 | 2026-06-24 | Stage 10 前端 RED：模块表格 Allure 报告入口缺少稳定触发点 | 1 | 给下拉项增加 `data-test`，保持原事件流 |
 | 2026-06-24 | Stage 10 回归：`api-test` 因本地 `.idea/workspace.xml` 缺少 `api-test/runpytest.py` 配置失败 | 1 | 本地恢复未跟踪 PyCharm 配置，随后 `api-test` 回归 26 passed |
+
+## Session: 2026-06-24 Backend Comment Completion
+
+- **Status:** complete
+- Actions taken:
+  - 按用户要求停止使用 CodeGraph，改为直接读取 `back-end` 下 Python 文件。
+  - 参考 `api-test/utils/timeout_http_adapter.py` 的注释风格，为后端代码补充文件级说明、类 docstring、方法/函数 docstring 和关键步骤注释。
+  - 覆盖范围包含 `manage.py`、`config/`、`apps/accounts/`、`apps/test_runs/`、`apps/jenkins_integration/`、迁移文件、包初始化文件和 `tests/` 下所有测试文件。
+  - 使用 AST 检查确认 `back-end` 下所有类和函数均已有 docstring。
+  - 运行 `python -m compileall -q .`、`python manage.py check`、`python manage.py makemigrations --check --dry-run` 和 `python -m pytest -v`，均通过。
 
 ## 5-Question Reboot Check
 | Question | Answer |

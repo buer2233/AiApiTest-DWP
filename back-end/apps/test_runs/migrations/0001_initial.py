@@ -1,9 +1,15 @@
+"""test_runs 初始迁移。
+本迁移创建测试任务 TestRun 和失败用例 FailureCase 两张核心业务表。
+"""
+
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    """创建测试任务与失败用例模型的初始迁移。"""
+
     initial = True
 
     dependencies = [

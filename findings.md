@@ -73,6 +73,7 @@
 | `frontend-patterns` 技能当前环境不可用 | 已通过技能列表、文件搜索和延迟工具搜索确认未找到，Stage 9 以现有 Vue/Element Plus 项目模式补位 |
 | Stage 10 Allure 报告服务只允许 `ALLURE_REPORTS_ROOT` 内路径 | 后端返回 `/reports/<run_id>/` 前会确认 `report_path/index.html` 存在，且 `report_path` 位于配置根目录下，避免泄露任意本地目录 |
 | Stage 10 前端报告入口继续复用 `GET /api/test-runs/{id}/report/` | 保持 Stage 6/9 已建立的接口契约，模块表格和失败弹窗都打开后端返回的受控 URL |
+| 后端注释补齐不改变业务行为 | 本次只新增文件级、类级、方法级和关键步骤注释；`compileall`、Django check、迁移检查和后端 34 条测试均通过 |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -112,6 +113,7 @@
 | Stage 10 `/reports/<run_id>/` 没有静态路由 | 增加 RED 测试后实现 `serve_allure_report()` 并挂载报告首页和资源路径 |
 | Stage 10 报告路径需要避免任意目录暴露 | 增加 `ALLURE_REPORTS_ROOT` 和根目录约束测试，根目录外报告路径返回 404 |
 | Stage 10 api-test 回归因本地 PyCharm 配置缺少 `api-test/runpytest.py` 配置失败 | 该文件是未跟踪 IDE 状态；已本地恢复运行配置用于满足现有本地测试，不纳入 Stage 10 提交 |
+| 后端注释补齐需要覆盖测试和迁移文件 | 已逐个直接读取 `back-end` 下 Python 文件，并为业务代码、配置、迁移、测试和包初始化文件添加对应说明 |
 
 ## Resources
 - `AGENTS.md`
