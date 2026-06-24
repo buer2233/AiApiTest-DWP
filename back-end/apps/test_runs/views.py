@@ -1,7 +1,10 @@
 from pathlib import Path
 
+from django.conf import settings
 from django.db.models import Count
+from django.http import Http404
 from django.utils import timezone
+from django.views.static import serve
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -144,7 +147,7 @@ class TestRunViewSet(
     @action(detail=True, methods=["get"], url_path="report")
     def report(self, request, pk=None):
         test_run = self.get_object()
-        if not test_run.report_path:
+        if not _report_index_exists(test_run):
             return Response(
                 {"detail": "Report is not available."},
                 status=status.HTTP_404_NOT_FOUND,
@@ -155,6 +158,14 @@ class TestRunViewSet(
                 "run_id": test_run.run_id,
             }
         )
+
+
+def serve_allure_report(request, run_id: str, path: str = "index.html"):
+    test_run = TestRun.objects.filter(run_id=run_id).first()
+    if not test_run or not _report_index_exists(test_run):
+        raise Http404("Report is not available.")
+    safe_path = path or "index.html"
+    return serve(request, safe_path, document_root=_resolve_report_dir(test_run))
 
 
 def register_test_run_from_summary(
@@ -184,6 +195,25 @@ def register_test_run_from_summary(
     )
     _record_failure_cases(test_run, summary)
     return test_run
+
+
+def _report_index_exists(test_run: TestRun) -> bool:
+    report_dir = _resolve_report_dir(test_run)
+    if report_dir is None:
+        return False
+    return (report_dir / "index.html").is_file()
+
+
+def _resolve_report_dir(test_run: TestRun) -> Path | None:
+    if not test_run.report_path:
+        return None
+    report_dir = Path(test_run.report_path).resolve()
+    report_root = Path(settings.ALLURE_REPORTS_ROOT).resolve()
+    try:
+        report_dir.relative_to(report_root)
+    except ValueError:
+        return None
+    return report_dir
 
 
 def _record_failure_cases(test_run: TestRun, summary: dict) -> None:

@@ -120,7 +120,7 @@ D:/AI/AiApiTest-DWP/
 | Stage 7 | Jenkins 查询与触发 API | complete | 后端支持 Jenkins job/build 查询、触发、日志查看，并兼容 Windows/Linux |
 | Stage 8 | Vue 3 前端基础与登录 | complete | 建立 Vue 3、Element Plus、登录态、布局、菜单 |
 | Stage 9 | 模块通过率与失败用例页面 | complete | 实现参考截图的模块列表、失败用例弹窗、重试入口 |
-| Stage 10 | 报告展示、联调、文档和交付 | pending | 打开 Allure 静态 HTML 报告，完成全链路联调和文档交付 |
+| Stage 10 | 报告展示、联调、文档和交付 | complete | 打开 Allure 静态 HTML 报告，完成全链路联调和文档交付 |
 
 ## 5. 阶段开发规则
 
@@ -876,7 +876,7 @@ GREEN:
 - Create: `docs/final-integration-report.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: 写报告 URL API 测试**
+- [x] **Step 1: 写报告 URL API 测试**
 
 测试目标：
 - 测试任务有报告路径时，返回可访问报告 URL。
@@ -890,14 +890,15 @@ cd D:\AI\AiApiTest-DWP\back-end
 python -m pytest tests/test_test_runs_api.py -v
 ```
 
-- [ ] **Step 2: 实现报告访问**
+- [x] **Step 2: 实现报告访问**
 
 第一版能力：
 - 后端返回报告入口 URL。
 - 前端点击后新窗口打开 Allure HTML。
 - Jenkins build 也记录报告入口。
+- 后端只服务 `ALLURE_REPORTS_ROOT` 下且存在 `index.html` 的 Allure 报告目录。
 
-- [ ] **Step 3: 全链路验收**
+- [x] **Step 3: 全链路验收**
 
 命令：
 
@@ -919,7 +920,7 @@ Jenkins 验收：
 - 后端可查询 Jenkins build。
 - 前端可展示任务和失败用例。
 
-- [ ] **Step 1: 补齐运行文档**
+- [x] **Step 4: 补齐运行文档**
 
 文档内容：
 - 如何运行 `api-test`。
@@ -929,7 +930,7 @@ Jenkins 验收：
 - 如何查看 Allure 报告。
 - 如何执行失败重试。
 
-- [ ] **Step 4: 最终验证**
+- [x] **Step 5: 最终验证**
 
 运行：
 
@@ -944,7 +945,7 @@ cd D:\AI\AiApiTest-DWP\front-end
 npm test
 ```
 
-- [ ] **Step 5: 更新计划最终状态**
+- [x] **Step 6: 更新计划最终状态**
 
 本文件记录：
 - 每个阶段完成时间。
@@ -953,6 +954,24 @@ npm test
 - 遗留问题。
 - 下一阶段建议。
 - 完成单独 `git commit` 和 `git push`。
+
+执行结果：
+
+```text
+RED:
+- back-end tests/test_test_runs_api.py: 2 failed，报告 API 未检查 index.html，/reports/<run_id>/ 未挂载
+- back-end 安全补强: 1 failed，report_path 可指向 ALLURE_REPORTS_ROOT 外部目录
+- front-end module-pass-rate.spec.ts: 1 failed，模块表格 Allure 报告入口缺少稳定触发点
+
+GREEN:
+- cd back-end; python -m pytest tests/test_test_runs_api.py -v -> 10 passed
+- cd back-end; python -m pytest -v -> 34 passed
+- cd front-end; npm test -> 4 files passed, 13 tests passed
+- cd front-end; npm run build -> built successfully，保留既有 VueUse 注释和大 chunk warning
+- cd api-test; python -m pytest tests -v -> 26 passed
+- cd jenkins; python -m pytest tests -v -> 15 passed
+- cd api-test; python runpytest.py --case-path test_case/test_gbif_case --clean -> 14 passed, 1 skipped，Allure HTML 生成成功
+```
 
 ## 16. 阶段进度记录
 
@@ -971,6 +990,7 @@ npm test
 | 2026-06-23 | Docker services support | complete | 统一 MySQL 和 Jenkins 两个 Docker 服务，新增 Compose、`.env.example`、一键启动脚本、可选 Jenkins 工具链镜像和部署文档 | RED: Docker 部署静态测试 4 failed；GREEN: Docker/Jenkins 静态测试 15 passed；Compose 默认和可选 override 配置校验通过；脚本语法检查通过 | not committed | 当前已有同名运行容器，未执行 `docker compose up` 覆盖；工具链镜像构建因网络/下载超时改为可选 |
 | 2026-06-24 | Stage 9 | complete | 新增模块通过率页、测试任务 API 前端封装、模块运行表格、筛选条、失败用例弹窗、失败重试/一键失败重试/模块重试/Jenkins/Allure 入口，并延续 Claude 风格 | RED: `@/api/testRuns` 缺失；GREEN: Stage 9 精确测试 7 passed，前端全量 12 passed，`npm run build` 成功 | committed and pushed: `f094edf` | Playwright 已检查桌面和移动端；Element Plus 在 jsdom 中使用测试专用 stub |
 | 2026-06-24 | Project info assets | complete | 新增 `project-info/AGENTS.md`、`project-info/CLAUDE.md`，生成项目架构图，覆盖 api-test、Jenkins、DRF、Vue 3 前端、Docker、Allure 报告和失败重试链路 | 图像生成完成；原始图 `1672x941`，4K 版本 `3840x2160` | not committed | 本次只处理项目说明资料和上下文记录，未触碰既有前端未提交改动 |
+| 2026-06-24 | Stage 10 | complete | 新增受控 Allure 静态报告服务、报告根目录安全校验、模块表格报告入口测试、运行手册和最终集成报告 | RED: 后端报告缺 index/静态路由/根目录约束，前端缺报告入口触发点；GREEN: 后端 34 passed，前端 13 passed，api-test 26 passed，Jenkins 15 passed，真实 api-test 14 passed, 1 skipped | ready to commit and push | `.idea/workspace.xml` 仅本地恢复 PyCharm 配置，不纳入提交；真实 Jenkins 需人工环境验证 |
 
 ## 17. 风险与处理策略
 

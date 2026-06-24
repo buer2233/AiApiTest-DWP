@@ -2,7 +2,13 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { describe, expect, it, vi } from 'vitest';
 
-import { listTestRuns, retryModule, type PaginatedResponse, type TestRun } from '@/api/testRuns';
+import {
+  getReport,
+  listTestRuns,
+  retryModule,
+  type PaginatedResponse,
+  type TestRun,
+} from '@/api/testRuns';
 import ModulePassRateView from '@/views/ModulePassRateView.vue';
 import { elementPlusStubs } from './element-plus-stubs';
 
@@ -130,5 +136,21 @@ describe('module pass rate page', () => {
       module_path: 'test_case/test_user_case',
       retry_count: 0,
     });
+  });
+
+  it('opens backend controlled Allure report URL from the module actions', async () => {
+    vi.mocked(listTestRuns).mockResolvedValue(runsResponse);
+    vi.mocked(getReport).mockResolvedValue({
+      run_id: 'run-module-users',
+      report_url: '/reports/run-module-users/',
+    });
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    const wrapper = mountView();
+    await flushPromises();
+    await wrapper.find('[data-test="open-report-101"]').trigger('click');
+
+    expect(getReport).toHaveBeenCalledWith(101);
+    expect(openSpy).toHaveBeenCalledWith('/reports/run-module-users/', '_blank', 'noopener');
   });
 });

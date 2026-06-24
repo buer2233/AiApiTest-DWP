@@ -71,6 +71,8 @@
 | Stage 9 使用测试专用 Element Plus stub | `el-table`/`el-select` 在 jsdom 中出现递归更新；stub 保留文本渲染、v-model、按钮点击和 row slot 行为，业务代码仍用真实 Element Plus |
 | Stage 9 保持 Claude 风格的操作台界面 | 深色模块页头、奶油指标卡、紧凑筛选条和表格，避免营销页或装饰性卡片堆叠 |
 | `frontend-patterns` 技能当前环境不可用 | 已通过技能列表、文件搜索和延迟工具搜索确认未找到，Stage 9 以现有 Vue/Element Plus 项目模式补位 |
+| Stage 10 Allure 报告服务只允许 `ALLURE_REPORTS_ROOT` 内路径 | 后端返回 `/reports/<run_id>/` 前会确认 `report_path/index.html` 存在，且 `report_path` 位于配置根目录下，避免泄露任意本地目录 |
+| Stage 10 前端报告入口继续复用 `GET /api/test-runs/{id}/report/` | 保持 Stage 6/9 已建立的接口契约，模块表格和失败弹窗都打开后端返回的受控 URL |
 
 ## Documentation Alignment
 - 2026-06-22 17:54:17 +08:00：已将 `AGENTS.md` 更新为 CICD AI 自动化测试平台的后续 AI 接手规则，明确必须读取主计划、`task_plan.md`、`findings.md`、`progress.md`、`README.md` 后再继续开发。
@@ -106,6 +108,10 @@
 | 用户消息中写作 `AGENGT.md` | 按仓库既有分层规则理解为 `AGENTS.md`，已在 `project-info/` 创建 `AGENTS.md`，并让同级 `CLAUDE.md` 仅引用 `@AGENTS.md` |
 | Stage 9 初始前端测试无法解析 `@/api/testRuns` | 确认 RED 后创建测试任务 API 封装、模块页面、表格、筛选和失败用例弹窗 |
 | Element Plus 表格和选择器在 jsdom 中递归更新 | 前端测试改用轻量 stub，避免测试环境测量/teleport 噪声；Playwright 仍验证真实 Element Plus 渲染 |
+| Stage 10 报告 API 缺少真实 `index.html` 校验 | 增加 RED 测试后实现 `_report_index_exists()`，缺失报告首页时返回 404 |
+| Stage 10 `/reports/<run_id>/` 没有静态路由 | 增加 RED 测试后实现 `serve_allure_report()` 并挂载报告首页和资源路径 |
+| Stage 10 报告路径需要避免任意目录暴露 | 增加 `ALLURE_REPORTS_ROOT` 和根目录约束测试，根目录外报告路径返回 404 |
+| Stage 10 api-test 回归因本地 PyCharm 配置缺少 `api-test/runpytest.py` 配置失败 | 该文件是未跟踪 IDE 状态；已本地恢复运行配置用于满足现有本地测试，不纳入 Stage 10 提交 |
 
 ## Resources
 - `AGENTS.md`

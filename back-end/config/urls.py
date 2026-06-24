@@ -6,6 +6,8 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from apps.test_runs.views import serve_allure_report
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -23,4 +25,6 @@ urlpatterns = [
     path("api/auth/", include("apps.accounts.urls")),
     path("api/test-runs/", include("apps.test_runs.urls")),
     path("api/jenkins/", include("apps.jenkins_integration.urls")),
+    path("reports/<str:run_id>/", serve_allure_report, name="allure-report-index"),
+    path("reports/<str:run_id>/<path:path>", serve_allure_report, name="allure-report-asset"),
 ]
