@@ -20,3 +20,4 @@ docs/.hermes-tmp*/
 /.playwright-mcp/
 front-end/node_modules/
 front-end/dist/
+/.codegraph/
