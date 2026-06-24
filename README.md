@@ -109,26 +109,9 @@ api-test/report/allure-report/<timestamp>/
 
 如果本机未安装 Allure CLI，pytest 仍应正常返回测试退出码，脚本只跳过 HTML 报告生成。
 
-## 快速部署 MySQL 和 Jenkins
+## Docker 快速部署 MySQL 和 Jenkins
 
-本仓库提供 Docker Compose 启动本地 MySQL 和 Jenkins：
-
-```powershell
-.\scripts\deploy-docker.ps1
-```
-
-或：
-
-```bash
-bash scripts/deploy-docker.sh
-```
-
-默认启动：
-
-- MySQL `mysql:8.4`：`127.0.0.1:3307 -> 3306`
-- Jenkins `jenkins/jenkins:lts-jdk17`：`8080 -> 8080`，`50001 -> 50000`
-
-配置入口为 `.env.example`，首次运行脚本会复制为本地 `.env`。更多说明见 `docs/docker-services.md`。
+本项目支持通过 Docker 快速部署本地 MySQL 和 Jenkins。详细部署说明见 [docker/DEPLOYMENT.md](docker/DEPLOYMENT.md)。
 
 ## 平台开发约定
 
