@@ -392,8 +392,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.from_jenkins_env or os.environ.get("CI_RUNNER_ENV") == "jenkins":
         request = build_run_request_from_jenkins_env(os.environ, api_test_root=API_TEST_ROOT)
-        summary = run_ci_tests(request)
-        return int(summary["return_code"])
+        run_ci_tests(request)
+        # Jenkins 负责调度和归档，pytest 用例失败属于测试结果而不是基础设施失败。
+        # 失败状态、原始 pytest 返回码和 failed node id 已写入 summary.json / Allure，
+        # 因此这里返回 0，避免把包含失败用例的有效测试报告误标记为整条 Jenkins 构建失败。
+        return 0
 
     if args.retry_count < 0:
         raise ValueError("retry_count must be greater than or equal to 0")

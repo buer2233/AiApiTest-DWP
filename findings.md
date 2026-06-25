@@ -48,7 +48,7 @@
 | AGENTS 采用根目录总规则 + 子目录模块规则分层 | 根目录维护全局阶段流程和安全规则，`api-test/`、`back-end/`、`front-end/`、`jenkins/` 分别维护模块约定，`CLAUDE.md` 只引用同级 `AGENTS.md` |
 | Jenkins 参数通过环境变量传递给 `ci_runner` | Groovy 只负责参数和 stage 编排，pytest 目标解析、node id 拆分、重试和 summary 继续集中在 `api-test/tools/ci_runner.py` |
 | `PYTEST_NODE_IDS` 支持换行和英文逗号 | Jenkins text 参数便于人工粘贴多个 pytest node id，Python 执行器负责去空和去重 |
-| Jenkins `Run API Tests` 使用 `catchError` | pytest 失败时仍要执行归档和 Allure 发布，否则失败 node id 和 summary 无法在构建页查看 |
+| Jenkins `Run API Tests` 不再因 pytest 用例失败标记 stage 失败 | 用例断言失败属于测试结果，应由 `summary.json` 和 Allure 表达；Jenkins 构建只在参数错误、执行器异常或 Allure HTML 未生成等基础设施问题时失败 |
 | Stage 5 所有环境强制使用本地 MySQL `localhost:3306` | 满足用户明确要求，避免 pytest 或运行环境回退 SQLite，也避免通过环境变量切到非本地主机端口 |
 | `accounts.User` 继承 Django `AbstractUser` 并只新增 `role` | 保留 Django username/password/session/admin 基础能力，最小化 Stage 5 实现面 |
 | `create_superuser()` 默认写入 `role=admin` | 保证命令行创建管理员时角色正确；普通用户默认仍为 `member` |
@@ -95,6 +95,7 @@
 | Stage 4 初始测试无法找到 Jenkins env 适配函数 | 先写失败测试，再新增 Jenkins env 到 `RunRequest` 的转换入口 |
 | Stage 4 初始 Jenkins 静态测试找不到 Pipeline 文件 | 创建 `jenkins/Jenkinsfile` 和 `jenkins/scripts/api-test-pipeline.groovy` |
 | Stage 4 发现 pytest 失败会阻断归档 | 增加补强测试并用 `catchError` 保留后续归档阶段 |
+| Jenkins 真实构建中必败用例导致 `Run API Tests` 和整条 job 失败 | 增加 Jenkins 环境模式退出码测试和 Pipeline 静态测试，改为 Jenkins 环境下 `ci_runner` 进程返回 0，summary 保留 `return_code=1` 和失败 node id，Groovy 去掉 `Run API Tests` 的失败包装 |
 | Stage 5 初始账户测试无法收集 | 创建 Django settings、urls、accounts app 和 pytest 配置后解决 |
 | Stage 5 当前环境缺少 `pytest-django` | 执行 `python -m pip install -r back-end/requirements.txt` 补齐依赖 |
 | Stage 5 `create_superuser()` 初始默认 role 为 `member` | 增加自定义 `UserManager` 和 manager 迁移，补强测试转绿 |

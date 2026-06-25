@@ -149,6 +149,7 @@ Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services
 | Stage 6 报告 API 只返回 `/reports/<run_id>/` 入口，不暴露服务器绝对路径 | 满足报告入口需求，同时把静态 HTML 服务留到 Stage 10 |
 | Stage 7 Jenkins client 使用 `requests.Session` 并支持注入 fake session | 真实运行可调用 Jenkins，测试可完全隔离外部服务 |
 | Stage 7 后端触发 API 将前端字段转换为 Stage 4 Pipeline 大写参数 | 保持 Jenkins Pipeline、后端和后续前端的参数契约一致 |
+| Jenkins 环境下 pytest 用例失败不再传播为进程失败码 | Jenkins job/stage 成败表示 CI 基础设施是否正常；用例失败由 Allure 和 `summary.json` 表达，便于保留一次有效构建和报告入口 |
 | Stage 8 前端登录态保存到 localStorage 的 `auth.token` 和 `auth.user` | 页面刷新后可维持本地登录态，后续 API 请求由 Axios 自动带 DRF Token |
 | Stage 8 路由守卫通过 `createPlatformRouter()` 复用到测试和生产路由 | 避免测试只验证静态 routes 而漏掉实际守卫行为 |
 | Stage 8 采用 getdesign Claude `DESIGN.md` 的暖陶土色、奶油画布和深色产品面板 | 满足用户要求的 Claude 简约风格，同时不做营销页 |
@@ -168,7 +169,7 @@ Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services
 | Stage 3 补强 RED: `retry_count=-1` 未被拒绝 | 1 | 在命令构造和 CLI 入口增加非负校验 |
 | Stage 4 初始 RED: Jenkins env 适配函数不存在 | 1 | 新增 `parse_jenkins_node_ids()` 和 `build_run_request_from_jenkins_env()` |
 | Stage 4 初始 RED: Jenkinsfile/Groovy Pipeline 不存在 | 1 | 创建 `jenkins/Jenkinsfile` 和 `jenkins/scripts/api-test-pipeline.groovy` |
-| Stage 4 补强 RED: pytest 失败会中断归档阶段 | 1 | `Run API Tests` 使用 `catchError`，失败后继续归档和发布 Allure |
+| Stage 4 补强 RED: pytest 失败会中断归档阶段 | 1 | 初版曾用 `catchError` 保留归档；2026-06-25 已改为 Jenkins env 模式返回 0，让用例失败只进入 summary 和 Allure |
 | Stage 5 初始 RED: Django settings 未配置 | 1 | 创建 `back-end/config`、`manage.py`、`pytest.ini` 和 accounts app |
 | Stage 5 环境错误: `--reuse-db` 无法识别 | 1 | 安装 `back-end/requirements.txt` 补齐 `pytest-django` |
 | Stage 5 补强 RED: `create_superuser()` 默认 role 为 `member` | 1 | 新增自定义 `UserManager` 和 manager 迁移 |
@@ -190,6 +191,7 @@ Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services
 | Stage 10 前端 RED: 模块表格 Allure 报告入口缺少稳定触发点 | 1 | 给报告下拉项增加 `data-test` 并覆盖 `window.open()` 行为 |
 | Frontend comments regression: `tests/auth.spec.ts` 匿名路由守卫用例全量运行超时 | 1 | 单独复现通过后定位为测试 history 隔离不足，改用 `createMemoryHistory()` 并重新跑全量前端测试通过 |
 | Docker/Jenkins/scripts comments verification: Bash 语法检查打印 WSL 环境提示 | 1 | `bash -n scripts/deploy-docker.sh` 退出码 0，确认不是脚本语法失败，并补充记录 |
+| Jenkins job semantics bug: 必败用例导致 `Run API Tests` 和整条 job 失败 | 1 | Jenkins env 模式下 `ci_runner` 返回 0，`summary.json` 保留 pytest `return_code=1` 和失败 node id；Groovy 去掉 `Run API Tests` 的失败包装 |
 
 ## Notes
 - 默认使用简体中文沟通。

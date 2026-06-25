@@ -61,7 +61,9 @@ pipelineScript.call()
 | `Archive Runtime Artifacts` | 归档 `api-test/runtime/ci-runs/<run_id>/**` |
 | `Publish Allure` | 调用 Jenkins Allure 插件发布 `allure-results`；插件缺失时仍保留归档产物 |
 
-`Run API Tests` 使用 `catchError(buildResult: 'FAILURE', stageResult: 'FAILURE')` 包裹。即使 pytest 返回失败码，后续归档和 Allure 发布阶段仍会执行，便于查看失败 node id、summary 和报告。
+`Run API Tests` 把 pytest 断言失败视为测试结果，不把 Jenkins stage 标记为失败。
+`api-test/tools/ci_runner.py` 在 Jenkins 环境下保持进程退出码为 `0`，同时在 `summary.json` 中保留 pytest 原始 `return_code`、`status=failed` 和失败 node id。
+这样 Jenkins job 能继续显示为一次有效构建，失败用例由 Allure 报告和运行摘要表达；只有参数错误、执行器异常或后续 Allure HTML 未生成这类基础设施问题才会让 Pipeline 失败。
 
 ## 运行产物
 
@@ -101,7 +103,7 @@ cd D:\AI\AiApiTest-DWP\jenkins
 python -m pytest tests/test_pipeline_static.py::test_pipeline_preserves_artifacts_when_pytest_fails -v
 ```
 
-结果：`1 failed`，失败原因是 Pipeline 尚未使用 `catchError` 保留失败后的归档阶段。
+结果：`1 failed`，失败原因是 Pipeline 仍会把 pytest 用例失败传播为 Jenkins stage 失败。
 
 ### GREEN
 
