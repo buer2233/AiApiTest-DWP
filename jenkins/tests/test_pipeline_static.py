@@ -79,12 +79,17 @@ def test_pipeline_delegates_pytest_execution_to_ci_runner():
 
 
 def test_pipeline_preserves_artifacts_when_pytest_fails():
-    """pytest 失败时仍应继续归档运行产物，便于查看失败报告。"""
+    """pytest 用例失败时 Run API Tests 不应把 Jenkins stage 标记为失败。"""
     files = read_pipeline_files()
     combined = "\n".join(files.values())
 
-    assert "catchError" in combined
-    assert "stageResult: 'FAILURE'" in combined
+    run_stage_start = combined.index("stage('Run API Tests')")
+    generate_stage_start = combined.index("stage('Generate Allure Report')")
+    run_stage = combined[run_stage_start:generate_stage_start]
+
+    assert "catchError" not in run_stage
+    assert "stageResult: 'FAILURE'" not in run_stage
+    assert "-m tools.ci_runner --from-jenkins-env" in run_stage
 
 
 def test_jenkinsfile_loads_pipeline_script_inside_node_context():

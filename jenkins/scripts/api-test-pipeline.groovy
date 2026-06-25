@@ -91,13 +91,11 @@ def call() {
         }
 
         stage('Run API Tests') {
-            // pytest 失败时标记构建失败，但继续执行报告校验和产物归档。
-            catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                runCommand(
-                    "cd ${apiTestDir} && ${unixPython} -m tools.ci_runner --from-jenkins-env",
-                    "cd ${apiTestDir} && ${windowsPython} -m tools.ci_runner --from-jenkins-env"
-                )
-            }
+            // 用例断言失败是测试结果，不是 Jenkins 基础设施失败；ci_runner 会把失败明细写入 summary 和 Allure。
+            runCommand(
+                "cd ${apiTestDir} && ${unixPython} -m tools.ci_runner --from-jenkins-env",
+                "cd ${apiTestDir} && ${windowsPython} -m tools.ci_runner --from-jenkins-env"
+            )
         }
 
         stage('Generate Allure Report') {
