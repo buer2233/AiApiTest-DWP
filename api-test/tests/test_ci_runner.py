@@ -279,3 +279,43 @@ def test_run_ci_tests_records_skipped_allure_report_when_cli_is_missing(tmp_path
     assert summary["status"] == "passed"
     assert summary["allure_report_status"] == "skipped"
     assert "Allure CLI" in summary["allure_report_message"]
+
+
+def test_main_returns_success_for_pytest_failures_in_jenkins_env(tmp_path, monkeypatch):
+    """Jenkins 环境下 pytest 用例失败应只进入报告摘要，不应使 Pipeline stage 失败。"""
+    env = {
+        "CI_RUNNER_ENV": "jenkins",
+        "CASE_PATH": "test_case/test_gbif_case",
+        "RETRY_MODE": "module",
+        "RUN_ID": "jenkins-demo-failed-tests",
+    }
+    captured = {}
+
+    def fake_build_request(source, api_test_root):
+        return ci_runner.RunRequest(
+            api_test_root=tmp_path,
+            run_dir=tmp_path / "runtime" / "ci-runs" / source["RUN_ID"],
+            retry_mode=source["RETRY_MODE"],
+            case_path=source["CASE_PATH"],
+        )
+
+    def fake_run_ci_tests(request):
+        captured["request"] = request
+        return {
+            "status": "failed",
+            "return_code": 1,
+            "failed_nodeids": [
+                "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_intentional_failure"
+            ],
+            "allure_report_status": "generated",
+            "allure_report_message": "Allure HTML report generated successfully.",
+        }
+
+    monkeypatch.setattr(ci_runner, "build_run_request_from_jenkins_env", fake_build_request)
+    monkeypatch.setattr(ci_runner, "run_ci_tests", fake_run_ci_tests)
+    monkeypatch.setattr(ci_runner.os, "environ", env)
+
+    exit_code = ci_runner.main(["--from-jenkins-env"])
+
+    assert exit_code == 0
+    assert captured["request"].run_dir == tmp_path / "runtime" / "ci-runs" / "jenkins-demo-failed-tests"

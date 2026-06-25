@@ -994,6 +994,7 @@ GREEN:
 | 2026-06-24 | Backend comments | complete | 按用户要求逐个直接读取 `back-end` 下 Python 文件，为后端业务代码、配置、迁移、测试和包初始化文件补齐中文文件说明、类/方法说明和关键步骤注释 | `compileall` 通过；Django check 通过；迁移检查 No changes detected；后端 pytest 34 passed | pending commit | 本次只做注释和上下文记录，不改变业务逻辑 |
 | 2026-06-25 | Frontend comments | complete | 按用户要求逐个直接读取 `front-end` 下代码文件，为入口、路由、store、API、组件、样式、配置和测试补齐中文文件说明、组件/函数说明和关键步骤注释 | 首次 `npm test` 中匿名路由守卫用例全量运行超时；改用 `createMemoryHistory()` 隔离测试后 `npm test` 13 passed；`npm run build` 成功 | pending commit | 本次只做注释和测试隔离修正，不改变前端业务逻辑；构建保留既有 VueUse 注释和大 chunk warning |
 | 2026-06-25 | Docker/Jenkins/scripts comments | complete | 按用户要求逐个直接读取 `docker/`、`jenkins/`、`scripts/` 下代码/脚本文件，为 Jenkinsfile、Groovy Pipeline、Dockerfile、部署脚本和 Jenkins 静态测试补齐中文说明注释 | Jenkins 静态测试 15 passed；Python 编译检查通过；Bash/PowerShell 脚本语法检查通过；默认 Compose 和 Jenkins 工具链 override 配置校验通过 | pending commit | 本次只做注释维护，不改变 Docker Compose 服务、Pipeline 参数、部署命令和测试断言；Bash 检查有本机 WSL 环境提示但退出码为 0 |
+| 2026-06-25 | Jenkins job semantics fix | complete | 修复 pytest 用例失败会导致 Jenkins `Run API Tests` stage 和整条 job 失败的问题；Jenkins 环境下 `ci_runner` 返回 0，失败细节保留在 summary 和 Allure 中，Groovy 去掉 `Run API Tests` 的失败包装 | RED: ci_runner Jenkins env 退出码测试 1 failed，Pipeline 静态测试 1 failed；GREEN: ci_runner 精确 13 passed，Jenkins Pipeline 静态 8 passed，api-test 回归 27 passed，Jenkins 回归 15 passed；真实必败用例烟测进程退出码 0 且 summary `return_code=1` | pending commit | 用例失败是测试结果，不再代表 Jenkins 基础设施失败；Allure HTML 未生成仍会让后续 stage 失败 |
 
 ## 17. 风险与处理策略
 
