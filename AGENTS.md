@@ -96,9 +96,10 @@
 - 报告、日志、抓包、运行时产物不要作为业务代码提交。
 - Jenkins、DRF、Vue 和 pytest 中都保持平台字段通用，不引入具体公司业务模块常量。
 
-## Docker 快速部署规则
+## 按需读取的参考内容
 
-AI 需要执行或说明 Docker 部署时，按需读取 `docker/DEPLOYMENT.md`，并以该文件为准。
+- docker快速部署：AI 需要执行或说明 Docker 部署时，按需读取 `docker/DEPLOYMENT.md`，并以该文件为准。
+- 快速启动项目环境：AI 需要快速启动当前项目的所有依赖环境时，按需读取 `project-info/quick-start-all-services.md`
 
 ## 文档与记录
 
