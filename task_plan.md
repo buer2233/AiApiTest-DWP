@@ -112,6 +112,8 @@ Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services
 - [x] 验证后端注释补齐不影响功能：`compileall`、Django check、迁移检查、后端 pytest 均通过
 - [x] 按用户要求逐个读取 `front-end` 代码文件并补齐详细中文注释
 - [x] 验证前端注释补齐不影响功能：`npm test` 和 `npm run build` 均通过
+- [x] 按用户要求逐个读取 `docker`、`jenkins`、`scripts` 代码/脚本文件并补齐详细中文注释
+- [x] 验证 Docker/Jenkins/scripts 注释补齐不影响功能：Jenkins 静态测试、脚本语法检查和 Compose 配置校验均通过
 - [x] 编写当前项目所有服务快速启动说明文档
 - [x] 启动 Docker MySQL 和 Jenkins
 - [x] 启动 DRF 后端和 Vue 3 前端
@@ -155,6 +157,7 @@ Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services
 | 后端注释补齐只做可读性维护 | 不改变业务逻辑、模型字段、路由和测试断言；验证通过后单独提交推送 |
 | 前端注释补齐只做可读性维护 | 不改变业务逻辑、页面结构和接口契约；验证通过后单独提交推送 |
 | 前端路由守卫测试使用 `createMemoryHistory()` | 单测应隔离 jsdom 全局 history，生产 `createPlatformRouter()` 默认仍使用浏览器 history |
+| Docker/Jenkins/scripts 注释补齐只做可读性维护 | 不改变 Compose 服务、Pipeline 参数、部署命令和测试断言；验证通过后单独提交推送 |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
@@ -186,6 +189,7 @@ Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services
 | Stage 10 安全补强 RED: `report_path` 可指向报告根目录外部 | 1 | 新增 `ALLURE_REPORTS_ROOT` 并限制报告目录必须在该根目录下 |
 | Stage 10 前端 RED: 模块表格 Allure 报告入口缺少稳定触发点 | 1 | 给报告下拉项增加 `data-test` 并覆盖 `window.open()` 行为 |
 | Frontend comments regression: `tests/auth.spec.ts` 匿名路由守卫用例全量运行超时 | 1 | 单独复现通过后定位为测试 history 隔离不足，改用 `createMemoryHistory()` 并重新跑全量前端测试通过 |
+| Docker/Jenkins/scripts comments verification: Bash 语法检查打印 WSL 环境提示 | 1 | `bash -n scripts/deploy-docker.sh` 退出码 0，确认不是脚本语法失败，并补充记录 |
 
 ## Notes
 - 默认使用简体中文沟通。
