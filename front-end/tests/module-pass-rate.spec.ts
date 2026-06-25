@@ -1,3 +1,8 @@
+/**
+ * 模块通过率页面测试。
+ * 覆盖模块列表展示、客户端筛选、模块重试和 Allure 报告入口。
+ */
+
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { describe, expect, it, vi } from 'vitest';
@@ -21,6 +26,7 @@ vi.mock('@/api/testRuns', () => ({
   retrySelectedFailures: vi.fn(),
 }));
 
+/** 后端测试任务列表的模拟响应。 */
 const runsResponse: PaginatedResponse<TestRun> = {
   count: 2,
   results: [
@@ -74,6 +80,7 @@ const runsResponse: PaginatedResponse<TestRun> = {
 };
 
 function mountView() {
+  /** 挂载模块通过率页面，并使用轻量 Element Plus stub。 */
   setActivePinia(createPinia());
   return mount(ModulePassRateView, {
     global: {
@@ -88,6 +95,7 @@ function mountView() {
 
 describe('module pass rate page', () => {
   it('renders filters, module table fields, and retry entries for failed modules', async () => {
+    /** 页面应展示筛选区、表格字段、失败重试、模块重试和报告/Jenkins 入口。 */
     vi.mocked(listTestRuns).mockResolvedValue(runsResponse);
 
     const wrapper = mountView();
@@ -113,6 +121,7 @@ describe('module pass rate page', () => {
   });
 
   it('filters modules by keyword on the client after loading runs', async () => {
+    /** 查询按钮提交关键字后，页面只展示匹配模块。 */
     vi.mocked(listTestRuns).mockResolvedValue(runsResponse);
 
     const wrapper = mountView();
@@ -125,6 +134,7 @@ describe('module pass rate page', () => {
   });
 
   it('calls retry-module API with the selected module path', async () => {
+    /** 点击模块重试时，应把当前任务 ID 和 case_path 传给后端。 */
     vi.mocked(listTestRuns).mockResolvedValue(runsResponse);
     vi.mocked(retryModule).mockResolvedValue({ id: 201, run_id: 'retry-users' } as never);
 
@@ -139,6 +149,7 @@ describe('module pass rate page', () => {
   });
 
   it('opens backend controlled Allure report URL from the module actions', async () => {
+    /** Allure 报告入口必须打开后端返回的受控 URL，而不是服务器本地路径。 */
     vi.mocked(listTestRuns).mockResolvedValue(runsResponse);
     vi.mocked(getReport).mockResolvedValue({
       run_id: 'run-module-users',

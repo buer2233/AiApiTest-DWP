@@ -1,3 +1,8 @@
+<!--
+  失败用例弹窗组件。
+  负责查询失败用例、筛选失败列表、选择用例重试、一键失败重试和打开 Allure 报告。
+-->
+
 <script setup lang="ts">
 import { DocumentChecked, Link, Refresh, Search } from '@element-plus/icons-vue';
 import { computed, reactive, ref, watch } from 'vue';
@@ -11,13 +16,18 @@ import {
 } from '@/api/testRuns';
 
 const props = defineProps<{
+  /** 弹窗显示状态，配合 v-model 使用。 */
   modelValue: boolean;
+  /** 当前测试任务 ID，为 null 时不加载失败用例。 */
   testRunId: number | null;
+  /** 弹窗标题中的模块/报告名称。 */
   reportTitle?: string;
 }>();
 
 const emit = defineEmits<{
+  /** 同步 v-model 显示状态。 */
   'update:modelValue': [value: boolean];
+  /** 重试成功触发，通知父组件刷新任务列表。 */
   retried: [];
 }>();
 
@@ -36,11 +46,16 @@ const draftFilters = reactive({
 });
 
 const visible = computed({
+  /**
+   * 将父组件 v-model 转换为 Element Plus Dialog 需要的可写 computed。
+   * setter 通过 update:modelValue 把关闭动作同步回父组件。
+   */
   get: () => props.modelValue,
   set: (value: boolean) => emit('update:modelValue', value),
 });
 
 const filteredFailures = computed(() => {
+  /** 根据已提交筛选条件派生失败用例列表。 */
   const keyword = activeFilters.keyword.trim().toLowerCase();
   const errorType = activeFilters.errorType.trim().toLowerCase();
   return failures.value.filter((failure) => {
@@ -55,6 +70,7 @@ const filteredFailures = computed(() => {
 });
 
 async function loadFailures() {
+  /** 根据当前 testRunId 加载失败用例。 */
   if (!props.testRunId) {
     failures.value = [];
     return;
@@ -69,12 +85,14 @@ async function loadFailures() {
 }
 
 function queryFailures() {
+  /** 提交筛选条件，避免输入框每次输入都重新过滤。 */
   activeFilters.keyword = draftFilters.keyword;
   activeFilters.errorType = draftFilters.errorType;
   activeFilters.status = draftFilters.status;
 }
 
 async function retrySelected() {
+  /** 对勾选的失败用例发起重试。 */
   if (!props.testRunId || selectedIds.value.length === 0) {
     return;
   }
@@ -86,6 +104,7 @@ async function retrySelected() {
 }
 
 async function retryAll() {
+  /** 对当前测试任务下所有失败用例发起重试。 */
   if (!props.testRunId) {
     return;
   }
@@ -94,6 +113,7 @@ async function retryAll() {
 }
 
 async function openReport() {
+  /** 打开当前测试任务的 Allure 报告入口。 */
   if (!props.testRunId) {
     return;
   }
@@ -102,6 +122,7 @@ async function openReport() {
 }
 
 function toggleSelection(id: number, checked: boolean) {
+  /** 切换失败用例选择状态。 */
   if (checked && !selectedIds.value.includes(id)) {
     selectedIds.value = [...selectedIds.value, id];
   }
@@ -114,6 +135,7 @@ watch(
   () => [props.modelValue, props.testRunId] as const,
   ([isVisible]) => {
     if (isVisible) {
+      // 每次打开弹窗都重置选择并重新加载，避免沿用上一个任务的选择状态。
       selectedIds.value = [];
       void loadFailures();
     }

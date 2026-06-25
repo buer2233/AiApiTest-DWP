@@ -1,12 +1,20 @@
+/**
+ * Element Plus 测试替身模块。
+ * jsdom 下真实 Element Plus 表格和选择器会触发布局测量或递归更新噪声，
+ * 这里用轻量组件保留 v-model、slot、点击和表格行渲染行为。
+ */
+
 import { computed, defineComponent, h, inject, provide, type ComputedRef, type PropType } from 'vue';
 
 const tableRowsKey = Symbol('tableRows');
 
+/** 常用 Element Plus 组件的轻量 stub 集合。 */
 export const elementPlusStubs = {
   ElButton: defineComponent({
     name: 'ElButton',
     emits: ['click'],
     setup(_, { attrs, emit, slots }) {
+      /** 将 Element Plus Button 简化成原生 button，并保留 click 事件。 */
       return () =>
         h(
           'button',
@@ -29,6 +37,7 @@ export const elementPlusStubs = {
     },
     emits: ['update:modelValue'],
     setup(props, { attrs, emit }) {
+      /** 保留 checkbox 的 checked 与 update:modelValue 合约。 */
       return () =>
         h('input', {
           ...attrs,
@@ -52,6 +61,7 @@ export const elementPlusStubs = {
     },
     emits: ['update:modelValue'],
     setup(props, { slots }) {
+      /** 只在 modelValue 为 true 时渲染弹窗内容，模拟 Dialog 显隐行为。 */
       return () =>
         props.modelValue
           ? h('section', { class: 'el-dialog-stub' }, [h('h2', props.title), slots.default?.()])
@@ -61,6 +71,7 @@ export const elementPlusStubs = {
   ElDropdown: defineComponent({
     name: 'ElDropdown',
     setup(_, { slots }) {
+      /** 直接渲染默认插槽和 dropdown 插槽，便于测试点击菜单项。 */
       return () => h('div', { class: 'el-dropdown-stub' }, [slots.default?.(), slots.dropdown?.()]);
     },
   }),
@@ -92,6 +103,7 @@ export const elementPlusStubs = {
     },
     emits: ['update:modelValue'],
     setup(props, { attrs, emit }) {
+      /** 用原生 input 模拟 Element Plus Input 的 v-model。 */
       return () =>
         h('input', {
           ...attrs,
@@ -131,6 +143,7 @@ export const elementPlusStubs = {
     },
     emits: ['update:modelValue'],
     setup(props, { attrs, emit, slots }) {
+      /** 用原生 select 模拟 Element Plus Select 的 v-model。 */
       return () =>
         h(
           'select',
@@ -153,6 +166,7 @@ export const elementPlusStubs = {
       },
     },
     setup(props, { attrs, slots }) {
+      /** 通过 provide 将表格行传给子列 stub，保留 row slot 测试能力。 */
       const rows = computed(() => props.data);
       provide(tableRowsKey, rows);
       return () => h('div', { ...attrs, class: ['el-table-stub', attrs.class] }, slots.default?.());
@@ -171,6 +185,7 @@ export const elementPlusStubs = {
       },
     },
     setup(props, { slots }) {
+      /** 渲染表头和每行单元格内容，支持默认 slot 或 prop 字段读取。 */
       const rows = inject<ComputedRef<Record<string, unknown>[]>>(tableRowsKey, computed(() => []));
       return () =>
         h('div', { class: 'el-table-column-stub' }, [

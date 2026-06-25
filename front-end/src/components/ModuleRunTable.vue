@@ -1,21 +1,33 @@
+<!--
+  模块运行表格组件。
+  负责展示测试任务列表，并把失败重试、模块重试、报告和 Jenkins 操作事件上抛给父组件。
+-->
+
 <script setup lang="ts">
 import { MoreFilled, Refresh, Warning } from '@element-plus/icons-vue';
 
 import type { TestRun } from '@/api/testRuns';
 
 defineProps<{
+  /** 表格展示的测试任务列表。 */
   runs: TestRun[];
+  /** 表格加载状态。 */
   loading?: boolean;
 }>();
 
 const emit = defineEmits<{
+  /** 查看指定任务失败用例。 */
   viewFailures: [run: TestRun];
+  /** 按模块路径重试指定任务。 */
   retryModule: [run: TestRun];
+  /** 打开指定任务的 Allure 报告。 */
   openReport: [run: TestRun];
+  /** 打开指定任务关联的 Jenkins 入口。 */
   openJenkins: [run: TestRun];
 }>();
 
 function moduleName(run: TestRun) {
+  /** 获取模块展示名称，优先使用后端聚合字段，否则从路径末段推导。 */
   if (run.module_name) {
     return run.module_name;
   }
@@ -23,6 +35,7 @@ function moduleName(run: TestRun) {
 }
 
 function passRate(run: TestRun) {
+  /** 获取通过率，兼容显式 pass_rate 和 summary 统计。 */
   if (typeof run.pass_rate === 'number') {
     return run.pass_rate;
   }
@@ -32,6 +45,7 @@ function passRate(run: TestRun) {
 }
 
 function duration(run: TestRun) {
+  /** 格式化运行耗时。 */
   const seconds = run.duration_seconds ?? run.summary?.duration_seconds;
   if (typeof seconds === 'number') {
     return `${seconds}s`;
@@ -40,6 +54,7 @@ function duration(run: TestRun) {
 }
 
 function runDate(run: TestRun) {
+  /** 从 started_at 中提取日期，缺失时显示占位符。 */
   if (!run.started_at) {
     return '-';
   }

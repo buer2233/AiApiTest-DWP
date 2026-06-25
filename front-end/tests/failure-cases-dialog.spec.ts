@@ -1,3 +1,8 @@
+/**
+ * 失败用例弹窗测试。
+ * 覆盖失败用例列表展示、筛选、选择重试、一键失败重试和 Allure 报告入口。
+ */
+
 import { mount, flushPromises } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -21,6 +26,7 @@ vi.mock('@/api/testRuns', () => ({
   retrySelectedFailures: vi.fn(),
 }));
 
+/** 后端失败用例列表的模拟响应。 */
 const failuresResponse: PaginatedResponse<FailureCase> = {
   count: 2,
   results: [
@@ -52,6 +58,7 @@ const failuresResponse: PaginatedResponse<FailureCase> = {
 };
 
 function mountDialog() {
+  /** 挂载失败用例弹窗，并注入 Element Plus 轻量 stub。 */
   return mount(FailureCasesDialog, {
     props: {
       modelValue: true,
@@ -70,6 +77,7 @@ function mountDialog() {
 
 describe('failure cases dialog', () => {
   it('renders failure filters and failure case table fields', async () => {
+    /** 弹窗应展示筛选条件、失败表格字段和失败用例详情。 */
     vi.mocked(getFailureCases).mockResolvedValue(failuresResponse);
 
     const wrapper = mountDialog();
@@ -89,6 +97,7 @@ describe('failure cases dialog', () => {
   });
 
   it('filters failure cases by case name and error type', async () => {
+    /** 提交筛选条件后，只展示匹配的失败用例。 */
     vi.mocked(getFailureCases).mockResolvedValue(failuresResponse);
 
     const wrapper = mountDialog();
@@ -102,6 +111,7 @@ describe('failure cases dialog', () => {
   });
 
   it('retries selected failure cases and all failed cases', async () => {
+    /** 勾选失败用例后，应支持选择重试和一键失败重试两类操作。 */
     vi.mocked(getFailureCases).mockResolvedValue(failuresResponse);
     vi.mocked(retrySelectedFailures).mockResolvedValue({ id: 301, run_id: 'retry-selected' } as never);
     vi.mocked(retryAllFailed).mockResolvedValue({ id: 302, run_id: 'retry-all' } as never);
@@ -122,6 +132,7 @@ describe('failure cases dialog', () => {
   });
 
   it('opens the Allure report entry returned by backend', async () => {
+    /** 报告按钮应打开后端返回的受控 Allure URL。 */
     vi.mocked(getFailureCases).mockResolvedValue(failuresResponse);
     vi.mocked(getReport).mockResolvedValue({
       run_id: 'run-module-users',

@@ -992,6 +992,7 @@ GREEN:
 | 2026-06-24 | Project info assets | complete | 新增 `project-info/AGENTS.md`、`project-info/CLAUDE.md`，生成项目架构图，覆盖 api-test、Jenkins、DRF、Vue 3 前端、Docker、Allure 报告和失败重试链路 | 图像生成完成；原始图 `1672x941`，4K 版本 `3840x2160` | not committed | 本次只处理项目说明资料和上下文记录，未触碰既有前端未提交改动 |
 | 2026-06-24 | Stage 10 | complete | 新增受控 Allure 静态报告服务、报告根目录安全校验、模块表格报告入口测试、运行手册和最终集成报告 | RED: 后端报告缺 index/静态路由/根目录约束，前端缺报告入口触发点；GREEN: 后端 34 passed，前端 13 passed，api-test 26 passed，Jenkins 15 passed，真实 api-test 14 passed, 1 skipped | committed and pushed: `3fea369` | `.idea/workspace.xml` 仅本地恢复 PyCharm 配置，不纳入提交；真实 Jenkins 需人工环境验证 |
 | 2026-06-24 | Backend comments | complete | 按用户要求逐个直接读取 `back-end` 下 Python 文件，为后端业务代码、配置、迁移、测试和包初始化文件补齐中文文件说明、类/方法说明和关键步骤注释 | `compileall` 通过；Django check 通过；迁移检查 No changes detected；后端 pytest 34 passed | pending commit | 本次只做注释和上下文记录，不改变业务逻辑 |
+| 2026-06-25 | Frontend comments | complete | 按用户要求逐个直接读取 `front-end` 下代码文件，为入口、路由、store、API、组件、样式、配置和测试补齐中文文件说明、组件/函数说明和关键步骤注释 | 首次 `npm test` 中匿名路由守卫用例全量运行超时；改用 `createMemoryHistory()` 隔离测试后 `npm test` 13 passed；`npm run build` 成功 | pending commit | 本次只做注释和测试隔离修正，不改变前端业务逻辑；构建保留既有 VueUse 注释和大 chunk warning |
 
 ## 17. 风险与处理策略
 
