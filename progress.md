@@ -373,6 +373,20 @@
   - 重新运行 `npm test`，结果 4 个测试文件、13 条用例全部通过。
   - 运行 `npm run build` 成功；保留依赖 `@vueuse/core` PURE 注释 warning 和大 chunk warning。
 
+## Session: 2026-06-25 Docker Jenkins Scripts Comment Completion
+
+- **Status:** complete
+- Actions taken:
+  - 按用户要求直接逐个读取 `docker/`、`jenkins/`、`scripts/` 下源代码和脚本文件，不使用 CodeGraph。
+  - 为 `jenkins/Jenkinsfile`、`jenkins/scripts/api-test-pipeline.groovy`、`docker/jenkins/Dockerfile`、`scripts/deploy-docker.ps1`、`scripts/deploy-docker.sh` 添加中文文件说明、函数/阶段说明和关键步骤注释。
+  - 为 `jenkins/tests/test_pipeline_static.py` 和 `jenkins/tests/test_docker_deployment_static.py` 添加模块 docstring、辅助函数 docstring 和测试意图说明。
+  - 未修改 Docker Compose 行为、Jenkins 参数、Pipeline 命令、部署脚本命令和测试断言。
+  - 运行 `cd jenkins; python -m pytest tests -v`，结果 15 passed。
+  - 运行 `python -m py_compile jenkins/tests/test_pipeline_static.py jenkins/tests/test_docker_deployment_static.py`，通过。
+  - 运行 `bash -n scripts/deploy-docker.sh`，退出码 0；本机 WSL 打印了一段环境提示，不影响语法检查结果。
+  - 运行 PowerShell Parser 检查 `scripts/deploy-docker.ps1`，通过。
+  - 运行 `docker compose config` 和 `docker compose -f docker-compose.yml -f docker-compose.jenkins-tools.yml config`，均成功解析。
+
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|

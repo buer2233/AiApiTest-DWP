@@ -1,3 +1,9 @@
+"""Jenkins Pipeline 静态结构测试。
+
+本文件不启动真实 Jenkins，而是直接读取 Jenkinsfile 和 Groovy 脚本，
+验证参数、stage、跨平台分支和 ci_runner 调用契约没有被破坏。
+"""
+
 from pathlib import Path
 
 
@@ -6,6 +12,7 @@ REPO_ROOT = JENKINS_ROOT.parent
 
 
 def read_pipeline_files():
+    """读取 Jenkinsfile 和可复用 Groovy Pipeline 源码。"""
     return {
         "Jenkinsfile": (JENKINS_ROOT / "Jenkinsfile").read_text(encoding="utf-8"),
         "api-test-pipeline.groovy": (
@@ -15,6 +22,7 @@ def read_pipeline_files():
 
 
 def test_pipeline_defines_required_parameters():
+    """Pipeline 必须暴露前端、后端和 api-test 共同约定的构建参数。"""
     files = read_pipeline_files()
     combined = "\n".join(files.values())
 
@@ -36,6 +44,7 @@ def test_pipeline_defines_required_parameters():
 
 
 def test_pipeline_declares_required_stages_and_unix_windows_branches():
+    """Pipeline 必须包含核心 stage，并同时保留 Linux sh 与 Windows bat 分支。"""
     files = read_pipeline_files()
     combined = "\n".join(files.values())
 
@@ -56,6 +65,7 @@ def test_pipeline_declares_required_stages_and_unix_windows_branches():
 
 
 def test_pipeline_delegates_pytest_execution_to_ci_runner():
+    """Jenkins 只负责编排，pytest 执行和重试规则必须委托给 ci_runner。"""
     files = read_pipeline_files()
     combined = "\n".join(files.values())
 
@@ -69,6 +79,7 @@ def test_pipeline_delegates_pytest_execution_to_ci_runner():
 
 
 def test_pipeline_preserves_artifacts_when_pytest_fails():
+    """pytest 失败时仍应继续归档运行产物，便于查看失败报告。"""
     files = read_pipeline_files()
     combined = "\n".join(files.values())
 
@@ -77,12 +88,14 @@ def test_pipeline_preserves_artifacts_when_pytest_fails():
 
 
 def test_jenkinsfile_loads_pipeline_script_inside_node_context():
+    """Jenkinsfile 必须在 node workspace 上下文中 load Groovy 脚本。"""
     jenkinsfile = read_pipeline_files()["Jenkinsfile"]
 
     assert jenkinsfile.index("node") < jenkinsfile.index("load 'jenkins/scripts/api-test-pipeline.groovy'")
 
 
 def test_pipeline_can_skip_checkout_for_local_mounted_repository_jobs():
+    """本地挂载仓库的 Jenkins 容器应支持跳过 scm checkout。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
 
     assert "LOCAL_WORKSPACE_REPO" in pipeline
@@ -90,6 +103,7 @@ def test_pipeline_can_skip_checkout_for_local_mounted_repository_jobs():
 
 
 def test_pipeline_uses_python_virtual_environment_for_dependencies():
+    """Pipeline 应使用 api-test 目录下的 Python 虚拟环境安装依赖。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
 
     assert "python -m venv .venv" in pipeline
@@ -98,6 +112,7 @@ def test_pipeline_uses_python_virtual_environment_for_dependencies():
 
 
 def test_pipeline_fails_when_allure_html_report_is_not_generated():
+    """Allure HTML 没有生成时 Pipeline 必须显式失败，不能只归档空结果。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
 
     assert "allure_report_status" in pipeline
