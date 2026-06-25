@@ -1,10 +1,17 @@
+"""
+pytest node id 处理工具模块
+
+提供 node id 标准化、缓存读取和持久化功能，
+用于 CI/CD 流水线中处理失败用例的 node id。
+"""
+
 import json
 from pathlib import Path
 from typing import Iterable
 
 
 def normalize_nodeids(raw_values: Iterable[str]) -> list[str]:
-    """Clean empty values and duplicate node ids while preserving pytest strings."""
+    """清洗空值和重复 node id，保持 pytest 字符串格式。"""
     normalized = []
     seen = set()
     for raw_value in raw_values:
@@ -19,7 +26,7 @@ def normalize_nodeids(raw_values: Iterable[str]) -> list[str]:
 
 
 def load_lastfailed(cache_dir: Path) -> list[str]:
-    """Read pytest's lastfailed cache and return failed node ids."""
+    """读取 pytest lastfailed 缓存，返回失败 node id 列表。"""
     cache_file = Path(cache_dir) / "v" / "cache" / "lastfailed"
     if not cache_file.exists():
         return []
@@ -37,7 +44,7 @@ def load_lastfailed(cache_dir: Path) -> list[str]:
 
 
 def write_nodeids(nodeids: list[str], output_path: Path) -> None:
-    """Write node ids as a JSON list for CI, Jenkins and backend consumers."""
+    """将 node id 列表写入 JSON 文件，供 CI、Jenkins 和后端消费。"""
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(

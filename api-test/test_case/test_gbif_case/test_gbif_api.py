@@ -404,3 +404,39 @@ class TestGbifAPI:
             else:
                 assert "wikidataId" in wikidata_resp, "响应缺少wikidataId字段"
                 allure.attach(f"Wikidata ID: {wikidata_resp.get('wikidataId')}", name="Wikidata信息")
+
+    # ==================== 断言失败测试 ====================
+
+    @allure.story("断言失败验证")
+    @allure.title("故意失败的断言测试-验证Allure报告捕获断言失败")
+    @allure.description("此用例故意设置不相等的断言，用于验证Allure报告能否正确展示断言失败的情况")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_deliberate_assertion_failure(self):
+        """
+        故意失败的断言测试用例
+
+        用途说明：
+        - 验证Allure报告能否正确捕获和展示断言失败
+        - 用于测试失败重试执行器的断言失败处理逻辑
+        - 作为示例展示断言失败时的错误信息格式
+
+        预期结果：
+        - 此用例必然失败，失败原因为断言错误（AssertionError）
+        - 断言信息：期望值与实际值不相等
+
+        失败原因：
+        - 故意设置 1 != 2 的断言，确保用例必然失败
+        """
+        with allure.step("1.设置期望值和实际值"):
+            # 期望值为 2，实际值为 1，两者必然不相等
+            expected_value = 2
+            actual_value = 1
+            allure.attach(f"期望值: {expected_value}, 实际值: {actual_value}", name="断言参数")
+
+        with allure.step("2.执行断言-必然失败"):
+            # 执行断言，必然失败并输出详细的错误信息
+            # 此断言用于验证Allure报告的断言失败展示功能
+            assert actual_value == expected_value, (
+                f"故意失败的断言测试：期望值 {expected_value} 与实际值 {actual_value} 不相等。"
+                f"此用例用于验证Allure报告的断言失败展示功能。"
+            )
