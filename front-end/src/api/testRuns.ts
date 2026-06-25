@@ -5,6 +5,14 @@
 
 import { http } from './http';
 
+/** pytest/Jenkins 重试类请求可能运行较久，前端需要给足执行窗口。 */
+export const TEST_RUN_COMMAND_TIMEOUT_MS = 120000;
+
+/** 长耗时测试任务请求的 Axios 配置。 */
+const testRunCommandConfig = {
+  timeout: TEST_RUN_COMMAND_TIMEOUT_MS,
+};
+
 /** 测试任务执行状态。 */
 export type TestRunStatus = 'pending' | 'running' | 'passed' | 'failed' | 'error';
 /** 失败用例状态，保持与后端 FailureCase.Status 一致。 */
@@ -103,19 +111,31 @@ export async function retrySelectedFailures(
   payload: RetrySelectedPayload,
 ): Promise<TestRun> {
   /** 按选择的失败用例发起重试。 */
-  const response = await http.post<TestRun>(`/test-runs/${testRunId}/retry-selected/`, payload);
+  const response = await http.post<TestRun>(
+    `/test-runs/${testRunId}/retry-selected/`,
+    payload,
+    testRunCommandConfig,
+  );
   return response.data;
 }
 
 export async function retryAllFailed(testRunId: number, payload: RetryCountPayload): Promise<TestRun> {
   /** 一键重试指定任务下所有失败用例。 */
-  const response = await http.post<TestRun>(`/test-runs/${testRunId}/retry-all-failed/`, payload);
+  const response = await http.post<TestRun>(
+    `/test-runs/${testRunId}/retry-all-failed/`,
+    payload,
+    testRunCommandConfig,
+  );
   return response.data;
 }
 
 export async function retryModule(testRunId: number, payload: RetryModulePayload): Promise<TestRun> {
   /** 按模块路径重新执行测试任务。 */
-  const response = await http.post<TestRun>(`/test-runs/${testRunId}/retry-module/`, payload);
+  const response = await http.post<TestRun>(
+    `/test-runs/${testRunId}/retry-module/`,
+    payload,
+    testRunCommandConfig,
+  );
   return response.data;
 }
 

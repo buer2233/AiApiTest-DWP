@@ -5,6 +5,7 @@
 
 <script setup lang="ts">
 import { Link, Refresh } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import {
@@ -96,10 +97,16 @@ function viewFailures(run: TestRun) {
 
 async function handleRetryModule(run: TestRun) {
   /** 发起模块重试，当前前端默认 retry_count 为 0。 */
-  await retryModule(run.id, {
-    module_path: run.case_path,
-    retry_count: 0,
-  });
+  try {
+    await retryModule(run.id, {
+      module_path: run.case_path,
+      retry_count: 0,
+    });
+    ElMessage.success('模块重试已提交');
+    await loadRuns();
+  } catch {
+    ElMessage.error('模块重试提交失败，请稍后重试');
+  }
 }
 
 async function openReport(run: TestRun) {
@@ -111,6 +118,16 @@ async function openReport(run: TestRun) {
 function openJenkins(run: TestRun) {
   /** 打开 Jenkins 任务入口，后续可替换为真实 Jenkins 构建详情页。 */
   window.open(`/jenkins/builds?run_id=${encodeURIComponent(run.run_id)}`, '_blank', 'noopener');
+}
+
+function showHeaderRetryHint() {
+  /** 顶部入口当前只做引导，真实一键重试在失败用例弹窗内执行。 */
+  ElMessage.info('请先在失败用例弹窗中执行一键失败重试');
+}
+
+function showHeaderJenkinsHint() {
+  /** 顶部 Jenkins 入口当前只做引导，真实任务入口在表格行更多菜单内。 */
+  ElMessage.info('请通过表格行中的更多菜单打开 Jenkins 任务');
 }
 
 onMounted(() => {
@@ -128,8 +145,12 @@ onMounted(() => {
         <p class="module-lead">按测试模块查看通过率、失败用例和重试入口。</p>
       </div>
       <div class="module-hero-actions">
-        <el-button :icon="Refresh" type="primary">一键失败重试</el-button>
-        <el-button :icon="Link" plain>Jenkins 任务</el-button>
+        <el-button data-test="retry-all-header" :icon="Refresh" type="primary" @click="showHeaderRetryHint">
+          一键失败重试
+        </el-button>
+        <el-button data-test="jenkins-header" :icon="Link" plain @click="showHeaderJenkinsHint">
+          Jenkins 任务
+        </el-button>
       </div>
     </section>
 

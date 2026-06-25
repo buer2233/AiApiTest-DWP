@@ -16,4 +16,12 @@ describe('vite dev server config', () => {
       changeOrigin: true,
     });
   });
+
+  it('proxies Allure report static pages to the local DRF backend', () => {
+    /** 前端打开 /reports/<run_id>/ 时必须代理到后端静态报告服务，不能被 Vue Router 吃掉。 */
+    expect(devServerProxy['/reports']).toMatchObject({
+      target: apiProxyTarget,
+      changeOrigin: true,
+    });
+  });
 });
