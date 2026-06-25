@@ -1,11 +1,18 @@
+<!--
+  测试任务筛选条组件。
+  负责收集模块关键字、执行状态和触发来源，并通过 query 事件提交给父组件。
+-->
+
 <script setup lang="ts">
 import { Search } from '@element-plus/icons-vue';
 import { reactive } from 'vue';
 
 const emit = defineEmits<{
+  /** 提交筛选条件。 */
   query: [filters: { keyword: string; status: string; source: string }];
 }>();
 
+/** 筛选表单状态，提交前由组件本地维护。 */
 const filters = reactive({
   keyword: '',
   status: '',
@@ -13,6 +20,7 @@ const filters = reactive({
 });
 
 function submit() {
+  /** 提交当前筛选条件，并用浅拷贝避免父组件直接持有本地响应式对象。 */
   emit('query', { ...filters });
 }
 </script>

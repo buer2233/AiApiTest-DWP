@@ -110,6 +110,8 @@ Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services
 - [x] 总结改动和后续建议
 - [x] 按用户要求逐个读取 `back-end` Python 文件并补齐详细中文注释
 - [x] 验证后端注释补齐不影响功能：`compileall`、Django check、迁移检查、后端 pytest 均通过
+- [x] 按用户要求逐个读取 `front-end` 代码文件并补齐详细中文注释
+- [x] 验证前端注释补齐不影响功能：`npm test` 和 `npm run build` 均通过
 - [x] 编写当前项目所有服务快速启动说明文档
 - [x] 启动 Docker MySQL 和 Jenkins
 - [x] 启动 DRF 后端和 Vue 3 前端
@@ -151,6 +153,8 @@ Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services
 | Stage 10 后端只服务 `ALLURE_REPORTS_ROOT` 下的 Allure HTML | 满足静态报告打开需求，同时避免 `report_path` 变成任意本地目录暴露入口 |
 | Stage 10 继续使用 `/api/test-runs/{id}/report/` 返回前端入口 URL | 保持 Stage 6/9 既有前后端契约，前端只打开后端返回的受控 URL |
 | 后端注释补齐只做可读性维护 | 不改变业务逻辑、模型字段、路由和测试断言；验证通过后单独提交推送 |
+| 前端注释补齐只做可读性维护 | 不改变业务逻辑、页面结构和接口契约；验证通过后单独提交推送 |
+| 前端路由守卫测试使用 `createMemoryHistory()` | 单测应隔离 jsdom 全局 history，生产 `createPlatformRouter()` 默认仍使用浏览器 history |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
@@ -181,6 +185,7 @@ Phase 5: Verification and Delivery - Stage 10 complete; quick-start all-services
 | Stage 10 静态报告 RED: `/reports/<run_id>/` 未挂载 | 1 | 新增 `serve_allure_report()` 和 URL 路由 |
 | Stage 10 安全补强 RED: `report_path` 可指向报告根目录外部 | 1 | 新增 `ALLURE_REPORTS_ROOT` 并限制报告目录必须在该根目录下 |
 | Stage 10 前端 RED: 模块表格 Allure 报告入口缺少稳定触发点 | 1 | 给报告下拉项增加 `data-test` 并覆盖 `window.open()` 行为 |
+| Frontend comments regression: `tests/auth.spec.ts` 匿名路由守卫用例全量运行超时 | 1 | 单独复现通过后定位为测试 history 隔离不足，改用 `createMemoryHistory()` 并重新跑全量前端测试通过 |
 
 ## Notes
 - 默认使用简体中文沟通。

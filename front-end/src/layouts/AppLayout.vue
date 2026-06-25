@@ -1,3 +1,8 @@
+<!--
+  平台主布局组件。
+  负责展示左侧菜单、顶部用户区域和测试平台主工作区。
+-->
+
 <script setup lang="ts">
 import {
   DataLine,
@@ -16,6 +21,10 @@ const auth = useAuthStore();
 const router = useRouter();
 
 async function handleLogout() {
+  /**
+   * 处理用户退出。
+   * 先通知后端删除 Token，再跳转回登录页，避免旧登录态继续访问平台接口。
+   */
   await auth.logout();
   await router.replace('/login');
 }

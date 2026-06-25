@@ -74,6 +74,8 @@
 | Stage 10 Allure 报告服务只允许 `ALLURE_REPORTS_ROOT` 内路径 | 后端返回 `/reports/<run_id>/` 前会确认 `report_path/index.html` 存在，且 `report_path` 位于配置根目录下，避免泄露任意本地目录 |
 | Stage 10 前端报告入口继续复用 `GET /api/test-runs/{id}/report/` | 保持 Stage 6/9 已建立的接口契约，模块表格和失败弹窗都打开后端返回的受控 URL |
 | 后端注释补齐不改变业务行为 | 本次只新增文件级、类级、方法级和关键步骤注释；`compileall`、Django check、迁移检查和后端 34 条测试均通过 |
+| 前端注释补齐不改变业务行为 | 本次逐个读取 `front-end` 代码文件后只新增中文说明注释；前端 `npm test` 13 passed，`npm run build` 成功 |
+| 前端路由守卫单测应使用 `createMemoryHistory()` | 全量 Vitest 并行运行时 `createWebHistory()` 依赖 jsdom 全局 history，匿名跳转用例偶发接近/超过 5s；改为内存 history 后测试隔离性更好，生产路由仍默认使用浏览器 history |
 | 快速启动文档按 Docker 默认端口对齐 | `docs/quick-start-all-services.md` 以 Docker MySQL `127.0.0.1:3307`、Jenkins `8080`、后端 `8000`、前端 `5173` 为默认本地启动路径 |
 | 复用旧 MySQL 数据卷时密码以数据卷真实状态为准 | `.env` 只影响后续容器环境，不会修改已有 `aiapitest-mysql-data` 内 root 密码；本次本机旧数据卷 root 可空密码登录，因此后端启动验收使用空密码环境变量 |
 
@@ -116,6 +118,7 @@
 | Stage 10 报告路径需要避免任意目录暴露 | 增加 `ALLURE_REPORTS_ROOT` 和根目录约束测试，根目录外报告路径返回 404 |
 | Stage 10 api-test 回归因本地 PyCharm 配置缺少 `api-test/runpytest.py` 配置失败 | 该文件是未跟踪 IDE 状态；已本地恢复运行配置用于满足现有本地测试，不纳入 Stage 10 提交 |
 | 后端注释补齐需要覆盖测试和迁移文件 | 已逐个直接读取 `back-end` 下 Python 文件，并为业务代码、配置、迁移、测试和包初始化文件添加对应说明 |
+| 前端全量测试首次出现路由守卫用例超时 | 单独运行 `tests/auth.spec.ts` 通过，根因为测试 history 依赖全局浏览器状态；改用 `createMemoryHistory()` 后 `npm test` 全量 13 passed |
 | Docker daemon 初始未运行 | 已启动 Docker Desktop 并等待 `docker info` 成功后继续部署 |
 | `docker compose up` 遇到同名容器冲突 | 本机已有 `aiapitest-mysql`、`aiapitest-jenkins` 旧容器；未删除容器和数据卷，改用 `docker start` 复用 |
 | `.env` 示例密码和旧 MySQL 数据卷 root 密码不一致 | 通过 `docker exec aiapitest-mysql mysqladmin ping -uroot --silent` 确认旧数据卷 root 空密码可用；本次后端运行环境设置为空密码完成验收，并在快速启动文档补充排查说明 |

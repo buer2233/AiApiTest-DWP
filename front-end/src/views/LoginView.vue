@@ -1,3 +1,8 @@
+<!--
+  登录视图组件。
+  负责平台用户登录、登录中状态、错误提示和登录后重定向。
+-->
+
 <script setup lang="ts">
 import { Lock, User } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
@@ -17,11 +22,16 @@ const form = reactive({
 });
 
 const redirectPath = computed(() => {
+  /**
+   * 计算登录成功后的跳转目标。
+   * 只允许站内路径，避免 redirect 参数被用作外部跳转。
+   */
   const redirect = route.query.redirect;
   return typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/platform';
 });
 
 async function submitLogin() {
+  /** 提交登录表单，并在成功后进入原目标页面或平台首页。 */
   if (!form.username.trim() || !form.password) {
     ElMessage.warning('请输入用户名和密码');
     return;
@@ -30,6 +40,7 @@ async function submitLogin() {
   loading.value = true;
 
   try {
+    // 用户名去除首尾空白，密码保留原文，避免破坏用户真实密码。
     await auth.login(form.username.trim(), form.password);
     await router.replace(redirectPath.value);
   } catch {

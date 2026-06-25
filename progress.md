@@ -361,6 +361,18 @@
   - 后端登录接口返回本地 admin 用户和 token，未在文档中记录 token 值。
   - Playwright 清空浏览器存储后访问 `/platform`，确认匿名跳转登录页；输入 `admin/admin123456` 登录后进入平台首页。
 
+## Session: 2026-06-25 Frontend Comment Completion
+
+- **Status:** complete
+- Actions taken:
+  - 按用户要求不使用 CodeGraph，直接逐个读取 `front-end` 下 `.ts`、`.vue`、`.css` 和 `index.html` 代码文件。
+  - 为前端入口、路由、Pinia store、Axios API、页面组件、业务组件、全局样式、Vite 配置和 Vitest 测试补齐中文文件说明、组件/函数说明和关键步骤注释。
+  - 补充 `front-end/index.html` 的 Vite 模板说明和 Vue 挂载点说明。
+  - 运行 `npm test` 首次出现 `tests/auth.spec.ts` 匿名路由守卫用例全量并行超时；单独运行该文件通过，定位为测试使用 `createWebHistory()` 依赖 jsdom 全局 history 导致不稳定。
+  - 将 `tests/auth.spec.ts` 的测试路由改为 `createMemoryHistory()`，只隔离单测浏览器状态，不改变生产路由默认实现。
+  - 重新运行 `npm test`，结果 4 个测试文件、13 条用例全部通过。
+  - 运行 `npm run build` 成功；保留依赖 `@vueuse/core` PURE 注释 warning 和大 chunk warning。
+
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
