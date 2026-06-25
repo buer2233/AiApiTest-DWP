@@ -17,6 +17,25 @@ import {
 import ModulePassRateView from '@/views/ModulePassRateView.vue';
 import { elementPlusStubs } from './element-plus-stubs';
 
+const messageMocks = vi.hoisted(() => ({
+  error: vi.fn(),
+  info: vi.fn(),
+  success: vi.fn(),
+}));
+
+vi.mock('element-plus', async (importOriginal) => {
+  /** 保留 Element Plus 真实导出，只替换消息组件，方便断言异常兜底。 */
+  const actual = await importOriginal<typeof import('element-plus')>();
+  return {
+    ...actual,
+    ElMessage: {
+      error: messageMocks.error,
+      info: messageMocks.info,
+      success: messageMocks.success,
+    },
+  };
+});
+
 vi.mock('@/api/testRuns', () => ({
   listTestRuns: vi.fn(),
   getFailureCases: vi.fn(),
@@ -94,6 +113,12 @@ function mountView() {
 }
 
 describe('module pass rate page', () => {
+  beforeEach(() => {
+    messageMocks.error.mockClear();
+    messageMocks.info.mockClear();
+    messageMocks.success.mockClear();
+  });
+
   it('renders filters, module table fields, and retry entries for failed modules', async () => {
     /** 页面应展示筛选区、表格字段、失败重试、模块重试和报告/Jenkins 入口。 */
     vi.mocked(listTestRuns).mockResolvedValue(runsResponse);
@@ -146,6 +171,33 @@ describe('module pass rate page', () => {
       module_path: 'test_case/test_user_case',
       retry_count: 0,
     });
+    expect(messageMocks.success).toHaveBeenCalledWith('模块重试已提交');
+  });
+
+  it('shows a message instead of throwing when module retry submission fails', async () => {
+    /** 重试接口超时或失败时，组件应捕获异常并提示用户，不能让 Vue 抛 unhandled error。 */
+    vi.mocked(listTestRuns).mockResolvedValue(runsResponse);
+    vi.mocked(retryModule).mockRejectedValue(new Error('timeout'));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await expect(wrapper.find('[data-test="retry-module-101"]').trigger('click')).resolves.toBeUndefined();
+    await flushPromises();
+
+    expect(messageMocks.error).toHaveBeenCalledWith('模块重试提交失败，请稍后重试');
+  });
+
+  it('shows feedback for header actions that are not standalone workflows yet', async () => {
+    /** 顶部入口不能静默无响应，第一版应明确告知用户使用表格或弹窗中的可用入口。 */
+    vi.mocked(listTestRuns).mockResolvedValue(runsResponse);
+
+    const wrapper = mountView();
+    await flushPromises();
+    await wrapper.find('[data-test="retry-all-header"]').trigger('click');
+    await wrapper.find('[data-test="jenkins-header"]').trigger('click');
+
+    expect(messageMocks.info).toHaveBeenCalledWith('请先在失败用例弹窗中执行一键失败重试');
+    expect(messageMocks.info).toHaveBeenCalledWith('请通过表格行中的更多菜单打开 Jenkins 任务');
   });
 
   it('opens backend controlled Allure report URL from the module actions', async () => {

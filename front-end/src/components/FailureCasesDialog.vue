@@ -5,6 +5,7 @@
 
 <script setup lang="ts">
 import { DocumentChecked, Link, Refresh, Search } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { computed, reactive, ref, watch } from 'vue';
 
 import {
@@ -96,11 +97,16 @@ async function retrySelected() {
   if (!props.testRunId || selectedIds.value.length === 0) {
     return;
   }
-  await retrySelectedFailures(props.testRunId, {
-    failure_ids: selectedIds.value,
-    retry_count: 0,
-  });
-  emit('retried');
+  try {
+    await retrySelectedFailures(props.testRunId, {
+      failure_ids: selectedIds.value,
+      retry_count: 0,
+    });
+    ElMessage.success('失败用例重试已提交');
+    emit('retried');
+  } catch {
+    ElMessage.error('失败用例重试提交失败，请稍后重试');
+  }
 }
 
 async function retryAll() {
@@ -108,8 +114,13 @@ async function retryAll() {
   if (!props.testRunId) {
     return;
   }
-  await retryAllFailed(props.testRunId, { retry_count: 0 });
-  emit('retried');
+  try {
+    await retryAllFailed(props.testRunId, { retry_count: 0 });
+    ElMessage.success('一键失败重试已提交');
+    emit('retried');
+  } catch {
+    ElMessage.error('一键失败重试提交失败，请稍后重试');
+  }
 }
 
 async function openReport() {

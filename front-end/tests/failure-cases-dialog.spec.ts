@@ -17,6 +17,23 @@ import {
 import FailureCasesDialog from '@/components/FailureCasesDialog.vue';
 import { elementPlusStubs } from './element-plus-stubs';
 
+const messageMocks = vi.hoisted(() => ({
+  error: vi.fn(),
+  success: vi.fn(),
+}));
+
+vi.mock('element-plus', async (importOriginal) => {
+  /** 保留 Element Plus 真实导出，只替换消息组件，方便验证错误不会冒泡到 Vue 运行时。 */
+  const actual = await importOriginal<typeof import('element-plus')>();
+  return {
+    ...actual,
+    ElMessage: {
+      error: messageMocks.error,
+      success: messageMocks.success,
+    },
+  };
+});
+
 vi.mock('@/api/testRuns', () => ({
   getFailureCases: vi.fn(),
   getReport: vi.fn(),
@@ -76,6 +93,11 @@ function mountDialog() {
 }
 
 describe('failure cases dialog', () => {
+  beforeEach(() => {
+    messageMocks.error.mockClear();
+    messageMocks.success.mockClear();
+  });
+
   it('renders failure filters and failure case table fields', async () => {
     /** 弹窗应展示筛选条件、失败表格字段和失败用例详情。 */
     vi.mocked(getFailureCases).mockResolvedValue(failuresResponse);
@@ -129,6 +151,22 @@ describe('failure cases dialog', () => {
     expect(retryAllFailed).toHaveBeenCalledWith(101, {
       retry_count: 0,
     });
+    expect(messageMocks.success).toHaveBeenCalledWith('失败用例重试已提交');
+    expect(messageMocks.success).toHaveBeenCalledWith('一键失败重试已提交');
+  });
+
+  it('shows a message instead of throwing when retry submission fails', async () => {
+    /** 长耗时重试请求失败时，弹窗需要兜底提示，不能把异常抛给组件事件处理器。 */
+    vi.mocked(getFailureCases).mockResolvedValue(failuresResponse);
+    vi.mocked(retrySelectedFailures).mockRejectedValue(new Error('timeout'));
+
+    const wrapper = mountDialog();
+    await flushPromises();
+    await wrapper.find('[data-test="select-failure-501"]').setValue(true);
+    await expect(wrapper.find('[data-test="retry-selected"]').trigger('click')).resolves.toBeUndefined();
+    await flushPromises();
+
+    expect(messageMocks.error).toHaveBeenCalledWith('失败用例重试提交失败，请稍后重试');
   });
 
   it('opens the Allure report entry returned by backend', async () => {

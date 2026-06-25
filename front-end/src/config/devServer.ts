@@ -14,4 +14,9 @@ export const devServerProxy: Record<string, string | ProxyOptions> = {
     target: apiProxyTarget,
     changeOrigin: true,
   },
+  '/reports': {
+    // Allure 静态报告由 DRF 后端按受控目录服务，开发环境必须同样走后端。
+    target: apiProxyTarget,
+    changeOrigin: true,
+  },
 };

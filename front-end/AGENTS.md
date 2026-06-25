@@ -4,7 +4,7 @@
 
 ## 前端开发-技能推荐
 
-必须执行的技能： /vue-best-practices ， frontend-design
+必须执行的技能： /vue-best-practices ， /frontend-design
 
 进行前端开发时，推荐使用下面的SKILL：
 - ui-ux-pro-max：前端和UI设计时使用

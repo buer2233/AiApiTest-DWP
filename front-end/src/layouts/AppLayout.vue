@@ -12,6 +12,7 @@ import {
   Menu as MenuIcon,
   SwitchButton,
 } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { useRouter } from 'vue-router';
 
 import ModulePassRateView from '@/views/ModulePassRateView.vue';
@@ -19,6 +20,18 @@ import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
 const router = useRouter();
+
+const sidebarMessages: Record<string, string> = {
+  runs: '当前已在模块通过率',
+  failures: '请在失败模块行点击失败重试查看失败用例',
+  jenkins: '请通过表格行中的更多菜单打开 Jenkins 任务',
+  reports: '请通过表格行中的更多菜单或失败弹窗打开 Allure 报告',
+};
+
+function showSidebarGuide(index: string) {
+  /** 左侧菜单当前作为单页工作台导航，引导用户到已实现的具体操作入口。 */
+  ElMessage.info(sidebarMessages[index] ?? '当前功能正在规划中');
+}
 
 async function handleLogout() {
   /**
@@ -40,20 +53,28 @@ async function handleLogout() {
 
       <el-menu class="sidebar-menu" default-active="runs">
         <el-menu-item index="runs">
-          <el-icon><DataLine /></el-icon>
-          <span>模块通过率</span>
+          <button class="sidebar-menu-action" type="button" data-test="sidebar-runs" @click.stop="showSidebarGuide('runs')">
+            <el-icon><DataLine /></el-icon>
+            <span>模块通过率</span>
+          </button>
         </el-menu-item>
         <el-menu-item index="failures">
-          <el-icon><DocumentChecked /></el-icon>
-          <span>失败用例</span>
+          <button class="sidebar-menu-action" type="button" data-test="sidebar-failures" @click.stop="showSidebarGuide('failures')">
+            <el-icon><DocumentChecked /></el-icon>
+            <span>失败用例</span>
+          </button>
         </el-menu-item>
         <el-menu-item index="jenkins">
-          <el-icon><Link /></el-icon>
-          <span>Jenkins 任务</span>
+          <button class="sidebar-menu-action" type="button" data-test="sidebar-jenkins" @click.stop="showSidebarGuide('jenkins')">
+            <el-icon><Link /></el-icon>
+            <span>Jenkins 任务</span>
+          </button>
         </el-menu-item>
         <el-menu-item index="reports">
-          <el-icon><FolderOpened /></el-icon>
-          <span>Allure 报告</span>
+          <button class="sidebar-menu-action" type="button" data-test="sidebar-reports" @click.stop="showSidebarGuide('reports')">
+            <el-icon><FolderOpened /></el-icon>
+            <span>Allure 报告</span>
+          </button>
         </el-menu-item>
       </el-menu>
     </el-aside>

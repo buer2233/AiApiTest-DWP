@@ -387,6 +387,71 @@
   - 运行 PowerShell Parser 检查 `scripts/deploy-docker.ps1`，通过。
   - 运行 `docker compose config` 和 `docker compose -f docker-compose.yml -f docker-compose.jenkins-tools.yml config`，均成功解析。
 
+## Session: 2026-06-25 Frontend Playwright Exploratory Testing
+
+- **Status:** complete
+- Actions taken:
+  - 按用户要求加载 `vue-testing-best-practices`、`vue-debug-guides`，并结合 `vue-best-practices`、`frontend-design`、`systematic-debugging` 和项目规划文件执行探索式测试。
+  - 确认仓库没有 `.codegraph/`，本次直接读取前端组件和 API 封装文件。
+  - 发现工作区已有用户侧 `front-end/AGENTS.md` 未提交改动，本次不回滚、不覆盖该文件。
+  - 确认 Vite 前端 `127.0.0.1:5173` 已监听，DRF 后端 `127.0.0.1:8000` 初始未监听。
+  - 复用本机 Docker MySQL/Jenkins 容器，启动 DRF 后端到 `127.0.0.1:8000`，`/api/docs/` 返回 200。
+  - 创建本地探索测试演示账号 `admin/admin123456`、测试任务 `playwright-demo-run`、2 条失败用例和受控 Allure 报告入口。
+  - 初次使用 `manage.py shell` 管道写入数据时进入 IPython 并触发 Windows 控制台编码错误，已改用 `manage.py shell -c` 和 ASCII 演示内容完成数据准备。
+  - Playwright MCP 清空浏览器存储后访问 `/platform`，确认匿名用户跳转 `/login?redirect=/platform`。
+  - 使用演示账号登录成功，进入 `/platform`；登录请求 `/api/auth/login/` 返回 200，任务列表请求 `/api/test-runs/` 返回 200。
+  - 验证模块列表加载、关键字筛选、失败用例弹窗、失败用例筛选、报告入口和退出登录。
+  - 发现并修复 `favicon.ico` 404：新增 `front-end/public/favicon.svg`，复测新会话控制台不再出现 favicon 404。
+  - 发现并修复 `/reports/<run_id>/` 在 Vite 开发环境被 Vue Router 接管的问题：为 Vite dev server 增加 `/reports` 到 DRF 后端的代理；复测 `http://127.0.0.1:5173/reports/playwright-demo-run/` 返回后端报告 HTML，标题为 `Playwright Demo Allure`。
+  - 发现并修复重试接口长耗时导致 Axios 15 秒超时的问题：为 `retry-selected`、`retry-all-failed`、`retry-module` 增加 `TEST_RUN_COMMAND_TIMEOUT_MS=120000` 请求配置。
+  - 发现并修复重试失败时 Vue 控制台出现 `Unhandled error during execution of component event handler`：为模块重试、选择失败重试、一键失败重试增加 try/catch 和 Element Plus 消息提示。
+  - 发现顶部“一键失败重试”和“Jenkins 任务”按钮静默无响应；已改为显示明确引导提示，避免用户误判功能已独立可用。
+  - 使用 Playwright route 模拟模块重试接口 504，确认修复后不再出现 Vue unhandled warning；控制台只保留预期的 504 网络层错误。
+  - TDD 验证：先新增失败测试覆盖 `/reports` 代理、长耗时重试超时配置、重试错误兜底、顶部入口提示和 favicon，再实现最小修复。
+  - 精确测试：`npm test -- vite-config.spec.ts test-runs-api.spec.ts module-pass-rate.spec.ts failure-cases-dialog.spec.ts static-assets.spec.ts` -> 5 files passed, 16 tests passed。
+  - 前端全量测试：`npm test` -> 6 files passed, 20 tests passed。
+  - 前端构建：`npm run build` -> built successfully；保留既有 VueUse PURE 注释 warning 和 chunk size warning。
+
+## Session: 2026-06-25 Sidebar Menu Playwright Retest
+
+- **Status:** complete
+- Actions taken:
+  - 用户指出平台左侧菜单点击无反应后，重新使用 Playwright MCP 打开 `http://127.0.0.1:5173/platform` 进行真实浏览器复测。
+  - 确认前一轮验收确实遗漏左侧菜单点击反馈：页面中菜单 active 状态可变化，但点击后没有生成 Element Plus `.el-message` 提示。
+  - 按 TDD 修正 `front-end/tests/app-layout.spec.ts`，先让测试不再模拟 `el-menu @select`，而是覆盖菜单项真实点击路径；确认 RED 后修复。
+  - 修改 `front-end/src/layouts/AppLayout.vue`，将左侧四个菜单项的实际点击入口改为内层原生按钮，并通过 `showSidebarGuide()` 展示明确引导提示。
+  - 修改 `front-end/src/styles/main.css`，补齐 `.sidebar-menu-action` 的透明按钮样式，保持侧边栏视觉不变且保留键盘焦点轮廓。
+  - 补强 `front-end/tests/static-assets.spec.ts`，要求 `index.html` 显式引用 `/favicon.svg`；先确认 RED，再在 `front-end/index.html` 增加 favicon link，避免新会话继续请求 `/favicon.ico`。
+  - 重启 Vite 开发服务后使用 Playwright MCP 点击左侧四个菜单，实际捕获到提示：
+    - `模块通过率` -> `当前已在模块通过率`
+    - `失败用例` -> `请在失败模块行点击失败重试查看失败用例`
+    - `Jenkins 任务` -> `请通过表格行中的更多菜单打开 Jenkins 任务`
+    - `Allure 报告` -> `请通过表格行中的更多菜单或失败弹窗打开 Allure 报告`
+  - 使用 Playwright 原生监听刷新新页面，确认本轮只出现 Vite debug 连接日志，没有 404 响应、Vue warning 或 pageerror。
+  - 精确测试：`npm test -- app-layout.spec.ts` -> 1 file passed, 1 test passed。
+  - 静态资源测试：`npm test -- static-assets.spec.ts` -> 1 file passed, 1 test passed。
+  - 前端全量测试：`npm test` -> 7 files passed, 21 tests passed。
+  - 前端构建：`npm run build` -> built successfully；保留既有 VueUse PURE 注释 warning 和 chunk size warning。
+
+## Session: 2026-06-25 Jenkins Job Semantics Fix
+
+- **Status:** complete
+- Actions taken:
+  - 用户在真实 Allure 报告和 Jenkins 截图中确认：新增的必败测试用例确实失败，但 Jenkins `Run API Tests` stage 和整条 job 被标记为失败，不符合平台语义。
+  - 按 systematic-debugging 先定位根因：`api-test/tools/ci_runner.py` 在 Jenkins 模式下把 pytest 返回码 `1` 原样返回，`jenkins/scripts/api-test-pipeline.groovy` 又在 `Run API Tests` 使用 `catchError(buildResult: 'FAILURE', stageResult: 'FAILURE')`，导致测试失败被当作 CI 基础设施失败。
+  - 按 TDD 新增 `api-test/tests/test_ci_runner.py::test_main_returns_success_for_pytest_failures_in_jenkins_env`，先确认 RED：期望 Jenkins env 模式退出码为 0，当前实际为 1。
+  - 按 TDD 修改 `jenkins/tests/test_pipeline_static.py::test_pipeline_preserves_artifacts_when_pytest_fails`，先确认 RED：当前 `Run API Tests` stage 仍包含 `catchError` 和失败 stage 语义。
+  - 修改 `ci_runner.main()`：Jenkins 环境变量模式下仍执行 pytest、写入 summary/failed node ids/Allure，但进程退出码返回 0；summary 继续保留 pytest 原始 `return_code`。
+  - 修改 `jenkins/scripts/api-test-pipeline.groovy`：去掉 `Run API Tests` 的 `catchError` 包裹，让该 stage 表示执行器是否正常完成；`Generate Allure Report` 仍会在 HTML 未生成时失败。
+  - 更新 `docs/jenkins-pipeline.md`、`findings.md`、`task_plan.md` 和主计划，记录 Jenkins job/stage 成败语义：用例失败是测试结果，不是 Jenkins 基础设施失败。
+  - 精确 RED/GREEN：`cd api-test; python -m pytest tests/test_ci_runner.py::test_main_returns_success_for_pytest_failures_in_jenkins_env -v` -> RED 1 failed，修复后 1 passed。
+  - 精确 RED/GREEN：`cd jenkins; python -m pytest tests/test_pipeline_static.py::test_pipeline_preserves_artifacts_when_pytest_fails -v` -> RED 1 failed，修复后 1 passed。
+  - 回归测试：`cd api-test; python -m pytest tests/test_ci_runner.py -v` -> 13 passed。
+  - 回归测试：`cd jenkins; python -m pytest tests/test_pipeline_static.py -v` -> 8 passed。
+  - 真实失败用例烟测：设置 `CI_RUNNER_ENV=jenkins`、`CASE_PATH=test_case/test_gbif_case`、`RUN_ID=jenkins-contract-failed-tests-smoke` 后执行 `python -m tools.ci_runner --from-jenkins-env`，进程退出码为 0；`summary.json` 记录 `status=failed`、`return_code=1`、失败 node id `test_deliberate_assertion_failure`，Allure HTML 生成成功。
+  - 最终回归：`cd jenkins; python -m pytest tests -v` -> 15 passed。
+  - 最终回归：`cd api-test; python -m pytest tests -v` -> 27 passed。
+
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
