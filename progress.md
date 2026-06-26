@@ -175,6 +175,14 @@
   - 2026-06-24：新增 `project-info/项目架构说明书.md`，用简体中文详细说明项目定位、总体架构、技术栈、测试执行链路、失败重试、报告产物、Docker 职责、模块边界和后续演进方向。
   - 2026-06-24：根据 `project-info/项目架构说明书.md` 使用 imagegen 重新生成中文项目说明图，保存为 `project-info/project-architecture-cn.png`，实际尺寸 `1536x1024`。
   - 2026-06-24：基于中文项目说明图输出等比 4K 画布版本 `project-info/project-architecture-cn-4k.png`，尺寸 `3840x2160`。
+  - 2026-06-26：调整 `project-info/` 目录分层，根目录 `AGENTS.md` 改为统筹说明，新增 `demand/`、`UI/`、`test_case/`、`project_picture/` 四类资料目录说明。
+  - 2026-06-26：将架构图、流程图和图片生成相关规则从 `project-info/AGENTS.md` 转移到 `project-info/project_picture/AGENTS.md`，并新增同级 `CLAUDE.md`。
+  - 2026-06-26：为 `project-info/demand/` 新增 `AGENTS.md` 和 `CLAUDE.md`，规定需求分析资料强制使用 `/product-requirements` 技能。
+  - 2026-06-26：为 `project-info/test_case/` 新增 `AGENTS.md` 和 `CLAUDE.md`，规定测试用例资料强制使用 `/test-cases` 技能。
+  - 2026-06-26：为 `project-info/UI/` 新增 `AGENTS.md` 和 `CLAUDE.md`，规定 UI 原型资料强制使用 `prototype-prompt-generator` 技能。
+  - 2026-06-26：将 `project-info/项目架构说明书.md` 移动到 `project-info/project_picture/项目架构说明书.md`，架构图 `project-architecture-cn-4k.png` 已位于 `project_picture/`。
+  - 2026-06-26：重新检查本机可用技能，确认 `product-requirements`、`prototype-prompt-generator`、`test-cases` 均已安装在 `C:\Users\admin\.codex\skills`。
+  - 2026-06-26：更新 `project-info/demand/AGENTS.md`、`project-info/UI/AGENTS.md`、`project-info/test_case/AGENTS.md`，写明三个技能来源于 `https://github.com/stellarlinkco/myclaude`，并规定若检查到技能不可用，应推荐用户安装对应技能后再继续。
   - 2026-06-24：开始 Stage 10：报告展示、联调、文档和交付。按方案 A 实现后端受控 Allure 静态 HTML 报告服务。
   - 2026-06-24：后端先补 `tests/test_test_runs_api.py` 报告测试，确认 RED：缺失 `index.html` 仍返回报告 URL，`/reports/<run_id>/` 未挂载。
   - 2026-06-24：新增 `serve_allure_report()`、`ALLURE_REPORTS_ROOT` 和 `/reports/<run_id>/`、`/reports/<run_id>/<path>` 路由。
