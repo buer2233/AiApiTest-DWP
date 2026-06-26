@@ -1,6 +1,9 @@
 import importlib.util
 import sys
+from types import SimpleNamespace
 from pathlib import Path
+
+import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -97,3 +100,29 @@ def test_ensure_runtime_dirs_creates_api_test_directories():
     ]
     for directory in expected_dirs:
         assert directory.is_dir(), f"{directory} should be created under api-test"
+
+
+def test_default_script_entry_runs_all_test_case_cases_even_with_legacy_cli_args(monkeypatch):
+    """直跑 runpytest.py 时固定执行 test_case，避免 PyCharm 旧参数只跑单个模块。"""
+    runpytest = load_module_from_api_test("runpytest")
+    executed_commands = []
+
+    # 模拟本地 IDE 运行配置里仍残留旧的单模块参数。
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["runpytest.py", "--case-path", "test_case/test_gbif_case", "--clean"],
+    )
+    monkeypatch.setattr(runpytest, "ensure_runtime_dirs", lambda: None)
+    monkeypatch.setattr(runpytest.shutil, "which", lambda executable: None)
+    monkeypatch.setattr(
+        runpytest,
+        "run_command",
+        lambda command: executed_commands.append(command) or SimpleNamespace(returncode=0),
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        runpytest.run_default_main()
+
+    assert exit_info.value.code == 0
+    assert executed_commands[0][:4] == ["python", "-m", "pytest", "test_case"]

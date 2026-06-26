@@ -14,7 +14,7 @@ def write_lastfailed(cache_dir, payload):
 
 def test_load_lastfailed_reads_pytest_cache_and_preserves_nodeids(tmp_path):
     cache_dir = tmp_path / ".pytest_cache"
-    first = "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword"
+    first = "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword"
     second = "test_case/test_demo_case/test_demo_api.py::TestDemoAPI::test_param[中文/abc]"
     write_lastfailed(cache_dir, {first: True, second: True})
 
@@ -36,7 +36,7 @@ def test_load_lastfailed_raises_clear_error_when_cache_json_is_invalid(tmp_path)
 
 
 def test_normalize_nodeids_removes_empty_values_and_duplicates_without_rewriting_nodeids():
-    nodeid = "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword"
+    nodeid = "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword"
     parametrized = "test_case/test_demo.py::TestDemo::test_param[a/b]"
 
     assert normalize_nodeids(["", f"  {nodeid}  ", nodeid, "\n", parametrized]) == [
@@ -47,7 +47,7 @@ def test_normalize_nodeids_removes_empty_values_and_duplicates_without_rewriting
 
 def test_write_nodeids_creates_parent_dirs_and_writes_json_list(tmp_path):
     nodeids = [
-        "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword",
+        "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword",
         "test_case/test_demo.py::TestDemo::test_param[a/b]",
     ]
     output_path = tmp_path / "runtime" / "ci-runs" / "run-1" / "failed_nodeids.json"
