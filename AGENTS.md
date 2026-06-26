@@ -15,6 +15,7 @@
 必须执行的技能： /using-superpowers， /planning-with-files
 
 其它全局统筹执行时推荐使用的技能：
+- do：标准的开发流程
 - test-driven-development：整个项目的所有开发过程都需要遵循测试驱动开发的模型
 - brainstorming：在新任务之前必须使用，探索和深挖用户意图和需求、设计
 - systematic-debugging：遇到问题或错误时推荐使用
@@ -26,7 +27,6 @@
 - `api-test/`、`back-end/`、`front-end/`、`jenkins/` 下的 `AGENTS.md` 维护各自模块的技术栈、命令、目录约定和注意事项。
 - 子目录规则可以更具体，但不能和根目录规则冲突。
 - `CLAUDE.md` 只保留对同级 `AGENTS.md` 的引用，即 `@AGENTS.md`。以后修改协作规则时优先改 `AGENTS.md`，不要在 `CLAUDE.md` 复制规则。
-- 进入某个子目录工作时，先读根目录 `AGENTS.md`，再读该子目录 `AGENTS.md`。
 
 ## 当前产品定位
 
@@ -36,50 +36,10 @@
 - `jenkins/`：Jenkins Pipeline 和 Groovy 脚本，负责在 Windows/Linux Jenkins agent 上调用 `api-test`，归档运行产物并发布 Allure 报告。
 - `back-end/`：Django REST Framework 后端，负责用户登录、角色、测试任务、失败用例、报告入口、Jenkins 查询和触发 API。
 - `front-end/`：Vue 3 + Vite + TypeScript + Element Plus 前端，负责模块通过率、失败用例弹窗、失败重试、Jenkins 任务入口和报告入口。
-- `docs/`：所有开发计划、阶段记录、接口设计、测试结果、运行手册和问题记录。
+- `project-info/`：项目说明资料统筹目录，只负责沉淀需求、原型、测试用例、架构图和流程图等项目交接资料，不存放业务实现代码或运行产物。
+- `docs/`：存放额外的文档内容
 
 本项目仍然保持通用测试平台定位，不绑定任何具体业务系统。新增内容不得提交真实账号、密码、token、cookie、租户密钥、生产地址或不可迁移的业务常量。
-
-## 必读上下文
-
-任何后续 AI 接手开发、修复或文档更新前，必须先读取以下文件：
-
-1. `docs/superpowers/plans/2026-06-22-cicd-test-platform.md`
-2. `task_plan.md`
-3. `findings.md`
-4. `progress.md`
-5. `README.md`
-
-其中 `docs/superpowers/plans/2026-06-22-cicd-test-platform.md` 是主开发计划和阶段进度来源。不要另起一个全新的计划文件来替代它，除非用户明确要求。
-
-## 多阶段开发规则
-
-本项目按 10 个阶段推进，每个阶段必须独立完成需求分析、测试、开发、验证、文档、提交和推送：
-
-1. 需求冻结与计划确认
-2. `api-test/` 迁移与充分测试
-3. pytest node id 与失败重试执行器
-4. Jenkins Groovy Pipeline
-5. DRF 后端基础工程与用户角色
-6. 测试任务与失败用例 API
-7. Jenkins 查询与触发 API
-8. Vue 3 前端基础与登录
-9. 模块通过率与失败用例页面
-10. 报告展示、联调、文档和交付
-
-每个阶段必须遵守 TDD：
-
-1. 明确本阶段范围、输入、输出、验收标准和不做事项。
-2. 先写自动化测试。
-3. 运行精确测试命令，确认 RED。
-4. 编写最小实现。
-5. 运行测试确认 GREEN。
-6. 必要时重构，并再次运行测试。
-7. 更新 `docs/`、`task_plan.md`、`findings.md`、`progress.md` 和主计划文件。
-8. 阶段完成后单独执行 `git commit`。
-9. 提交后执行 `git push`，失败则记录原因。
-
-禁止跨阶段混合大批量实现。发现当前工作区已有未提交改动时，先用 `git status --short` 确认范围，不能回滚用户或其他 AI 已做的改动。
 
 ## 模块边界
 
@@ -100,15 +60,6 @@
 
 - docker快速部署：AI 需要执行或说明 Docker 部署时，按需读取 `docker/DEPLOYMENT.md`，并以该文件为准。
 - 快速启动项目环境：AI 需要快速启动当前项目的所有依赖环境时，按需读取 `project-info/quick-start-all-services.md`
-
-## 文档与记录
-
-- 开发和测试中产生的文档统一放入 `docs/`。
-- 每次阶段性动作后更新主计划文件的阶段进度记录。
-- 重要发现写入 `findings.md`。
-- 执行动作、测试命令和结果写入 `progress.md`。
-- 阶段文档必须包含：范围、实现内容、测试命令、测试结果、已知问题、后续建议。
-- 项目架构说明书参考: `/project-info/项目架构说明书.md`
 
 ## Git 规则
 
