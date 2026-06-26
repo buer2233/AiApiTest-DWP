@@ -118,7 +118,7 @@ def ensure_runtime_dirs():
         Path(path).mkdir(parents=True, exist_ok=True)
 
 
-def main(case_path="test_case", marker=None, open_report=False, clean=True):
+def main(case_path="test_case", marker=None, open_report=False, clean=True, argv=None):
     """命令行主入口。
     负责解析用户传入的 pytest 执行参数，准备运行目录，执行接口自动化用例，
     检测 Allure CLI 后生成报告，并在用户指定时自动打开报告页面。
@@ -127,6 +127,7 @@ def main(case_path="test_case", marker=None, open_report=False, clean=True):
         marker: 默认使用的 pytest marker 表达式。
         open_report: 默认是否在生成 Allure 报告后自动打开报告。
         clean: 默认是否在运行前清理旧的 Allure 原始结果，默认清理以避免历史用例混入本次报告。
+        argv: 指定要解析的命令行参数列表；不传时读取真实命令行参数。
     """
     # 定义命令行参数，便于通过 runpytest.py 统一控制用例范围和报告行为。
     parser = argparse.ArgumentParser(description="Run API pytest cases and generate Allure report.")
@@ -148,7 +149,7 @@ def main(case_path="test_case", marker=None, open_report=False, clean=True):
         default=clean,
         help="clean old allure-results before run, default: True",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # 先创建运行所需目录，再启动 pytest，避免输出报告或日志时目录不存在。
     ensure_runtime_dirs()
@@ -181,5 +182,13 @@ def main(case_path="test_case", marker=None, open_report=False, clean=True):
     raise SystemExit(pytest_result.returncode)
 
 
+def run_default_main():
+    """本地直接执行 runpytest.py 的默认入口。
+    这里显式传入空参数列表，避免 IDE 历史运行配置中的 --case-path 覆盖默认值，
+    保证点击运行当前文件时始终从 test_case 根目录收集所有模块用例。
+    """
+    main(case_path="test_case", argv=[])
+
+
 if __name__ == "__main__":
-    main()
+    run_default_main()

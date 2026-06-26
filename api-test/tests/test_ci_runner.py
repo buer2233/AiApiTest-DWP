@@ -38,7 +38,7 @@ def test_build_pytest_command_for_module_run(tmp_path):
 def test_build_pytest_command_for_selected_nodeids_with_rerun_count(tmp_path):
     allure_results_dir = tmp_path / "runtime" / "ci-runs" / "run-1" / "allure-results"
     nodeids = [
-        "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword",
+        "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword",
         "test_case/test_demo.py::TestDemo::test_param[a/b]",
     ]
 
@@ -93,7 +93,7 @@ def test_run_ci_tests_defaults_to_current_python_interpreter(tmp_path, monkeypat
 
 
 def test_resolve_all_failed_targets_reads_pytest_lastfailed_cache(tmp_path):
-    first = "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword"
+    first = "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword"
     second = "test_case/test_demo.py::TestDemo::test_param[a/b]"
     write_lastfailed(tmp_path, {first: True, second: True})
     request = ci_runner.RunRequest(
@@ -108,7 +108,7 @@ def test_resolve_all_failed_targets_reads_pytest_lastfailed_cache(tmp_path):
 
 def test_resolve_selected_targets_uses_explicit_nodeids(tmp_path):
     nodeids = [
-        "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword",
+        "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword",
         "test_case/test_demo.py::TestDemo::test_param[a/b]",
     ]
     request = ci_runner.RunRequest(
@@ -167,7 +167,7 @@ def test_build_run_request_from_jenkins_env_uses_pipeline_parameters(tmp_path):
 def test_write_summary_creates_required_summary_json(tmp_path):
     run_dir = tmp_path / "runtime" / "ci-runs" / "run-1"
     failed_nodeids = [
-        "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword"
+        "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword"
     ]
 
     summary = ci_runner.write_summary(
@@ -192,7 +192,7 @@ def test_write_summary_creates_required_summary_json(tmp_path):
 
 
 def test_run_ci_tests_executes_pytest_and_writes_artifacts(tmp_path, monkeypatch):
-    nodeid = "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword"
+    nodeid = "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword"
     write_lastfailed(tmp_path, {nodeid: True})
     request = ci_runner.RunRequest(
         api_test_root=tmp_path,
@@ -305,7 +305,7 @@ def test_main_returns_success_for_pytest_failures_in_jenkins_env(tmp_path, monke
             "status": "failed",
             "return_code": 1,
             "failed_nodeids": [
-                "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_intentional_failure"
+                "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_intentional_failure"
             ],
             "allure_report_status": "generated",
             "allure_report_message": "Allure HTML report generated successfully.",
