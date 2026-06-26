@@ -28,22 +28,4 @@
 - 权限第一版可让 `admin` 和 `member` 权限一致，但代码结构要保留管理员专属权限入口。
 - Jenkins client 测试必须使用 fake HTTP 响应，不依赖真实 Jenkins 服务。
 
-## 目录约定
 
-- `config/` 放 Django settings、urls 和全局配置。
-- `apps/accounts/` 放用户、角色、认证和权限。
-- `apps/test_runs/` 放测试任务、失败用例、报告和 Allure 解析。
-- `apps/jenkins_integration/` 放 Jenkins client、模型和 API。
-- `tests/` 放后端 pytest 测试。
-
-## TDD 要求
-
-- Stage 5 先写账户和角色测试，再创建 Django 工程和 accounts app。
-- Stage 6 先写测试任务、失败用例和 Allure 解析测试，再实现模型和 API。
-- Stage 7 先写 Jenkins client/API 测试，使用 fake HTTP 响应，再实现 Jenkins 集成。
-
-## 禁止事项
-
-- 不提交真实数据库密码、Jenkins URL、Jenkins 用户名、API token。
-- 不在后端复制 `api-test` 的失败重试实现。
-- 不把运行产物、报告 HTML 或 console log 当作业务代码提交。
