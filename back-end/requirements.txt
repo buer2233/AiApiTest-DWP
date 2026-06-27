@@ -1,0 +1,10 @@
+# 运行时依赖
+Django>=5.2,<5.3
+djangorestframework>=3.15
+mysqlclient>=2.2
+
+# 测试与质量
+pytest>=7.4
+pytest-django>=4.8
+pytest-cov>=5.0
+factory-boy>=3.3

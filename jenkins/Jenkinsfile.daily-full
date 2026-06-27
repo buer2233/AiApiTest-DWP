@@ -1,0 +1,6 @@
+// Jenkins job「api-test-daily-full」入口：在 node 上下文检出并加载每日全量 pipeline。
+node {
+    checkout scm
+    def pipeline = load 'jenkins/scripts/daily-full-pipeline.groovy'
+    pipeline.call()
+}

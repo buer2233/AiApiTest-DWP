@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 测试与覆盖率产物
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# 本地数据库与环境
+*.sqlite3
+.env
+
+# 静态收集产物
+staticfiles/

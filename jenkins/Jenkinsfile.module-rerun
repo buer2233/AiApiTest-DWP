@@ -1,0 +1,6 @@
+// Jenkins job「api-test-module-rerun」入口：在 node 上下文检出并加载模块重试 pipeline。
+node {
+    checkout scm
+    def pipeline = load 'jenkins/scripts/module-rerun-pipeline.groovy'
+    pipeline.call()
+}

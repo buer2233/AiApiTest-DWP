@@ -1,0 +1,6 @@
+// Jenkins job「api-test-failed-rerun」入口：在 node 上下文检出并加载失败重试 pipeline。
+node {
+    checkout scm
+    def pipeline = load 'jenkins/scripts/failed-rerun-pipeline.groovy'
+    pipeline.call()
+}

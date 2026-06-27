@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.local
+.env
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+tests/screenshots/

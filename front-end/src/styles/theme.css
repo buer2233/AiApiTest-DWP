@@ -1,0 +1,54 @@
+/* Claude 暖陶土风设计 token（与 UI 原型 §1 一致）。
+   品牌陶土色仅用于主操作与强调；状态语义色独立，不被品牌色替代。 */
+:root {
+  /* 背景与表面 */
+  --bg-base: #f7f5f2;
+  --bg-surface: #ffffff;
+  /* 文本与边框 */
+  --text-primary: #2b2a28;
+  --text-secondary: #6b655c;
+  --border-base: #e8e3dc;
+  /* 品牌暖陶土 */
+  --brand-primary: #c15f3c;
+  --brand-hover: #a94e2f;
+  --brand-soft: #f3e4dc;
+  /* 状态语义色 */
+  --status-success: #2f855a;
+  --status-danger: #c0392b;
+  --status-warning: #b7791f;
+  --status-info: #2b6cb0;
+
+  /* Element Plus 主色覆盖为暖陶土 */
+  --el-color-primary: #c15f3c;
+  --el-color-primary-light-3: #d07e60;
+  --el-color-primary-light-5: #dca088;
+  --el-color-primary-light-7: #e8c1b1;
+  --el-color-primary-light-8: #f0d5c9;
+  --el-color-primary-light-9: #f3e4dc;
+  --el-color-primary-dark-2: #a94e2f;
+  --el-color-success: #2f855a;
+  --el-color-danger: #c0392b;
+  --el-color-warning: #b7791f;
+  --el-color-info: #2b6cb0;
+  --el-border-radius-base: 6px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
