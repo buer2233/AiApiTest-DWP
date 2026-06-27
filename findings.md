@@ -2,7 +2,6 @@
 
 ## 2026-06-26
 
-- 仓库根目录不存在 `.codegraph/`，本次不使用 CodeGraph。
 - 当前工作区初始状态干净，最近提交包含“清理回退现有的开发内容”和项目说明结构优化。
 - 根目录 `AGENTS.md` 当前包含较完整的项目定位、模块边界、安全规则、技能推荐和 Git 规则，但用户希望进一步简约化。
 - 根目录 `README.md` 当前非常简短，只说明项目是面向 AI 协作的 CICD 自动化测试平台。
@@ -36,3 +35,12 @@
 - 前端技术栈评估结论：当前项目是典型企业级测试管理后台，核心页面以筛选、表格、弹窗、任务状态、报告入口和高频操作为主；推荐继续使用 Vue 3 + Vite + TypeScript + Element Plus，并补充 Pinia、Vue Router、Axios、TanStack Query、Vitest、Vue Test Utils、Playwright。
 - React + Ant Design Pro/Next.js 适合已有 React 团队或需要全栈 React/SSR 的项目，但本项目 DRF 后端已固定，SSR 和 React 全栈能力不是核心收益。
 - Angular 适合大型强约束团队，但对当前项目和 AI 快速迭代成本偏高。
+
+## 2026-06-27 整体 Docker 化架构增强
+
+- 用户要求将后期整个平台通过 Docker 打包部署的预案写入 `docker/AGENTS.md`，并在 `docker/` 新增 `CLAUDE.md`。
+- 用户要求全局 `AGENTS.md` 与 `project-info/project_detail/AGENTS.md` 明确：后续设计和开发都必须满足整体 Docker 化部署能力。
+- 当前架构说明书仍写“Docker 负责基础服务，不默认把业务应用全部容器化”，需要改为“当前阶段默认基础服务，后期必须支持 Compose 编排整个平台”。
+- 推荐整体 Docker 化形态不是单一大镜像，而是一个 Docker Compose 项目编排 `mysql`、`jenkins`、`backend`、`frontend`、`nginx`、`api-runner` 或 Jenkins agent 等服务。
+- 后期容器化关键约束：服务间使用 Compose 服务名通信，不能写死 `127.0.0.1`、个人机器路径或宿主机端口；凭据通过环境变量、Jenkins Credentials 或本地私有配置注入。
+- `api-test` 更适合以 Jenkins agent 或 runner 镜像形式执行，不建议作为长期常驻 Web 服务；Jenkins controller 负责编排，runner 负责 pytest、Allure 和执行产物。

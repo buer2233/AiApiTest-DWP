@@ -64,13 +64,15 @@
 - `docker/`：容器设计、Docker Compose、基础服务部署说明。
 - `jenkins/`：Jenkins Pipeline、Groovy 脚本、Job 模板和执行归档策略。
 
+后期平台必须支持作为一个 Docker Compose 项目整体打包部署。后续任何后端、前端、Jenkins、`api-test` 执行器和报告入口设计，都必须避免绑定个人本机路径、宿主机固定端口或不可迁移环境，保证可以通过环境变量、Compose 服务名、volume 和标准镜像构建方式迁移到整体容器化部署。
+
 ## 项目基础架构
 
 - `api-test/`：接口自动化执行核心，维护 pytest 用例、接口方法、失败 node id、重试执行器和 Allure 原始结果。测试执行协议只在此处实现。
 - `jenkins/`：严格执行主干。平台侧所有测试执行、模块重试、失败重试和报告生成都必须通过 Jenkins。
 - `back-end/`：DRF 平台编排和数据中心，负责用户、权限、任务、模块快照、失败用例、Jenkins 触发/同步、报告入口和审计。
 - `front-end/`：Vue 3 企业级管理后台，负责模块通过率、失败用例、Jenkins 任务、报告入口和平台操作体验。
-- `docker/`：本地 MySQL、Jenkins 等基础服务。
+- `docker/`：当前维护本地 MySQL、Jenkins 等基础服务，后期承载整个平台 Docker Compose 打包部署方案。
 - `project-info/`：项目资料，不存放业务实现代码或运行产物。
 - `docs/`：额外说明文档。
 

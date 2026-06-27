@@ -34,3 +34,17 @@
 - 已导出带嵌入 XML 的可编辑 PNG：`project-info/project_detail/project-architecture.drawio.png`，并已执行 PNG 修复脚本。
 - 已依据当前架构和固定 loop 更新所有既有子目录 `AGENTS.md`：`api-test/`、`back-end/`、`front-end/`、`jenkins/`、`project-info/`、`project-info/demand/`、`project-info/test_case/`、`project-info/UI/`、`project-info/project_detail/`。
 - 已新增 `docker/AGENTS.md`，补齐基础设施目录的容器设计、验证和安全规则。
+
+## 2026-06-27
+
+- 开始执行整体 Docker 化架构增强任务。
+- 已确认本轮需要更新 `docker/AGENTS.md`、新增 `docker/CLAUDE.md`、更新根目录 `AGENTS.md`、`project-info/project_detail/AGENTS.md`、`project-info/project_detail/project-architecture.md`，并重绘架构图。
+- 已读取 drawio-skill 和 architecture diagram preset，后续按 draw.io XML 校验和 PNG 导出流程处理。
+- 更新 draw.io XML 的临时 Python 生成尝试失败，未写出文件；已切换为 `apply_patch` 直接维护源文件。
+- 已更新 `docker/AGENTS.md`，加入后期完整 Docker Compose 打包部署预案、服务边界、落地顺序、验证要求和安全要求。
+- 已新增 `docker/CLAUDE.md`，内容为 `@AGENTS.md`。
+- 已更新根目录 `AGENTS.md` 和 `project-info/project_detail/AGENTS.md`，明确后续设计和开发必须满足整体 Docker 化部署能力。
+- 已更新 `project-info/project_detail/project-architecture.md`，新增整体 Docker 化部署架构章节，并补充容器化链路、服务边界、报告产物和安全约束。
+- 已重绘 `project-info/project_detail/project-architecture.drawio`，并导出 `project-architecture.png` 与 `project-architecture.drawio.png`。
+- 已运行 draw.io XML 校验：0 error(s), 0 warning(s)。
+- 已运行 `git diff --check`：无空白错误，仅出现 Windows 换行转换提示。

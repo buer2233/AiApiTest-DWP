@@ -54,3 +54,26 @@
 | `git commit` 失败：当前环境未配置 `user.name` 和 `user.email` | 需要用户提供 Git 身份，或确认使用仓库本地占位身份后再提交 |
 | draw.io CLI 使用相对路径导出时报 `input file/directory not found` | 改用绝对路径执行导出 |
 | 重新检查时发现架构资料目录已从 `project-info/project_picture/` 变为 `project-info/project_detail/` | 使用当前实际路径 `project-info/project_detail/project-architecture.drawio` 导出 PNG，不回退目录变更 |
+| 尝试用临时 Python 生成 draw.io XML 时参数传递错误，未写出文件 | 改用 `apply_patch` 直接替换 `.drawio` 源文件 |
+
+## 2026-06-27 整体 Docker 化架构增强
+
+## 目标
+
+将“后期整个平台可通过 Docker Compose 整体打包部署”的要求写入全局规则、Docker 目录规则和架构资料，并更新架构说明书与架构图。
+
+## 阶段
+
+| 阶段 | 状态 | 说明 |
+| --- | --- | --- |
+| 读取技能与当前文档 | 完成 | 已读取 using-superpowers、planning-with-files、brainstorming、drawio-skill 和现有架构资料 |
+| 更新 Docker 与全局规则 | 完成 | 已更新 `docker/AGENTS.md`、新增 `docker/CLAUDE.md`，并补充全局 Docker 化要求 |
+| 更新架构说明书与架构图 | 完成 | 已更新 `project-architecture.md` 与 `project-architecture.drawio` |
+| 导出与校验 | 完成 | 已校验 draw.io XML，导出普通 PNG 与可编辑 PNG |
+| 流程规范评价 | 进行中 | 完成后输出当前开发流程优化建议 |
+
+## 本轮约束
+
+- 不把整个平台做成单一巨型镜像，目标是一个 Compose 项目编排多个职责明确的容器。
+- Jenkins 仍是严格执行主干，容器化不能绕过 Jenkins 执行测试。
+- DRF、Vue、Jenkins、api-test runner 的设计必须支持容器网络、环境变量和可迁移路径。
