@@ -1,11 +1,38 @@
-# 前端目录清理发现记录
+# 开发流程与架构重构发现记录
 
 ## 2026-06-26
 
-- 仓库根目录不存在 `.codegraph/`，本次清理不使用 CodeGraph。
-- 本次用户指令是明确清理 `front-end/` 目录，不涉及重新设计或实现前端功能。
-- 需要保留的前端协作规则文件只有：
-  - `front-end/AGENTS.md`
-  - `front-end/CLAUDE.md`
-- 首次删除后残留 `.vite/`、`node_modules/`、`.vite-dev.log`，原因是前端 Vite 开发服务仍在运行并锁定文件。
-- 清理完成后，`front-end/` 目录只剩 `AGENTS.md` 与 `CLAUDE.md`。
+- 仓库根目录不存在 `.codegraph/`，本次不使用 CodeGraph。
+- 当前工作区初始状态干净，最近提交包含“清理回退现有的开发内容”和项目说明结构优化。
+- 根目录 `AGENTS.md` 当前包含较完整的项目定位、模块边界、安全规则、技能推荐和 Git 规则，但用户希望进一步简约化。
+- 根目录 `README.md` 当前非常简短，只说明项目是面向 AI 协作的 CICD 自动化测试平台。
+- `api-test/AGENTS.md` 明确接口自动化执行核心基于 pytest、requests、allure-pytest，并已有 `tools/ci_runner.py` 作为 Jenkins 和 DRF 后端统一调用入口的约定。
+- `back-end/AGENTS.md` 固定为 Django REST Framework，职责包含用户角色、测试任务、失败用例、报告入口、Jenkins 查询和触发 API。
+- `front-end/AGENTS.md` 当前仍写 Vue 3 + Vite + TypeScript + Element Plus，但上次任务已清空前端代码，仅保留规则文件，因此前端技术栈可重新评估。
+- `jenkins/AGENTS.md` 当前定位为 Pipeline 参数、stage 编排、跨平台 agent、调用 `api-test/tools/ci_runner.py`、归档和发布 Allure 报告。
+- 用户提出关键架构问题：如果所有模块都在一个项目内，后端是否可以直接执行用例和重试，避免 Jenkins 再转发一次。
+- `back-end/` 当前没有 DRF 业务代码，仅有协作规则文件、`__pycache__` 和 `.pytest_cache`；快速启动文档里描述的后端已不存在。
+- `front-end/` 当前没有前端业务代码，仅有 `AGENTS.md` 与 `CLAUDE.md`；快速启动文档里描述的 Vue 3 前端已不存在。
+- `docker-compose.yml` 当前只启动 MySQL 与 Jenkins，不包含后端、前端或 `api-test` 应用容器。
+- `api-test` 已有较清晰的执行器资产：`tools/ci_runner.py`、pytest node id 收集、失败重试、Allure 产物目录和自身测试。
+- `jenkins` 已有 Groovy Pipeline 与静态测试资产，但其 README 仍写“Stage 4 已实现”，后续可保留为可选 CI 集成入口，而不是平台内部执行的唯一入口。
+- 用户倾向保留 Jenkins 作为企业流水线执行入口，并认为全部统一走 Jenkins 可能更规范、扩展性更高。
+- 初步判断：统一走 Jenkins 可以作为执行主干，但不能让 DRF 退化为简单转发器；DRF 仍应负责测试任务建模、权限、审计、调度记录、失败用例归档、报告索引和前端 API。
+- 用户确认平台执行必须 100% 依赖 Jenkins 可用，所有测试都通过 Jenkins 执行。
+- 用户确认当前 `api-test` 测试框架基本稳定，重试或报告展示相关变更应单独改动测试框架，不在后端或 Jenkins 中重复实现。
+- 用户提供目标页面参考：模块通过率列表展示环境、模块、用例包名、模块名、负责人、自动化负责人、通过率、运行日期、运行时间和操作按钮。
+- 用户要求每天凌晨 1 点自动执行现有所有测试用例，执行结果作为当天最新测试数据展示在平台上。
+- `api-test/test_case/` 下每个子文件夹代表一个模块，例如 `test_case/test_gbif_case`。
+- 用户要求两类重试独立执行：模块重试重跑整个模块并更新该模块“日期”和“执行时间”；失败重试只执行当前模块失败用例，通过率 100% 时提示无需失败重试，且不更新模块“日期”和“执行时间”。
+- 用户要求模块重试 Job 和失败重试 Job 独立，且一个 Job 下最多允许 10 个任务同时执行。
+- 用户要求模块级互斥：同一模块无论正在执行失败重试还是模块重试，都不允许再触发另一种重试。
+- 用户要求平台具备 Jenkins 任务状态查看和操作能力，参考截图中的取消任务、查看报告、查看 Jenkins 任务、标记失败、查看进度等操作。
+- 用户要求点击模块通过率时展示失败用例明细，包含用例名、描述、错误类型、断言、执行状态、错误信息、确认结果以及 Jenkins 任务/测试账号等操作。
+- 用户确认失败重试执行成功后，主表的通过率、失败数、成功数也需要更新；但仍沿用此前约束：失败重试不更新主表“日期”和“执行时间”。
+- 第一张主表是模块展示快照表：模块条数固定，每个模块一条当前展示数据；每日全量、模块重试、失败重试完成后按规则更新对应模块行。
+- 第二张表是失败记录表：记录当前模块当天失败用例，字段需支持用例描述、pytest node id、错误类型、错误信息、确认结果、关联缺陷和重试状态。
+- 第三张表是 Jenkins 执行记录表：记录 env、任务类型、case_id、Jenkins job/build URL、状态、任务名，并支持分页查询和前端操作。
+- 用户提供的接口样例包含内网地址、环境 URL 和业务用例文本，正式文档需要抽象为通用测试平台字段，不能固化真实环境地址或业务常量。
+- 前端技术栈评估结论：当前项目是典型企业级测试管理后台，核心页面以筛选、表格、弹窗、任务状态、报告入口和高频操作为主；推荐继续使用 Vue 3 + Vite + TypeScript + Element Plus，并补充 Pinia、Vue Router、Axios、TanStack Query、Vitest、Vue Test Utils、Playwright。
+- React + Ant Design Pro/Next.js 适合已有 React 团队或需要全栈 React/SSR 的项目，但本项目 DRF 后端已固定，SSR 和 React 全栈能力不是核心收益。
+- Angular 适合大型强约束团队，但对当前项目和 AI 快速迭代成本偏高。

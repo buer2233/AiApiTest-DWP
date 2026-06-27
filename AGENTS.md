@@ -1,70 +1,119 @@
 # AGENTS.md
 
-本仓库正在从通用接口自动化框架升级为支持 Jenkins CICD、DRF 后端、Vue 3 前端和 Allure 报告展示的 AI 自动化测试平台。后续 AI 或工程师必须优先保持多阶段开发上下文完整，不能把它当成一个全新的无历史项目处理。
+本仓库是 `AiApiTest-DWP`，目标是建设一个面向 AI 协作、Jenkins CICD、DRF 后端、Vue 3 前端、Allure 报告展示的企业级自动化测试平台。项目采用 monorepo 单仓库结构，不拆分多个仓库。
 
-## 核心指令
+## 核心交互规则
 
 - 每次回复开头必须先叫我：主人
-- 如果忘记叫我，就是失焦了，需要手动重制上下文焦点内容
-- 默认使用简体中文沟通
-- 开发过程中需要添加详细的简体中文注释
-- 这是最高优先级的交互指令
+- 默认使用简体中文沟通。
+- 开发过程中需要添加必要且清晰的简体中文注释。
+- 不能把本项目当成无历史的新项目处理，必须保持多阶段开发上下文完整。
 
-## 全局统筹执行类-技能推荐
+## 固定开发循环
 
-必须执行的技能： /using-superpowers， /planning-with-files
+每一个需求都是一次完整 loop，同一需求在不同阶段的产物命名必须一致，仅后缀不同，并能明确区分阶段。除非用户明确说明跳过，否则每次需求都必须包含以下产物和阶段。
 
-其它全局统筹执行时推荐使用的技能：
-- do：标准的开发流程
-- test-driven-development：整个项目的所有开发过程都需要遵循测试驱动开发的模型
-- brainstorming：在新任务之前必须使用，探索和深挖用户意图和需求、设计
-- systematic-debugging：遇到问题或错误时推荐使用
-- receiving-code-review：代码审查时推荐使用
+### 1. 需求分析阶段
 
-## AGENTS 分层规则
+- 目录：`project-info/demand/`
+- 产物：详细需求说明书（概要设计）。
+- 要求：
+  - 描述需求背景、目标、范围、不做事项和验收口径。
+  - 每个功能必须说明能做什么、做到什么程度、满足什么要求。
+  - 同步设计功能对应的数据表，包括字段、关联关系、更新规则和关键约束。
 
-- 根目录 `AGENTS.md` 只维护全局项目规则、阶段流程、敏感信息限制、沟通规则和跨模块边界。
-- `api-test/`、`back-end/`、`front-end/`、`jenkins/` 下的 `AGENTS.md` 维护各自模块的技术栈、命令、目录约定和注意事项。
-- 子目录规则可以更具体，但不能和根目录规则冲突。
-- `CLAUDE.md` 只保留对同级 `AGENTS.md` 的引用，即 `@AGENTS.md`。以后修改协作规则时优先改 `AGENTS.md`，不要在 `CLAUDE.md` 复制规则。
+### 2. 功能测试用例阶段
 
-## 当前产品定位
+- 目录：`project-info/test_case/`
+- 产物：详细功能测试用例（详细设计）。
+- 要求：
+  - 必须依据需求说明书编写。
+  - 测试用例按模块和优先级组织。
+  - 覆盖操作步骤、正常场景、异常场景、边界值和关键状态流转。
 
-项目目标是建设一个可持续演进的 CICD AI 自动化测试平台：
+### 3. UI 原型图阶段
 
-- `api-test/`：接口自动化执行核心，基于 pytest、requests、allure-pytest，负责接口方法、pytest 用例、失败 node id、重试执行器和 Allure 结果。
-- `jenkins/`：Jenkins Pipeline 和 Groovy 脚本，负责在 Windows/Linux Jenkins agent 上调用 `api-test`，归档运行产物并发布 Allure 报告。
-- `back-end/`：Django REST Framework 后端，负责用户登录、角色、测试任务、失败用例、报告入口、Jenkins 查询和触发 API。
-- `front-end/`：Vue 3 + Vite + TypeScript + Element Plus 前端，负责模块通过率、失败用例弹窗、失败重试、Jenkins 任务入口和报告入口。
-- `project-info/`：项目说明资料统筹目录，只负责沉淀需求、原型、测试用例、架构图和流程图等项目交接资料，不存放业务实现代码或运行产物。
-- `docs/`：存放额外的文档内容
+- 目录：`project-info/UI/`
+- 产物：UI 原型图和交互说明。
+- 要求：
+  - 必须参考详细功能测试用例。
+  - 原型需要覆盖核心页面、弹窗、表格、筛选、状态和操作反馈。
 
-本项目仍然保持通用测试平台定位，不绑定任何具体业务系统。新增内容不得提交真实账号、密码、token、cookie、租户密钥、生产地址或不可迁移的业务常量。
+### 4. 后端开发阶段
 
-## 模块边界
+- 目录：`back-end/`
+- 技术栈：Python、Django REST Framework、MySQL、pytest、pytest-django。
+- 要求：
+  - 必须依据需求文档和详细功能测试用例开发。
+  - 先编写后端接口 pytest 测试用例，再开发接口，再回归测试。
+  - 严格遵循 TDD：RED -> GREEN -> REFACTOR。
 
-- `api-test/` 只负责接口自动化执行能力、pytest node id、失败重试执行器和 Allure 原始结果。
-- `jenkins/` 只负责 Jenkins Pipeline 参数、stage 编排、Windows/Linux 兼容和产物归档。
-- `back-end/` 只负责 DRF API、用户角色、任务数据、失败用例数据、Jenkins 查询/触发和报告入口。
-- `front-end/` 只负责 Vue 3 测试平台界面、登录态、模块通过率、失败用例操作和报告入口。
-- 跨模块逻辑必须优先沉淀到最合适的单一模块，避免 Jenkins、后端和前端重复实现同一规则。
+### 5. 前端开发阶段
 
-## 全局安全规则
+- 目录：`front-end/`
+- 技术栈：Vue 3、Vite、TypeScript、Element Plus、Vue Router、Pinia、Axios、TanStack Query for Vue、Vitest、Vue Test Utils、Playwright。
+- 要求：
+  - 必须依据 UI 原型图、后端接口、需求文档和功能测试用例开发。
+  - 先编写 Playwright 自然语言 UI 自动化测试用例，再开发前端页面，再回归测试。
+  - 仍按 TDD 流程推进。
+
+## 非循环基础阶段
+
+以下内容属于平台基础设施建设，不要求每个需求都重复产出；需要调整时按实际工作需求执行。
+
+- `docker/`：容器设计、Docker Compose、基础服务部署说明。
+- `jenkins/`：Jenkins Pipeline、Groovy 脚本、Job 模板和执行归档策略。
+
+## 项目基础架构
+
+- `api-test/`：接口自动化执行核心，维护 pytest 用例、接口方法、失败 node id、重试执行器和 Allure 原始结果。测试执行协议只在此处实现。
+- `jenkins/`：严格执行主干。平台侧所有测试执行、模块重试、失败重试和报告生成都必须通过 Jenkins。
+- `back-end/`：DRF 平台编排和数据中心，负责用户、权限、任务、模块快照、失败用例、Jenkins 触发/同步、报告入口和审计。
+- `front-end/`：Vue 3 企业级管理后台，负责模块通过率、失败用例、Jenkins 任务、报告入口和平台操作体验。
+- `docker/`：本地 MySQL、Jenkins 等基础服务。
+- `project-info/`：项目资料，不存放业务实现代码或运行产物。
+- `docs/`：额外说明文档。
+
+详细架构以 `project-info/project_detail/project-architecture.md` 为准。
+
+## 全局技能推荐
+
+必须优先使用：
+
+- `/using-superpowers`
+- `/planning-with-files`
+
+全局推荐：
+
+- `brainstorming`：新需求、新功能、架构和行为变更前使用。
+- `product-requirements`：需求分析和 PRD 编写时使用。
+- `test-driven-development`：所有开发阶段遵循 TDD。
+- `systematic-debugging`：遇到问题、失败或异常行为时使用。
+- `receiving-code-review`：处理代码审查意见时使用。
+- `drawio-skill`：架构图、流程图、ER 图等可视化资料使用。
+
+模块技能：
+
+- 后端：`django-tdd`、`api-design`、`python-patterns`、`python-testing`
+- 前端：`vue-best-practices`、`frontend-design`、`vue-router-best-practices`、`vue-pinia-best-practices`、`vue-testing-best-practices`
+- 设计：`ui-ux-pro-max`、`ckm:design-system`
+
+## 安全规范
 
 - 不提交真实账号、密码、token、cookie、租户密钥、Jenkins API Token、生产 URL 或敏感地址。
-- 示例配置使用占位符、环境变量或本地私有配置。
-- 报告、日志、抓包、运行时产物不要作为业务代码提交。
-- Jenkins、DRF、Vue 和 pytest 中都保持平台字段通用，不引入具体公司业务模块常量。
+- 示例配置必须使用占位符、环境变量或本地私有配置。
+- `.env`、报告、日志、抓包、运行时产物不得作为业务代码提交。
+- Jenkins、DRF、Vue 和 pytest 中都保持平台字段通用，不引入不可迁移的业务常量。
 
-## 按需读取的参考内容
+## 协作规则
 
-- docker快速部署：AI 需要执行或说明 Docker 部署时，按需读取 `docker/DEPLOYMENT.md`，并以该文件为准。
-- 快速启动项目环境：AI 需要快速启动当前项目的所有依赖环境时，按需读取 `project-info/quick-start-all-services.md`
+- 根目录 `AGENTS.md` 只维护全局流程、架构、技能、安全和模块边界。
+- 子目录 `AGENTS.md` 维护各模块技术栈、命令和目录约定。
+- `CLAUDE.md` 只保留 `@AGENTS.md` 引用，不复制规则。
+- 每个阶段完成后按项目要求单独 `git commit` 和 `git push`。
 
-## Git 规则
+## 按需参考
 
-- 每个阶段完成后必须单独 `git commit` 和 `git push`。
-
-## 减少常见 LLM 编码错误的行为准则
-可根据项目特定需求合并使用： @andrej-karpathy-skills.md
-
+- Docker 部署：`docker/DEPLOYMENT.md`
+- 架构说明书：`project-info/project_detail/project-architecture.md`
+- LLM 编码准则：`andrej-karpathy-skills.md`

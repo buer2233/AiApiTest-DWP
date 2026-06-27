@@ -2,30 +2,55 @@
 
 本目录是 Django REST Framework 后端。进入 `back-end/` 开发前，必须先遵守根目录 `AGENTS.md`，再遵守本文件。
 
-## 后端开发-技能推荐
+## 架构定位
 
-进行后端开发时推荐使用下面的技能：
-- django-tdd：进行django后端开发时需要使用的TDD开发流程
-- api-design：REST API 设计、状态码、分页、错误模型
-- python-patterns：Python 风格、类型、健壮性和可维护性
-- python-testing： pytest 策略、fixture、mock、参数化
-- systematic-debugging：遇到问题或错误时推荐使用
+- `back-end/` 是平台编排和数据中心，负责用户、权限、任务、模块快照、失败用例、Jenkins 触发/同步、报告入口和审计。
+- 后端只通过 Jenkins API 触发或同步执行，不直接执行 pytest，不重复实现 `api-test/tools/ci_runner.py` 的参数拼接、失败重试或 Allure 生成规则。
+- 后端数据以 MySQL 为主，面向前端提供稳定 DRF API。
+
+## 固定 loop 中的位置
+
+- 后端开发属于固定 loop 第 4 阶段。
+- 开发前必须存在同一需求命名的需求说明书和功能测试用例；涉及页面操作时还应参考 UI 原型。
+- 开发顺序必须是：先写 pytest/pytest-django 接口测试，再实现 DRF 接口，再回归测试，遵循 RED -> GREEN -> REFACTOR。
+- 如果需求文档、测试用例或表设计缺失，应先回到 `project-info/` 对应阶段补齐，不直接进入编码。
+
+## 技能推荐
+
+- `django-tdd`：DRF 后端 TDD 开发流程。
+- `api-design`：REST API 资源、状态码、分页、筛选、错误模型。
+- `python-patterns`：Python 风格、类型、健壮性和可维护性。
+- `python-testing`：pytest、fixture、mock、参数化和覆盖率策略。
+- `systematic-debugging`：遇到失败、异常或接口不一致时使用。
 
 ## 模块职责
 
-- 用户登录、登出、当前用户信息。
-- `admin` 和 `member` 两类角色模型与权限入口。
-- 测试任务、失败用例、重试任务、报告路径和执行日志数据。
-- Jenkins job/build 查询、触发和 console log 查询 API。
-- 对接 `api-test/tools/ci_runner.py` 或 Jenkins 产物，不重复实现 pytest 命令拼接和重试规则。
+- 用户登录、登出、当前用户信息和角色权限入口。
+- 模块展示主表数据，包括通过率、通过数、失败数、错误数、执行时间和报告入口。
+- 失败用例记录表，采用追加写入；状态至少包含 `失败`、`通过`、`跳过`、`不展示`。
+- Jenkins 执行记录表，采用追加写入；记录 job、build、任务名、状态、环境和报告归档信息。
+- Jenkins job/build 查询、触发、console log 查询和执行产物同步 API。
+- Allure 报告入口、执行审计和关键状态变更记录。
+
+## 数据和状态规则
+
+- 主表用于展示每个模块的最新快照，同一环境和模块执行后更新对应记录。
+- 失败表不删除历史数据；模块重试前需要将当前模块旧失败用例标记为 `不展示`，新失败用例先标记为 `失败`。
+- 失败重试通过后，将对应失败用例状态更新为 `通过`。
+- 用户只能在 `失败` 和 `跳过` 两个状态之间手动切换。
+- 失败用例界面展示 `失败` 和 `跳过`；通过率计算只把 `失败` 状态纳入扣减，`跳过` 不降低通过率。
+- Jenkins 表不删除历史数据，每次触发和同步都新增执行记录。
 
 ## 技术约定
 
-- 使用 Django + Django REST Framework。
-- 认证使用 DRF Token。
-- 默认数据库为本地 MySQL。
+- 使用 Django + Django REST Framework + MySQL。
 - 配置从环境变量或本地私有配置读取，不提交真实凭据。
 - 权限第一版可让 `admin` 和 `member` 权限一致，但代码结构要保留管理员专属权限入口。
 - Jenkins client 测试必须使用 fake HTTP 响应，不依赖真实 Jenkins 服务。
+- API 响应字段应保持平台通用，不写入不可迁移的业务常量。
 
+## 禁止事项
 
+- 不提交真实账号、密码、token、cookie、Jenkins API Token、租户密钥、生产 URL 或敏感地址。
+- 不在后端直接 shell 调用 pytest 或 Allure。
+- 不删除失败用例历史和 Jenkins 执行历史，除非后续需求明确设计归档或清理策略。
