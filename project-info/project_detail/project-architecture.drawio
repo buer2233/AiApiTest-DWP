@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="AiApiTest-DWP Architecture">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="AiApiTest-DWP 企业级 AI 自动化测试平台架构" style="text;html=1;strokeColor=none;fillColor=none;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="440" y="20" width="920" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="loop" value="固定开发 Loop" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="90" width="1720" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-demand" value="需求分析&#xa;project-info/demand&#xa;需求说明 + 表设计" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="loop">
+          <mxGeometry x="30" y="55" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-testcase" value="功能测试用例&#xa;project-info/test_case&#xa;模块 + 优先级 + 场景" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="loop">
+          <mxGeometry x="320" y="55" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-ui" value="UI 原型图&#xa;project-info/UI&#xa;页面 + 交互" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="loop">
+          <mxGeometry x="610" y="55" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-backend" value="后端 TDD&#xa;back-end&#xa;pytest 接口测试先行" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="loop">
+          <mxGeometry x="880" y="55" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-frontend" value="前端 TDD&#xa;front-end&#xa;Playwright 测试先行" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="loop">
+          <mxGeometry x="1170" y="55" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="loop-accept" value="联调验收&#xa;同名产物闭环&#xa;提交与推送" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="loop">
+          <mxGeometry x="1460" y="55" width="230" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="client-layer" value="用户与前端层" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="290" width="320" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="browser" value="用户浏览器" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="client-layer">
+          <mxGeometry x="70" y="60" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="vue" value="Vue 3 前端&#xa;Vite + TypeScript&#xa;Element Plus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="client-layer">
+          <mxGeometry x="40" y="135" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend-features" value="模块通过率&#xa;失败用例弹窗&#xa;Jenkins 任务&#xa;Allure 报告入口" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="client-layer">
+          <mxGeometry x="40" y="225" width="240" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="backend-layer" value="DRF 平台编排与数据层" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="420" y="290" width="390" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="drf" value="Django REST Framework&#xa;用户权限 + API + 审计" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ecf7;strokeColor=#9673a6;" vertex="1" parent="backend-layer">
+          <mxGeometry x="45" y="60" width="300" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-domain" value="任务模型&#xa;模块快照&#xa;失败用例&#xa;Jenkins 同步&#xa;报告入口" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ecf7;strokeColor=#9673a6;" vertex="1" parent="backend-layer">
+          <mxGeometry x="45" y="145" width="135" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="mysql" value="MySQL&#xa;平台数据" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="backend-layer">
+          <mxGeometry x="220" y="150" width="120" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="jenkins-layer" value="Jenkins 严格执行主干" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="870" y="290" width="390" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="jenkins" value="Jenkins Pipeline&#xa;参数化 Job 模板" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff0e0;strokeColor=#d79b00;" vertex="1" parent="jenkins-layer">
+          <mxGeometry x="45" y="60" width="300" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="jenkins-jobs" value="daily full suite&#xa;module rerun&#xa;failed rerun&#xa;最多 10 并发" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff0e0;strokeColor=#d79b00;" vertex="1" parent="jenkins-layer">
+          <mxGeometry x="45" y="145" width="135" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="jenkins-archive" value="归档产物&#xa;发布 Allure&#xa;状态回写" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff0e0;strokeColor=#d79b00;" vertex="1" parent="jenkins-layer">
+          <mxGeometry x="215" y="145" width="130" height="105" as="geometry" />
+        </mxCell>
+
+        <mxCell id="apitest-layer" value="api-test 测试执行核心" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="290" width="440" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-runner" value="tools/ci_runner.py&#xa;唯一执行协议" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf8ed;strokeColor=#82b366;" vertex="1" parent="apitest-layer">
+          <mxGeometry x="55" y="60" width="300" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="pytest" value="pytest + requests&#xa;test_case/test_*_case&#xa;失败 node id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf8ed;strokeColor=#82b366;" vertex="1" parent="apitest-layer">
+          <mxGeometry x="55" y="145" width="150" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="allure-results" value="Allure + summary&#xa;console.log&#xa;failed_nodeids.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf8ed;strokeColor=#82b366;" vertex="1" parent="apitest-layer">
+          <mxGeometry x="240" y="145" width="150" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="infra-layer" value="Docker 基础设施" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="650" width="520" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="docker-compose" value="Docker Compose" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="infra-layer">
+          <mxGeometry x="35" y="60" width="135" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="mysql-container" value="MySQL 容器&#xa;平台数据库" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="infra-layer">
+          <mxGeometry x="205" y="55" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="jenkins-container" value="Jenkins 容器&#xa;本地 CI 服务" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="infra-layer">
+          <mxGeometry x="365" y="60" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="docs-layer" value="项目资料与交付物" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="650" width="520" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="demand-doc" value="需求说明书&#xa;表设计" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdeceb;strokeColor=#b85450;" vertex="1" parent="docs-layer">
+          <mxGeometry x="40" y="60" width="125" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="testcase-doc" value="功能测试用例&#xa;详细设计" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdeceb;strokeColor=#b85450;" vertex="1" parent="docs-layer">
+          <mxGeometry x="200" y="60" width="125" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ui-doc" value="UI 原型图&#xa;交互说明" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdeceb;strokeColor=#b85450;" vertex="1" parent="docs-layer">
+          <mxGeometry x="360" y="60" width="125" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="artifact-layer" value="报告与运行产物" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="650" width="560" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="runtime" value="runtime/ci-runs/&lt;run_id&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="artifact-layer">
+          <mxGeometry x="35" y="60" width="170" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="summary" value="summary.json&#xa;failed_nodeids.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="artifact-layer">
+          <mxGeometry x="235" y="60" width="135" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="report" value="Allure Report&#xa;HTML 入口" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="artifact-layer">
+          <mxGeometry x="400" y="60" width="125" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" value="REST API" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="vue" target="drf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="Jenkins API" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="drf" target="jenkins">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="执行参数" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="jenkins" target="ci-runner">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="运行 pytest" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="apitest-layer" source="ci-runner" target="pytest">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="生成产物" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="apitest-layer" source="pytest" target="allure-results">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="状态与数据入库" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="backend-layer" source="drf" target="mysql">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="归档产物" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="jenkins-archive" target="runtime">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="报告入口" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="artifact-layer" source="runtime" target="summary">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="Allure HTML" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="artifact-layer" source="summary" target="report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="loop" source="loop-demand" target="loop-testcase">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="loop" source="loop-testcase" target="loop-ui">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="loop" source="loop-ui" target="loop-backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="loop" source="loop-backend" target="loop-frontend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="loop" source="loop-frontend" target="loop-accept">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
