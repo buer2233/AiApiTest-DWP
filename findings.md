@@ -44,3 +44,12 @@
 - 推荐整体 Docker 化形态不是单一大镜像，而是一个 Docker Compose 项目编排 `mysql`、`jenkins`、`backend`、`frontend`、`nginx`、`api-runner` 或 Jenkins agent 等服务。
 - 后期容器化关键约束：服务间使用 Compose 服务名通信，不能写死 `127.0.0.1`、个人机器路径或宿主机端口；凭据通过环境变量、Jenkins Credentials 或本地私有配置注入。
 - `api-test` 更适合以 Jenkins agent 或 runner 镜像形式执行，不建议作为长期常驻 Web 服务；Jenkins controller 负责编排，runner 负责 pytest、Allure 和执行产物。
+
+## 2026-06-27 开发流程检查点与 subagent 并行评估
+
+- 当前固定 loop 的优点是阶段产物完整、可追溯，适合企业级测试平台；不足是 UI 原型强依赖详细测试用例会拉长前置等待时间。
+- 需求说明书如果足够完整，UI 设计可以直接参考需求说明书并行输出第一版原型；详细测试用例完成后再做 UI 覆盖校准。
+- 功能测试用例设计和 UI 原型设计适合使用两个 subagent 并行处理，但必须由主 agent 维护同一需求命名、输入文档和汇合检查。
+- 后端开发适合在功能测试用例和 API 契约冻结后启动，不能因为 UI 原型先完成而提前进入后端编码。
+- 前端开发适合在 UI 原型和后端 API 契约都完成后启动；Playwright 自然语言测试需要同时参考 UI 原型和功能测试用例。
+- 三个新增检查点应落在需求说明书和联调验收中：架构影响评估、API 契约冻结、容器化兼容检查。

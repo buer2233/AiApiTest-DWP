@@ -1,0 +1,245 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="AiApiTest-DWP Execution Flow">
+    <mxGraphModel dx="1840" dy="1260" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1840" pageHeight="1260" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="flow-title" value="AiApiTest-DWP 完整项目开发流程图 固定 Loop + 检查点 + subagent 并行 + TDD + Docker 化验收" style="text;html=1;strokeColor=none;fillColor=none;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="280" y="20" width="1280" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-demand" value="1. 需求分析与设计输入" style="swimlane;startSize=34;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="110" width="300" height="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-parallel" value="2. 并行设计阶段" style="swimlane;startSize=34;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="385" y="110" width="390" height="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-backend" value="3. 后端 TDD 阶段" style="swimlane;startSize=34;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="820" y="110" width="300" height="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-frontend" value="4. 前端 TDD 阶段" style="swimlane;startSize=34;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1165" y="110" width="300" height="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-accept" value="5. 联调验收与交付" style="swimlane;startSize=34;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1510" y="110" width="290" height="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="start" value="开始 新需求进入固定 Loop" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="lane-demand">
+          <mxGeometry x="75" y="60" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="demand-doc" value="编写需求说明书 背景/目标/范围 功能清单/不做事项 验收口径" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="lane-demand">
+          <mxGeometry x="55" y="150" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="table-design" value="同步表设计 字段/关联/索引 更新规则/状态流转" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="lane-demand">
+          <mxGeometry x="55" y="275" width="230" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="arch-check" value="架构影响评估 DRF/Vue/Jenkins/api-test Docker/权限/报告协议" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="lane-demand">
+          <mxGeometry x="80" y="390" width="180" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="api-draft" value="API 契约草案 路径/请求/响应 错误码/分页/权限" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="lane-demand">
+          <mxGeometry x="55" y="535" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="docker-check-1" value="容器化兼容检查 无本机路径 无固定宿主端口 无手工不可复现配置" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;" vertex="1" parent="lane-demand">
+          <mxGeometry x="55" y="655" width="230" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="ready-parallel" value="需求输入冻结 允许启动并行 subagent" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="lane-demand">
+          <mxGeometry x="60" y="790" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="split" value="主 agent 分配任务 统一命名/限定文件 禁止同文件并发编辑" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ecf7;strokeColor=#9673a6;" vertex="1" parent="lane-parallel">
+          <mxGeometry x="65" y="70" width="260" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="sub-test" value="subagent A 编写功能测试用例 正常/异常/边界 权限/状态/数据一致性" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="lane-parallel">
+          <mxGeometry x="35" y="185" width="150" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="sub-ui" value="subagent B 输出 UI 原型第一版 页面/弹窗/表格 状态/反馈/权限态" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="lane-parallel">
+          <mxGeometry x="220" y="185" width="150" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="case-review" value="测试用例自检 能反向验证需求 能指导后端接口测试" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="lane-parallel">
+          <mxGeometry x="35" y="340" width="150" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="ui-review" value="UI 原型自检 基于需求输入 标注字段来源和状态" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef5ff;strokeColor=#6c8ebf;" vertex="1" parent="lane-parallel">
+          <mxGeometry x="220" y="340" width="150" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="merge-gate" value="汇合门禁 UI 覆盖校准 API 契约冻结 冲突由主 agent 处理" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="lane-parallel">
+          <mxGeometry x="110" y="480" width="180" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="contract-frozen" value="冻结输出 测试用例完成 UI 原型校准完成 API 契约可开发" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="lane-parallel">
+          <mxGeometry x="80" y="655" width="230" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-red" value="RED 先写 pytest/pytest-django 接口测试失败" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ecf7;strokeColor=#9673a6;" vertex="1" parent="lane-backend">
+          <mxGeometry x="55" y="95" width="210" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-green" value="GREEN 实现 DRF API 模型/序列化/视图/权限" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ecf7;strokeColor=#9673a6;" vertex="1" parent="lane-backend">
+          <mxGeometry x="55" y="215" width="210" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-refactor" value="REFACTOR 整理服务层/Jenkins client 补充中文注释" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ecf7;strokeColor=#9673a6;" vertex="1" parent="lane-backend">
+          <mxGeometry x="55" y="345" width="210" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-contract-test" value="契约校验 响应字段/错误码 分页筛选/权限 状态流转" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ecf7;strokeColor=#9673a6;" vertex="1" parent="lane-backend">
+          <mxGeometry x="55" y="470" width="210" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-docker-check" value="后端容器化检查 环境变量配置 mysql/jenkins 服务名 无真实凭据" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ecf7;strokeColor=#9673a6;" vertex="1" parent="lane-backend">
+          <mxGeometry x="55" y="610" width="210" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-done" value="后端完成 API 契约可供前端使用" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="lane-backend">
+          <mxGeometry x="55" y="750" width="210" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend-pre" value="启动条件 UI 原型已校准 功能用例完成 API 契约冻结" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf8ed;strokeColor=#82b366;" vertex="1" parent="lane-frontend">
+          <mxGeometry x="55" y="70" width="210" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pw-red" value="RED 先写 Playwright 自然语言 UI 自动化测试" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf8ed;strokeColor=#82b366;" vertex="1" parent="lane-frontend">
+          <mxGeometry x="55" y="205" width="210" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="vue-green" value="GREEN 实现 Vue 3 页面 Router/Pinia/Query/Axios Element Plus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf8ed;strokeColor=#82b366;" vertex="1" parent="lane-frontend">
+          <mxGeometry x="55" y="330" width="210" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="component-test" value="组件测试 Vitest + Vue Test Utils 复杂交互和组合式逻辑" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf8ed;strokeColor=#82b366;" vertex="1" parent="lane-frontend">
+          <mxGeometry x="55" y="470" width="210" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="ui-regression" value="UI 回归 加载/空/错误/权限态 报告入口/重试反馈" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf8ed;strokeColor=#82b366;" vertex="1" parent="lane-frontend">
+          <mxGeometry x="55" y="600" width="210" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend-docker-check" value="前端容器化检查 相对 API 路径 无 localhost 固定地址 无报告文件直连" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf8ed;strokeColor=#82b366;" vertex="1" parent="lane-frontend">
+          <mxGeometry x="55" y="740" width="210" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="integration" value="联调 前端 -&gt; DRF -&gt; Jenkins Jenkins -&gt; api-runner 报告 -&gt; DRF -&gt; 前端" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff0e0;strokeColor=#d79b00;" vertex="1" parent="lane-accept">
+          <mxGeometry x="45" y="90" width="205" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-e2e" value="端到端验证 pytest 后端回归 Playwright 前端回归 Jenkins 任务链路" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff0e0;strokeColor=#d79b00;" vertex="1" parent="lane-accept">
+          <mxGeometry x="45" y="250" width="205" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="docker-accept" value="Docker 化验收 Compose 服务可启动 健康检查通过 服务名通信正常" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff0e0;strokeColor=#d79b00;" vertex="1" parent="lane-accept">
+          <mxGeometry x="45" y="400" width="205" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="docs-sync" value="文档同步 需求/用例/UI/架构 README/部署说明 变更记录" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff0e0;strokeColor=#d79b00;" vertex="1" parent="lane-accept">
+          <mxGeometry x="45" y="555" width="205" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="review-final" value="最终审查 规格一致性 代码质量 安全与敏感信息检查" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff0e0;strokeColor=#d79b00;" vertex="1" parent="lane-accept">
+          <mxGeometry x="45" y="700" width="205" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="commit-push" value="阶段提交与推送 按项目要求单独 commit/push" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="lane-accept">
+          <mxGeometry x="45" y="845" width="205" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="f1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="start" target="demand-doc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="demand-doc" target="table-design">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="table-design" target="arch-check">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f4" value="通过" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="arch-check" target="api-draft">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="api-draft" target="docker-check-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="docker-check-1" target="ready-parallel">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f7" value="并行启动" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="ready-parallel" target="split">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f8" value="A" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-parallel" source="split" target="sub-test">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f9" value="B" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-parallel" source="split" target="sub-ui">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-parallel" source="sub-test" target="case-review">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-parallel" source="sub-ui" target="ui-review">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-parallel" source="case-review" target="merge-gate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-parallel" source="ui-review" target="merge-gate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f14" value="通过" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-parallel" source="merge-gate" target="contract-frozen">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f15" value="进入后端" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="contract-frozen" target="backend-red">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-backend" source="backend-red" target="backend-green">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-backend" source="backend-green" target="backend-refactor">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-backend" source="backend-refactor" target="backend-contract-test">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-backend" source="backend-contract-test" target="backend-docker-check">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-backend" source="backend-docker-check" target="backend-done">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f21" value="API 可用" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="backend-done" target="frontend-pre">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-frontend" source="frontend-pre" target="pw-red">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-frontend" source="pw-red" target="vue-green">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-frontend" source="vue-green" target="component-test">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f25" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-frontend" source="component-test" target="ui-regression">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-frontend" source="ui-regression" target="frontend-docker-check">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f27" value="联调" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="frontend-docker-check" target="integration">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f28" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-accept" source="integration" target="ci-e2e">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f29" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-accept" source="ci-e2e" target="docker-accept">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f30" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-accept" source="docker-accept" target="docs-sync">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f31" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-accept" source="docs-sync" target="review-final">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f32" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="lane-accept" source="review-final" target="commit-push">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fb-arch" value="不通过：补需求" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;dashed=1;strokeColor=#b85450;exitX=0;exitY=0.5;entryX=0;entryY=0.2;" edge="1" parent="1" source="arch-check" target="demand-doc">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="10" y="550" />
+              <mxPoint x="10" y="180" />
+              <mxPoint x="95" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fb-merge" value="不通过：修正冲突" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;dashed=1;strokeColor=#b85450;exitX=0;exitY=0.5;entryX=0;entryY=0.2;" edge="1" parent="lane-parallel" source="merge-gate" target="split">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="650" />
+              <mxPoint x="400" y="170" />
+              <mxPoint x="450" y="170" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note-contract-gap" value="契约缺口：回写需求/API 契约" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#fdeceb;strokeColor=#b85450;fontColor=#7a2e2a;" vertex="1" parent="lane-backend">
+          <mxGeometry x="35" y="850" width="230" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="note-ui-gap" value="UI 缺口：回校 UI 原型与交互说明" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#fdeceb;strokeColor=#b85450;fontColor=#7a2e2a;" vertex="1" parent="lane-frontend">
+          <mxGeometry x="55" y="850" width="210" height="45" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -48,3 +48,14 @@
 - 已重绘 `project-info/project_detail/project-architecture.drawio`，并导出 `project-architecture.png` 与 `project-architecture.drawio.png`。
 - 已运行 draw.io XML 校验：0 error(s), 0 warning(s)。
 - 已运行 `git diff --check`：无空白错误，仅出现 Windows 换行转换提示。
+- 开始补充开发流程检查点和 subagent 并行协作规则。
+- 已读取 `subagent-driven-development`，确认 subagent 更适合有明确输入和边界的独立任务，且需要主 agent 做汇合和质量门禁。
+- 已在根目录 `AGENTS.md` 增加流程检查点和并行规则，并补充 `subagent-driven-development` 为全局推荐技能。
+- 已在需求、测试用例、UI、后端、前端阶段 AGENTS 中补充架构影响评估、API 契约冻结、容器化兼容检查和 UI 覆盖校准要求。
+- 已更新 `project-info/project_detail/project-architecture.md` 的开发流程架构，明确需求后可并行测试设计和 UI 第一版，后续通过汇合门禁再进入后端和前端开发。
+- 开始按最新架构方案重绘项目架构图，并新增完整开发过程流程图。
+- 本轮图形产物限定在 `project-info/project_detail/`，包括 `project-architecture.*` 和 `execution-flow.*`。
+- 已重绘 `project-info/project_detail/project-architecture.drawio`，并重新导出普通 PNG 与可编辑 PNG。
+- 已新增 `project-info/project_detail/execution-flow.drawio`，并导出 `execution-flow.png` 与 `execution-flow.drawio.png`。
+- 已校验 `project-architecture.drawio` 和 `execution-flow.drawio`：均为 0 error(s), 0 warning(s)。
+- 已检查四个 PNG 文件头尾，均为有效 PNG；已通过图片预览确认架构图和流程图可读。
