@@ -16,6 +16,8 @@
 - 开发前必须确认架构影响评估已完成；如果影响 Jenkins、`api-test`、Docker、报告协议或权限模型，应同步对应模块说明后再编码。
 - 开发顺序必须是：先写 pytest/pytest-django 接口测试，再实现 DRF 接口，再回归测试，遵循 RED -> GREEN -> REFACTOR。
 - 如果需求文档、测试用例或表设计缺失，应先回到 `project-info/` 对应阶段补齐，不直接进入编码。
+- 阶段完成必须留存 pytest 运行输出与覆盖率证据，并补全 `需求名-可追溯矩阵.md` 的后端实现列。
+- 接口实现完成后必须经过独立对抗审查（review subagent，可用 `receiving-code-review`/`security-review`）：做工的 agent 不给自己打分，审查发现的问题修复后再进入下一阶段。自主流水线整体执行方式见 `docs/自主开发流水线.md`。
 
 ## 技能推荐
 
