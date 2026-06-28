@@ -1,0 +1,6 @@
+Django==5.2.15
+djangorestframework==3.17.1
+pytest==7.4.4
+pytest-django==4.11.1
+pytest-cov==4.1.0
+mysqlclient==2.2.7

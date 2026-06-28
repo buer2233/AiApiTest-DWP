@@ -1,5 +1,26 @@
 # 开发流程与架构重构发现记录
 
+## 2026-06-28 第一个需求：用户登录注册和测试用例展示
+
+- 用户提出第一个需求：先实现用户登录、注册和测试用例展示。
+- 按根 `AGENTS.md` 的需求分级，本需求初判为 M 档：涉及 DRF 后端、Vue 前端、用户权限、测试用例数据模型、API 契约和页面，完整 loop 不裁剪任何阶段。
+- 当前仓库已有完整开发流程、需求说明书模板、RTM/验收包模板、架构说明和 Docker 化约束，不能跳过需求澄清冻结、架构影响评估、API 契约冻结和容器化兼容检查。
+- `progress.md` 历史记录显示 2026-06-28 曾启动服务并验证登录、注册、测试用例展示，但当前 Git 可维护源码缺失，不能把运行缓存当作正式实现。
+- `back-end/` 下存在 `apps/`、`common/`、`config/`、`tests/` 目录，但递归检查只看到 `__pycache__` 与 `.pyc`，没有 `.py` 源码；后端需要重新创建 Django/DRF 源码、测试、迁移和配置文件。
+- `front-end/` 下存在 `tests/screenshots/01-login.png`、`02-register.png`、`03-testcases.png`，但缺少 `package.json`、`src/`、Vite 配置和 Playwright 测试源码；前端需要重新创建 Vue 3 工程源文件和测试。
+- `.gitignore` 忽略 `front-end/node_modules/`、`front-end/dist/` 和根 `/tests/`，但没有忽略 `back-end/apps/`；后端源码缺失不是正常忽略导致。
+- `api-test/test_case/` 已有测试用例模块目录，可作为测试用例展示的数据来源候选；是否“扫描文件同步入库”仍需主人确认。
+- 架构要求 DRF 后端不直接执行 pytest；本需求的“测试用例展示”应只做用例元数据读取/展示，不触发 Jenkins 执行链路，除非主人扩大范围。
+- 主人已裁决首期方案：注册后默认 active、使用 DRF Token、后端扫描 `api-test/test_case/` 同步入库、注册需要邀请码、测试用例展示完整首期字段、admin 可同步而 member 只读。
+- 主人已裁决 Q7=B：邀请码采用数据库表和后台管理能力。首期最小范围为 admin 创建、查看、禁用邀请码；邀请码支持最大使用次数和过期时间；注册成功后累计使用次数。
+- Q7=B 使首期范围扩大：新增 `registration_invite_code` 表、邀请码管理页面 `/invite-codes`、邀请码创建/列表/禁用 API，以及 admin/member 权限差异测试。
+- 后端 RED 证据已确认：缺少 `config.settings.test` 和 `manage.py` 是预期失败点，说明测试确实先于生产代码暴露缺失实现。
+- 后端实现采用仓库相对扫描路径：默认从 `REPO_ROOT / api-test / test_case` 解析 pytest 用例，并保存 `api-test/test_case/...` 形式的相对路径，未引入本机绝对路径或 Jenkins 执行行为。
+- DRF 响应统一为成功 `{ data, meta? }` 和错误 `{ error: { code, message, details? } }`，与冻结 API 契约保持一致。
+- 后端 GREEN 证据已确认：`18 passed`，`apps + common` 覆盖率 `94%`。
+- 独立前端审查发现并已修复：管理员路由守卫未等待 `auth/me`、邀请码禁用 UI 缺失、列表分页缺失、测试用例类名列缺失、401 失效登录态处理缺失、注册字段级错误缺失、Vite proxy 默认 localhost 与容器化约束冲突、`src/**/*.js` sidecar 运行产物误入源码目录。
+- 独立后端审查发现并已修复：注册唯一约束并发冲突未转业务错误、过期邀请码状态回滚、同步源缺失状态码不符、非法 `sync_status` 未校验、无效 Token 错误码不统一、Allure 标题解析优先级错误、邀请码数据库 CheckConstraint 缺失。
+
 ## 2026-06-26
 
 - 当前工作区初始状态干净，最近提交包含“清理回退现有的开发内容”和项目说明结构优化。

@@ -1,5 +1,32 @@
 # 开发流程与架构重构进度
 
+## 2026-06-28 第一个需求：用户登录注册和测试用例展示
+
+- 已读取并使用 `using-superpowers`、`planning-with-files`、`brainstorming`、`product-requirements`，确认本需求进入需求分析与澄清门禁阶段。
+- 已读取 TDD、Django TDD、API 设计、Vue 最佳实践、Vue 测试和前端设计技能，作为后续开发约束；需求冻结前不进入业务编码。
+- 已读取根计划、发现记录、进度记录、README、需求模板、架构说明、后端规则和前端规则。
+- 已检查当前 Git 状态：`progress.md` 已修改；`back-end/.coverage`、`front-end/.vite/`、`front-end/playwright-report/`、`front-end/test-results/`、`front-end/tests/` 为未跟踪或运行产物；`back-end/apps/` 等目录显示 ignored/缓存状态。
+- 已递归检查 `back-end/apps`、`back-end/config`、`back-end/common`、`back-end/tests`，确认只有 `__pycache__` 与 `.pyc` 缓存，没有可维护 `.py` 源码。
+- 已检查 `front-end/`，确认只有规则文件、构建/依赖运行产物和三张测试截图，缺少可维护的 Vue 工程源文件。
+- 已将 `task_plan.md` 顶部切换为当前活动计划，保留旧架构计划作为历史上下文。
+- 已新增正式需求说明书草案：`project-info/demand/用户登录注册和测试用例展示-需求说明.md`，当前状态为“澄清中”，等待主人裁决 §0 的 6 个待澄清项后才能冻结。
+- 已回写主人对 Q1-Q6 的裁决：active 用户、DRF Token、扫描同步入库、邀请码注册、完整用例字段、admin 同步权限。
+- 因邀请码注册引入新的关键设计点，已在需求 §0 新增 Q7：邀请码来源与管理方式，推荐使用环境变量配置单个共享邀请码。
+- 已回写主人对 Q7 的裁决：新增邀请码表和后台管理能力；需求说明书已补充 F3 邀请码管理、`registration_invite_code` 表、邀请码管理 API、邀请码管理页面和对应验收标准。
+- 当前需求 §0 已全部闭环，等待主人在 §14 明确冻结后进入功能测试用例和 UI 原型阶段。
+- 主人已回复“冻结 然后进行之后的步骤”；已将需求说明书状态改为“已冻结”，冻结人为“主人”，冻结日期为 2026-06-28。
+- 已完成后端 RED 验证：在 `back-end/` 执行 `python -m pytest tests --maxfail=1 -q`，失败原因为 `ImportError: No module named 'config.settings.test'`，且 pytest-django 提示找不到 Django project / `manage.py`，符合源码尚未实现的预期失败。
+- 已按后端 TDD GREEN 阶段新增可维护 DRF 工程源码：`manage.py`、`config/settings/*`、`config/urls.py`、`common/*`、`apps/accounts/*`、`apps/testcases/*`、迁移文件和 `requirements.txt`。
+- 后端首轮 GREEN 执行 `python -m pytest tests -q` 时 17 passed / 1 failed；失败点为重复邀请码返回 400，契约要求 409。已使用 `systematic-debugging` 定位为 DRF 自动唯一校验覆盖业务错误码，并修复。
+- 已完成后端 GREEN 验证：在 `back-end/` 执行 `python -m pytest tests --cov=apps --cov=common --cov-report=term-missing`，结果为 `18 passed in 1.17s`，总覆盖率 `94%`，无 warning。
+- 已按独立前端审查补充 RED 测试并修复：member 直达 `/invite-codes` 被拦截、admin 可二次确认禁用邀请码、测试用例/邀请码分页、测试用例类名列、注册字段级错误、401 凭据失效清理登录态；核心 E2E `auth-and-testcases.spec.ts` 已验证 `8 passed`。
+- 已按独立后端审查补充 RED 测试并修复：并发唯一冲突转 `409 duplicate_user`、过期邀请码状态持久化、无效 Token 统一 `unauthorized`、邀请码数据库约束、非法 `sync_status`、同步源缺失 `500 sync_source_missing`、Allure 标题解析；后端相关测试已验证 `25 passed`，覆盖率 `95%`。
+- 后端复审无阻塞问题；已按复审建议补充 `max_uses >= 1` 数据库约束直接测试和 `@allure.story` 无 docstring 解析测试。
+- 前端复审无阻塞问题；已按复审建议补充邀请码创建字段级错误 Playwright 测试并实现对应字段错误展示。
+- 已完成最终后端验证：`python -m pytest tests --cov=apps --cov=common --cov-report=term-missing`，结果 `26 passed in 1.44s`，总覆盖率 `95%`。
+- 已完成最终前端验证：`npm audit --json` 为 0 vulnerabilities；`npm run build` 通过；`npx playwright test --project=chromium` 结果 `10 passed`，并刷新 4 张关键页面截图。
+- 前端构建仍有非阻塞警告：`@vueuse/core` 的 pure 注释被 Rolldown 忽略，主 chunk 超过 500k；已记录到验收包剩余风险。
+
 ## 2026-06-26
 
 - 已读取项目根目录和用户提供的全局规则。
@@ -59,3 +86,15 @@
 - 已新增 `project-info/project_detail/execution-flow.drawio`，并导出 `execution-flow.png` 与 `execution-flow.drawio.png`。
 - 已校验 `project-architecture.drawio` 和 `execution-flow.drawio`：均为 0 error(s), 0 warning(s)。
 - 已检查四个 PNG 文件头尾，均为有效 PNG；已通过图片预览确认架构图和流程图可读。
+# 2026-06-28 服务启动验收任务
+
+- 收到主人要求：开启项目所有服务，并将服务和账号信息写入 `server_acount.md`，用于项目验收测试。
+- 已确认本任务属于运维/联调启动，不涉及业务行为变更；不进入需求 loop 编码阶段，但仍需遵守安全规范，不写入真实生产凭据。
+- 已读取根目录 Compose、`.env`、后端/前端模块说明和启动脚本信息；当前基础 Compose 包含 MySQL 与 Jenkins，后端和前端需要分别以本地开发服务启动。
+- 启动基础服务时发现已有旧容器名冲突；确认 `aiapitest-mysql`、`aiapitest-jenkins` 为停止状态旧容器后，已复用启动，保留既有 volume。
+- MySQL 旧容器创建时使用 `MYSQL_ALLOW_EMPTY_PASSWORD=yes`，当前 `.env` 中 root 密码不适用于旧数据卷；已在容器内创建本地验收数据库账号 `hermes`。
+- 旧库 `ai_api_test_platform` 存在迁移记录与实际表结构不一致问题（如 `auth_permission` 缺失、`accounts_user.status` 缺失），为避免破坏旧库，改用新建本地验收库启动后端。
+- 已创建验收库 `ai_api_test_platform_acceptance`，完成 Django 全量迁移，创建本地验收管理员账号，账号明细仅写入被 `.gitignore` 忽略的 `server_acount.md`，同步测试用例 26 条。
+- 已启动本地后端 `http://127.0.0.1:8000/` 与前端 `http://127.0.0.1:5173/`；已验证登录接口、用例列表接口、前端登录页、Jenkins 登录页均可访问。
+- 已通过 Playwright 浏览器级验证：使用本地验收管理员账号登录前端后跳转到 `/test-cases`，页面显示 26 条用例；唯一控制台错误为 `favicon.ico` 404，不影响本次验收。
+- 已将服务入口和本地验收账号写入 `server_acount.md`；该文件被 `.gitignore` 忽略，符合账号信息不入库的安全规则。

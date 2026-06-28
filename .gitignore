@@ -3,6 +3,7 @@ __pycache__/
 *.log
 .pytest_cache/
 .env
+.coverage
 
 report/allure-results/
 report/allure-report/
@@ -21,4 +22,12 @@ docs/.hermes-tmp*/
 /.superpowers/
 front-end/node_modules/
 front-end/dist/
+front-end/.vite/
+front-end/playwright-report/
+front-end/test-results/
+front-end/tsconfig.tsbuildinfo
+front-end/src/**/*.js
+front-end/src/**/*.js.map
+back-end/db.sqlite3
+back-end/.coverage
 /.codegraph/
