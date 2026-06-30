@@ -130,3 +130,25 @@
 | 生成 draw.io XML 脚本首次执行时报 `NameError: name 'yellow' is not defined`，未写出文件 | 补充流程图样式变量后重新生成 |
 | draw.io 批量导出曾返回退出码 1 但文件已生成且无错误文本 | 拆分检查文件、单条导出验证，确认最终 PNG 均可读；后续重新导出成功 |
 | 流程图初版反馈线存在穿越警告 | 改为局部虚线提示节点，最终 `execution-flow.drawio` 校验 0 error、0 warning |
+
+## 2026-06-30 UI 与前端设计风格门禁优化
+
+## 目标
+
+强化 UI 原型阶段和前端实现阶段的视觉质量门禁，要求严格遵守根目录 `DESIGN-claude.md`，并要求 UI 方案使用 Figma 导出图或 Codex `imagegen` 生成原型图片，避免只产出简陋文字方案。
+
+## 需求分级
+
+- 档位：XS。
+- 原因：仅修改流程文档和阶段规范，不改变业务代码、接口、数据表、权限、Jenkins 链路或部署方式。
+- 裁剪：免完整需求 loop，不产出新的需求说明书、测试用例、UI 原型、后端/前端 TDD 代码；保留质量门禁的文本级核对和提交备注。
+
+## 阶段
+
+| 阶段 | 状态 | 说明 |
+| --- | --- | --- |
+| 读取现有 UI/前端规范与设计基线 | 完成 | 已读取 `project-info/UI/AGENTS.md`、`front-end/AGENTS.md` 和 `DESIGN-claude.md` |
+| 更新 UI 阶段规范 | 完成 | 已新增强制设计风格基线、Figma/imagegen 高保真产物要求和偏离确认规则 |
+| 更新前端阶段规范 | 完成 | 已要求实现严格映射 `DESIGN-claude.md`，并在前端开发前核对 Figma/imagegen 原型图片 |
+| 文本回归检查 | 完成 | 已运行 `rg` 关键词检查和 `git diff --check` |
+| 提交与推送 | 进行中 | 待执行 git commit 和 git push |

@@ -59,3 +59,13 @@
 - 已新增 `project-info/project_detail/execution-flow.drawio`，并导出 `execution-flow.png` 与 `execution-flow.drawio.png`。
 - 已校验 `project-architecture.drawio` 和 `execution-flow.drawio`：均为 0 error(s), 0 warning(s)。
 - 已检查四个 PNG 文件头尾，均为有效 PNG；已通过图片预览确认架构图和流程图可读。
+
+## 2026-06-30
+
+- 开始执行“开发流程优化：UI 与前端设计风格门禁强化”。
+- 已读取 `using-superpowers`、`planning-with-files`、`brainstorming`，并按本轮文档规范优化任务定级为 XS。
+- 已读取 `project-info/UI/AGENTS.md`、`front-end/AGENTS.md` 和 `DESIGN-claude.md`。
+- 已更新 `project-info/UI/AGENTS.md`：新增强制遵守 `DESIGN-claude.md`、Figma 或 Codex `imagegen` 高保真原型图片要求、偏离基线确认规则和产物归档规则。
+- 已更新 `front-end/AGENTS.md`：新增前端实现必须严格映射 `DESIGN-claude.md`，并要求开发前核对同名 Figma/imagegen 原型图片。
+- 已运行 `rg -n "DESIGN-claude|imagegen|Figma|高保真|强制设计风格基线" project-info\\UI\\AGENTS.md front-end\\AGENTS.md`，确认关键要求均已落入两个阶段规范。
+- 已运行 `git diff --check`，结果仅有 Windows LF/CRLF 换行提示，无空白错误。

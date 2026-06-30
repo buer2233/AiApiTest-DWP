@@ -53,3 +53,10 @@
 - 后端开发适合在功能测试用例和 API 契约冻结后启动，不能因为 UI 原型先完成而提前进入后端编码。
 - 前端开发适合在 UI 原型和后端 API 契约都完成后启动；Playwright 自然语言测试需要同时参考 UI 原型和功能测试用例。
 - 三个新增检查点应落在需求说明书和联调验收中：架构影响评估、API 契约冻结、容器化兼容检查。
+
+## 2026-06-30 UI 与前端设计风格门禁优化
+
+- 当前 `project-info/UI/AGENTS.md` 和 `front-end/AGENTS.md` 已包含 Claude 风格描述，但此前主要引用外部公开分析和文字化约束，没有把仓库内 `DESIGN-claude.md` 作为强制基线。
+- `DESIGN-claude.md` 已在工作区作为新增文件存在，内容包含 Claude 风格的色彩、字体、间距、圆角、组件和 Do/Don't，适合作为 UI 原型和前端实现的统一设计依据。
+- 为避免 UI 方案继续停留在简陋 Markdown 描述，UI 阶段需要强制至少交付一种高保真视觉产物：Figma 导出图片或 Codex `imagegen` 生成的原型图片。
+- 前端阶段需要在实现前核对同名 UI 原型中的 Figma/imagegen 视觉产物，并在验收包或代码审查中记录 `DESIGN-claude.md` 对齐结果。
