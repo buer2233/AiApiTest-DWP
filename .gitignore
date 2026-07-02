@@ -22,3 +22,4 @@ docs/.hermes-tmp*/
 front-end/node_modules/
 front-end/dist/
 /.codegraph/
+/.planning/
