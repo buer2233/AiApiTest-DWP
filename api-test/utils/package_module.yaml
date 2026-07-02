@@ -1,0 +1,8 @@
+test_gbif_case:
+  module_name: 示例模块1
+  module_dev: 张三
+  module_test: 王五
+test_gbif_case_module2:
+  module_name: 示例模块2
+  module_dev: 赵四
+  module_test: 王麻子
