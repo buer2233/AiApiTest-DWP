@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Eye, EyeOff, Gift, LockKeyhole, UserRound } from '@lucide/vue'
-import { reactive, shallowRef } from 'vue'
+import { computed, reactive, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const props = defineProps<{
@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   submit: [payload: { invitation_code: string; username: string; password: string; confirm_password: string }]
+  clearStatus: []
 }>()
 
 const form = reactive({
@@ -21,11 +22,26 @@ const form = reactive({
 })
 const showPassword = shallowRef(false)
 const localError = shallowRef('')
+const displayError = computed(() => localError.value || props.errorMessage)
+const usernamePattern = /^[A-Za-z0-9_.-]+$/
+
+watch(
+  () => [form.invitation_code, form.username, form.password, form.confirm_password],
+  () => {
+    localError.value = ''
+    emit('clearStatus')
+  },
+)
 
 function submitRegister() {
   localError.value = ''
   if (!form.invitation_code || !form.username || !form.password || !form.confirm_password) {
     localError.value = '请完整填写邀请码、账号和密码。'
+    return
+  }
+  // 账号格式在前端先拦截，减少无效注册请求并保持与后端契约一致。
+  if (!usernamePattern.test(form.username)) {
+    localError.value = '账号只能包含字母、数字、下划线、短横线和点。'
     return
   }
   if (form.password !== form.confirm_password) {
@@ -44,8 +60,8 @@ function submitRegister() {
     <div v-if="props.successMessage" class="form-status" role="status">
       {{ props.successMessage }}
     </div>
-    <div v-if="props.errorMessage || localError" class="form-alert" role="alert">
-      {{ props.errorMessage || localError }}
+    <div v-if="displayError" class="form-alert" role="alert">
+      {{ displayError }}
     </div>
 
     <form class="auth-form" @submit.prevent="submitRegister">

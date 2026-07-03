@@ -39,8 +39,8 @@ class RegisterSerializer(serializers.Serializer):
     invitation_code = serializers.CharField()
     username = serializers.CharField(min_length=3, max_length=64)
     display_name = serializers.CharField(min_length=1, max_length=64, required=False, allow_blank=True)
-    password = serializers.CharField(min_length=8, max_length=64, trim_whitespace=False)
-    confirm_password = serializers.CharField(min_length=8, max_length=64, trim_whitespace=False)
+    password = serializers.CharField(trim_whitespace=False)
+    confirm_password = serializers.CharField(trim_whitespace=False)
 
     def validate_username(self, value: str) -> str:
         if not USERNAME_RE.match(value):
@@ -49,9 +49,10 @@ class RegisterSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         password = attrs["password"]
+        # 先判断两次输入是否一致，避免短密码等复杂度错误覆盖更直接的用户操作问题。
         if attrs["password"] != attrs["confirm_password"]:
             raise serializers.ValidationError({"confirm_password": "两次输入的密码不一致。"})
-        if not any(ch.isalpha() for ch in password) or not any(ch.isdigit() for ch in password):
+        if len(password) < 8 or len(password) > 64 or not any(ch.isalpha() for ch in password) or not any(ch.isdigit() for ch in password):
             raise serializers.ValidationError({"password": build_password_requirement_message(password)})
         return attrs
 
