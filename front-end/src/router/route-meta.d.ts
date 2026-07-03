@@ -7,6 +7,5 @@ declare module 'vue-router' {
     public?: boolean
     requiresAuth?: boolean
     adminOnly?: boolean
-    authMode?: 'login' | 'register'
   }
 }

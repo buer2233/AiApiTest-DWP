@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Eye, EyeOff, LockKeyhole, UserRound } from '@lucide/vue'
 import { reactive, shallowRef } from 'vue'
+import { RouterLink } from 'vue-router'
 
 const props = defineProps<{
   loading: boolean
@@ -76,7 +77,7 @@ function submitLogin() {
 
     <div class="switch-line">
       <span>没有账号?</span>
-      <a href="/register">使用邀请码注册 -></a>
+      <RouterLink to="/register">使用邀请码注册 -></RouterLink>
     </div>
   </section>
 </template>

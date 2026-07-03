@@ -1,58 +1,41 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 
-import LoginPanel from './LoginPanel.vue'
-import ProtectedPreview from './ProtectedPreview.vue'
-import RegisterPanel from './RegisterPanel.vue'
-import RoleSplitRail from './RoleSplitRail.vue'
-
-const props = defineProps<{
-  authenticated: boolean
-  loading: boolean
-  loginError: string
-  registerError: string
-  registerSuccess: string
-}>()
-
-const emit = defineEmits<{
-  login: [payload: { username: string; password: string }]
-  register: [payload: { invitation_code: string; username: string; password: string; confirm_password: string }]
-}>()
-
-const rightTitle = computed(() => (props.authenticated ? '安全守护测试数据' : '统一身份访问控制 · 安全守护测试数据'))
+const props = withDefaults(
+  defineProps<{
+    eyebrow?: string
+    variant?: 'login' | 'register'
+  }>(),
+  {
+    eyebrow: '统一身份访问控制 · 安全守护测试数据',
+    variant: 'login',
+  },
+)
 </script>
 
 <template>
-  <main class="auth-page">
+  <main class="auth-page" :class="`auth-page-${props.variant}`">
     <header class="auth-header">
-      <a class="brand" href="/login" aria-label="AiApiTest-DWP 登录入口">
+      <RouterLink class="brand" to="/login" aria-label="AiApiTest-DWP 登录入口">
         <span class="brand-mark">A</span>
         <strong class="serif-title">AiApiTest-DWP</strong>
         <i></i>
         <span>Access Split Gate</span>
-      </a>
-      <p>{{ rightTitle }}</p>
+      </RouterLink>
+      <p>{{ props.eyebrow }}</p>
     </header>
 
-    <section class="auth-grid">
-      <LoginPanel :loading="props.loading" :error-message="props.loginError" @submit="emit('login', $event)" />
-      <RoleSplitRail />
-      <RegisterPanel
-        :loading="props.loading"
-        :error-message="props.registerError"
-        :success-message="props.registerSuccess"
-        @submit="emit('register', $event)"
-      />
+    <section class="auth-stage" aria-label="认证表单">
+      <slot />
     </section>
-
-    <ProtectedPreview :unlocked="props.authenticated" />
   </main>
 </template>
 
 <style scoped>
 .auth-page {
   display: grid;
-  gap: 10px;
+  align-content: start;
+  gap: 28px;
   min-height: 100vh;
   padding: 26px 34px 32px;
   background:
@@ -111,10 +94,15 @@ const rightTitle = computed(() => (props.authenticated ? '安全守护测试数�
   font-weight: 600;
 }
 
-.auth-grid {
+.auth-stage {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) 150px minmax(320px, 1fr);
-  gap: 10px;
+  width: min(100%, 480px);
+  justify-self: center;
+  padding-top: 18px;
+}
+
+.auth-page-register .auth-stage {
+  width: min(100%, 520px);
 }
 
 @media (max-width: 980px) {
@@ -139,8 +127,9 @@ const rightTitle = computed(() => (props.authenticated ? '安全守护测试数�
     font-size: 28px;
   }
 
-  .auth-grid {
-    grid-template-columns: 1fr;
+  .auth-stage {
+    width: 100%;
+    padding-top: 4px;
   }
 }
 </style>
