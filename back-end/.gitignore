@@ -1,0 +1,4 @@
+.coverage
+.pytest_cache/
+db.sqlite3
+tests/evidence/htmlcov/

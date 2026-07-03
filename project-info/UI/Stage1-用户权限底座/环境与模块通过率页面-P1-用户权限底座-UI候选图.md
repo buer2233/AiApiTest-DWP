@@ -9,6 +9,8 @@
 | 生成方式 | Codex `imagegen` 内置图片生成 |
 | 生成日期 | 2026-07-03 |
 | 当前状态 | 已选择候选图 5 作为 Figma 实际原型输入 |
+| 正式归档基准图 | `project-info/UI/Stage1-用户权限底座/环境与模块通过率页面-P1-用户权限底座-selected-imagegen.png` |
+| 后续原型说明 | `project-info/UI/Stage1-用户权限底座/环境与模块通过率页面-P1-用户权限底座-UI原型.md` |
 
 ## 设计基线
 
@@ -47,3 +49,9 @@
 - [x] 选择候选图 5
 
 选择时间：2026-07-03
+
+## 后续落稿记录
+
+- 已将候选图 5 复制归档为正式选中基准图：`project-info/UI/Stage1-用户权限底座/环境与模块通过率页面-P1-用户权限底座-selected-imagegen.png`。
+- 已输出可执行 UI 原型说明：`project-info/UI/Stage1-用户权限底座/环境与模块通过率页面-P1-用户权限底座-UI原型.md`。
+- 当前 Codex 工具集中未暴露可写入 Figma 云文件的工具，Figma 实际文件名、页面名、frame 清单和导出要求已在 UI 原型说明中明确记录。

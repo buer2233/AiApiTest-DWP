@@ -1,0 +1,175 @@
+
+Running 6 tests using 4 workers
+
+  x  4 [chromium] › e2e\p1-auth.spec.ts:135:3 › P1 用户权限底座 › 未登录用户直达受保护 URL 会回到登录页并看到 401 门禁 (6.0s)
+  x  5 [chromium] › e2e\p1-auth.spec.ts:186:3 › P1 用户权限底座 › 普通成员直达用户管理页会看到 403 权限反馈 (5.2s)
+  x  6 [chromium] › e2e\p1-auth.spec.ts:196:3 › P1 用户权限底座 › 管理人员可以查看并生成邀请码，列表不展示历史明文 (5.2s)
+  x  3 [chromium] › e2e\p1-auth.spec.ts:173:3 › P1 用户权限底座 › 邀请码注册成功后不自动登录并引导返回登录 (30.1s)
+  x  2 [chromium] › e2e\p1-auth.spec.ts:161:3 › P1 用户权限底座 › 登录密码错误时展示字段可恢复错误 (30.1s)
+  x  1 [chromium] › e2e\p1-auth.spec.ts:147:3 › P1 用户权限底座 › 管理人员登录成功后进入受保护布局 (30.1s)
+
+
+  1) [chromium] › e2e\p1-auth.spec.ts:135:3 › P1 用户权限底座 › 未登录用户直达受保护 URL 会回到登录页并看到 401 门禁 ──────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/login/
+    Received string:  "http://127.0.0.1:4173/dashboard"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × unexpected value "http://127.0.0.1:4173/dashboard"
+
+
+      138 |     await page.goto('/dashboard')
+      139 |
+    > 140 |     await expect(page).toHaveURL(/\/login/)
+          |                        ^
+      141 |     await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+      142 |     await expect(page.getByText('401')).toBeVisible()
+      143 |     await expect(page.getByText('未检测到有效 Cookie')).toBeVisible()
+        at <repo>\front-end\e2e\p1-auth.spec.ts:140:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\p1-auth-P1-用户权限底座-未登录用户直达受保护-URL-会回到登录页并看到-401-门禁-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\p1-auth-P1-用户权限底座-未登录用户直达受保护-URL-会回到登录页并看到-401-门禁-chromium\error-context.md
+
+  2) [chromium] › e2e\p1-auth.spec.ts:147:3 › P1 用户权限底座 › 管理人员登录成功后进入受保护布局 ─────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.fill: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByLabel('账号')
+
+
+      149 |     await page.goto('/login')
+      150 |
+    > 151 |     await page.getByLabel('账号').fill('admin_user')
+          |                                 ^
+      152 |     await page.getByLabel('密码').fill('TestPass123')
+      153 |     await page.getByRole('button', { name: '进入平台' }).click()
+      154 |
+        at <repo>\front-end\e2e\p1-auth.spec.ts:151:33
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\p1-auth-P1-用户权限底座-管理人员登录成功后进入受保护布局-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\p1-auth-P1-用户权限底座-管理人员登录成功后进入受保护布局-chromium\error-context.md
+
+  3) [chromium] › e2e\p1-auth.spec.ts:161:3 › P1 用户权限底座 › 登录密码错误时展示字段可恢复错误 ─────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.fill: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByLabel('账号')
+
+
+      163 |     await page.goto('/login')
+      164 |
+    > 165 |     await page.getByLabel('账号').fill('admin_user')
+          |                                 ^
+      166 |     await page.getByLabel('密码').fill('WrongPass123')
+      167 |     await page.getByRole('button', { name: '进入平台' }).click()
+      168 |
+        at <repo>\front-end\e2e\p1-auth.spec.ts:165:33
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\p1-auth-P1-用户权限底座-登录密码错误时展示字段可恢复错误-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\p1-auth-P1-用户权限底座-登录密码错误时展示字段可恢复错误-chromium\error-context.md
+
+  4) [chromium] › e2e\p1-auth.spec.ts:173:3 › P1 用户权限底座 › 邀请码注册成功后不自动登录并引导返回登录 ─────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.fill: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByLabel('邀请码')
+
+
+      175 |     await page.goto('/register')
+      176 |
+    > 177 |     await page.getByLabel('邀请码').fill('INVITE-EXAMPLE-REDACTED')
+          |                                  ^
+      178 |     await page.getByLabel('注册账号').fill('member01')
+      179 |     await page.getByLabel('注册密码').fill('MemberPass123')
+      180 |     await page.getByLabel('确认密码').fill('MemberPass123')
+        at <repo>\front-end\e2e\p1-auth.spec.ts:177:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\p1-auth-P1-用户权限底座-邀请码注册成功后不自动登录并引导返回登录-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\p1-auth-P1-用户权限底座-邀请码注册成功后不自动登录并引导返回登录-chromium\error-context.md
+
+  5) [chromium] › e2e\p1-auth.spec.ts:186:3 › P1 用户权限底座 › 普通成员直达用户管理页会看到 403 权限反馈 ──────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/forbidden/
+    Received string:  "http://127.0.0.1:4173/users"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × unexpected value "http://127.0.0.1:4173/users"
+
+
+      189 |     await page.goto('/users')
+      190 |
+    > 191 |     await expect(page).toHaveURL(/\/forbidden/)
+          |                        ^
+      192 |     await expect(page.getByText('403')).toBeVisible()
+      193 |     await expect(page.getByText('需要管理人员权限')).toBeVisible()
+      194 |   })
+        at <repo>\front-end\e2e\p1-auth.spec.ts:191:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\p1-auth-P1-用户权限底座-普通成员直达用户管理页会看到-403-权限反馈-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\p1-auth-P1-用户权限底座-普通成员直达用户管理页会看到-403-权限反馈-chromium\error-context.md
+
+  6) [chromium] › e2e\p1-auth.spec.ts:196:3 › P1 用户权限底座 › 管理人员可以查看并生成邀请码，列表不展示历史明文 ─────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '邀请码' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: '邀请码' })
+
+
+      199 |     await page.goto('/invitations')
+      200 |
+    > 201 |     await expect(page.getByRole('heading', { name: '邀请码' })).toBeVisible()
+          |                                                              ^
+      202 |     await expect(page.getByText('可使用')).toBeVisible()
+      203 |     await expect(page.getByText('INVITE-EXAMPLE-REDACTED')).toHaveCount(0)
+      204 |
+        at <repo>\front-end\e2e\p1-auth.spec.ts:201:62
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\p1-auth-P1-用户权限底座-管理人员可以查看并生成邀请码，列表不展示历史明文-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\p1-auth-P1-用户权限底座-管理人员可以查看并生成邀请码，列表不展示历史明文-chromium\error-context.md
+
+  6 failed
+    [chromium] › e2e\p1-auth.spec.ts:135:3 › P1 用户权限底座 › 未登录用户直达受保护 URL 会回到登录页并看到 401 门禁 ───────────
+    [chromium] › e2e\p1-auth.spec.ts:147:3 › P1 用户权限底座 › 管理人员登录成功后进入受保护布局 ──────────────────────────
+    [chromium] › e2e\p1-auth.spec.ts:161:3 › P1 用户权限底座 › 登录密码错误时展示字段可恢复错误 ──────────────────────────
+    [chromium] › e2e\p1-auth.spec.ts:173:3 › P1 用户权限底座 › 邀请码注册成功后不自动登录并引导返回登录 ──────────────────────
+    [chromium] › e2e\p1-auth.spec.ts:186:3 › P1 用户权限底座 › 普通成员直达用户管理页会看到 403 权限反馈 ───────────────────
+    [chromium] › e2e\p1-auth.spec.ts:196:3 › P1 用户权限底座 › 管理人员可以查看并生成邀请码，列表不展示历史明文 ──────────────────
