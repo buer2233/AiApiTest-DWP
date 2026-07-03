@@ -21,6 +21,11 @@ async function register(payload: { invitation_code: string; username: string; pa
     registerError.value = toApiError(error).message
   }
 }
+
+function clearRegisterStatus() {
+  registerError.value = ''
+  registerSuccess.value = ''
+}
 </script>
 
 <template>
@@ -29,6 +34,7 @@ async function register(payload: { invitation_code: string; username: string; pa
       :loading="authStore.loading"
       :error-message="registerError"
       :success-message="registerSuccess"
+      @clear-status="clearRegisterStatus"
       @submit="register"
     />
   </AuthShell>

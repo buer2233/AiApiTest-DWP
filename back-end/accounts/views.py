@@ -38,10 +38,33 @@ def validation_error(serializer) -> Response:
     )
 
 
+def has_serializer_error_code(errors, field_name: str, expected_codes: set[str]) -> bool:
+    """判断字段级错误码，避免把必填/空值错误误映射为业务语义错误。"""
+    field_errors = errors.get(field_name, [])
+    if not isinstance(field_errors, list):
+        field_errors = [field_errors]
+    return any(getattr(error, "code", "") in expected_codes for error in field_errors)
+
+
 def require_admin(user: UserAccount) -> Response | None:
     if user.role != UserAccount.Role.ADMIN:
         return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
     return None
+
+
+def register_invitation_error(invitation: InvitationCode | None) -> Response:
+    """根据邀请码真实状态返回明确文案，避免前端只能展示泛化失败原因。"""
+    if invitation is None:
+        message = "邀请码不存在。"
+    elif invitation.effective_status == InvitationCode.Status.USED:
+        message = "邀请码已经被使用。"
+    elif invitation.effective_status == InvitationCode.Status.EXPIRED:
+        message = "邀请码已经过期。"
+    elif invitation.effective_status == InvitationCode.Status.REVOKED:
+        message = "邀请码已经作废。"
+    else:
+        message = "邀请码不可用。"
+    return api_error_response("invalid_invitation_code", message, status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 def parse_pagination(request) -> tuple[int, int] | Response:
@@ -166,13 +189,28 @@ class RegisterView(APIView):
         responses={
             201: UserDataResponseSerializer,
             409: OpenApiResponse(ApiErrorResponseSerializer, description="账号已存在"),
-            422: OpenApiResponse(ApiErrorResponseSerializer, description="邀请码不可用或密码不满足要求"),
+            422: OpenApiResponse(ApiErrorResponseSerializer, description="邀请码不可用、账号格式非法、密码不一致或密码不满足要求"),
         },
     )
     @transaction.atomic
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
+            field_level_codes = {"required", "blank", "null"}
+            if has_serializer_error_code(serializer.errors, "password", field_level_codes) or has_serializer_error_code(
+                serializer.errors,
+                "confirm_password",
+                field_level_codes,
+            ):
+                return validation_error(serializer)
+            if "username" in serializer.errors:
+                return api_error_response(
+                    "invalid_username",
+                    "账号只能包含字母、数字、下划线、短横线和点。",
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
+            if "confirm_password" in serializer.errors:
+                return api_error_response("password_mismatch", "两次输入的密码不一致。", status.HTTP_422_UNPROCESSABLE_ENTITY)
             if "password" in serializer.errors:
                 password = request.data.get("password", "")
                 return api_error_response(
@@ -180,8 +218,6 @@ class RegisterView(APIView):
                     build_password_requirement_message(str(password)),
                     status.HTTP_422_UNPROCESSABLE_ENTITY,
                 )
-            if "confirm_password" in serializer.errors:
-                return api_error_response("password_mismatch", "两次输入的密码不一致。", status.HTTP_422_UNPROCESSABLE_ENTITY)
             return validation_error(serializer)
 
         username = serializer.validated_data["username"]
@@ -192,11 +228,7 @@ class RegisterView(APIView):
             code_hash=InvitationCode.hash_code(serializer.validated_data["invitation_code"])
         ).first()
         if invitation is None or not invitation.can_register():
-            return api_error_response(
-                "invalid_invitation_code",
-                "邀请码不可用。",
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-            )
+            return register_invitation_error(invitation)
 
         user = UserAccount.objects.create_user(
             username=username,

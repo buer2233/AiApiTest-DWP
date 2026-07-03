@@ -19,6 +19,7 @@ const memberUser = {
 async function mockApi(page: Page, options: { user?: typeof adminUser | typeof memberUser | null } = {}) {
   let currentUser = options.user ?? null
   let invitationStatus: 'unused' | 'revoked' = 'unused'
+  let registerRequestCount = 0
 
   await page.route('**/api/v1/auth/me', async (route) => {
     if (!currentUser) {
@@ -54,11 +55,12 @@ async function mockApi(page: Page, options: { user?: typeof adminUser | typeof m
   })
 
   await page.route('**/api/v1/auth/register', async (route) => {
+    registerRequestCount += 1
     const body = route.request().postDataJSON() as { invitation_code: string; username: string; password: string }
     if (body.invitation_code === 'USED-CODE') {
       await route.fulfill({
         status: 422,
-        json: { error: { code: 'invalid_invitation_code', message: '邀请码不可用。', details: [] } },
+        json: { error: { code: 'invalid_invitation_code', message: '邀请码已经被使用。', details: [] } },
       })
       return
     }
@@ -209,6 +211,12 @@ async function mockApi(page: Page, options: { user?: typeof adminUser | typeof m
       },
     })
   })
+
+  return {
+    get registerRequestCount() {
+      return registerRequestCount
+    },
+  }
 }
 
 test.describe('P1 用户权限底座', () => {
@@ -330,6 +338,64 @@ test.describe('P1 用户权限底座', () => {
 
     await expect(page.getByRole('alert')).toContainText('密码需 8-64 位，至少包含字母和数字')
     await expect(page.getByRole('alert')).toContainText('缺少字母')
+  })
+
+  test('邀请码注册中文账号时优先提示账号格式且不提交接口', async ({ page }) => {
+    const api = await mockApi(page)
+    await page.goto('/register')
+
+    await page.getByLabel('邀请码', { exact: true }).fill('INVITE-EXAMPLE-REDACTED')
+    await page.getByLabel('注册账号', { exact: true }).fill('中文账号')
+    await page.getByLabel('注册密码', { exact: true }).fill('MemberPass123')
+    await page.getByLabel('确认密码', { exact: true }).fill('MemberPass123')
+    await page.getByRole('button', { name: '创建账号' }).click()
+
+    await expect(page.getByRole('alert')).toContainText('账号只能包含字母、数字、下划线、短横线和点。')
+    expect(api.registerRequestCount).toBe(0)
+  })
+
+  test('邀请码注册使用已使用邀请码时展示明确状态', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/register')
+
+    await page.getByLabel('邀请码', { exact: true }).fill('USED-CODE')
+    await page.getByLabel('注册账号', { exact: true }).fill('used_code_member')
+    await page.getByLabel('注册密码', { exact: true }).fill('MemberPass123')
+    await page.getByLabel('确认密码', { exact: true }).fill('MemberPass123')
+    await page.getByRole('button', { name: '创建账号' }).click()
+
+    await expect(page.getByRole('alert')).toContainText('邀请码已经被使用。')
+  })
+
+  test('邀请码注册密码不一致时优先提示不一致且不提交接口', async ({ page }) => {
+    const api = await mockApi(page)
+    await page.goto('/register')
+
+    await page.getByLabel('邀请码', { exact: true }).fill('INVITE-EXAMPLE-REDACTED')
+    await page.getByLabel('注册账号', { exact: true }).fill('mismatch_member')
+    await page.getByLabel('注册密码', { exact: true }).fill('abc1234')
+    await page.getByLabel('确认密码', { exact: true }).fill('abc12345')
+    await page.getByRole('button', { name: '创建账号' }).click()
+
+    await expect(page.getByRole('alert')).toContainText('两次输入的密码不一致。')
+    await expect(page.getByRole('alert')).not.toContainText('密码需 8-64 位')
+    expect(api.registerRequestCount).toBe(0)
+  })
+
+  test('邀请码注册修改输入后清除上一轮服务端错误', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/register')
+
+    await page.getByLabel('邀请码', { exact: true }).fill('USED-CODE')
+    await page.getByLabel('注册账号', { exact: true }).fill('used_code_member')
+    await page.getByLabel('注册密码', { exact: true }).fill('MemberPass123')
+    await page.getByLabel('确认密码', { exact: true }).fill('MemberPass123')
+    await page.getByRole('button', { name: '创建账号' }).click()
+    await expect(page.getByRole('alert')).toContainText('邀请码已经被使用。')
+
+    await page.getByLabel('邀请码', { exact: true }).fill('INVITE-EXAMPLE-REDACTED')
+
+    await expect(page.getByRole('alert')).toHaveCount(0)
   })
 
   test('普通成员直达用户管理页会看到 403 权限反馈', async ({ page }) => {

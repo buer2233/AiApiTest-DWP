@@ -188,6 +188,141 @@ def test_register_weak_password_returns_specific_requirement(api_client, admin_u
     assert invitation.status == InvitationCode.Status.UNUSED
 
 
+def test_register_used_invitation_returns_explicit_used_message(api_client, admin_user):
+    used_invitation, used_code = InvitationCode.objects.create_plain_code(
+        role=UserAccount.Role.MEMBER,
+        created_by=admin_user,
+    )
+    used_invitation.status = InvitationCode.Status.USED
+    used_invitation.used_at = timezone.now()
+    used_invitation.used_by = admin_user
+    used_invitation.save(update_fields=["status", "used_at", "used_by", "updated_at"])
+
+    response = api_client.post(
+        "/api/v1/auth/register",
+        {
+            "invitation_code": used_code,
+            "username": "used_code_member",
+            "display_name": "已使用邀请码成员",
+            "password": "MemberPass123",
+            "confirm_password": "MemberPass123",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 422
+    assert response.data["error"]["code"] == "invalid_invitation_code"
+    assert response.data["error"]["message"] == "邀请码已经被使用。"
+    assert not UserAccount.objects.filter(username="used_code_member").exists()
+
+
+def test_register_rejects_chinese_username_with_specific_message(api_client, unused_invitation):
+    invitation, plain_code = unused_invitation
+
+    response = api_client.post(
+        "/api/v1/auth/register",
+        {
+            "invitation_code": plain_code,
+            "username": "中文账号",
+            "display_name": "中文账号",
+            "password": "MemberPass123",
+            "confirm_password": "MemberPass123",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 422
+    assert response.data["error"]["code"] == "invalid_username"
+    assert response.data["error"]["message"] == "账号只能包含字母、数字、下划线、短横线和点。"
+    invitation.refresh_from_db()
+    assert invitation.status == InvitationCode.Status.UNUSED
+
+
+def test_register_password_mismatch_has_priority_over_weak_password(api_client, unused_invitation):
+    invitation, plain_code = unused_invitation
+
+    response = api_client.post(
+        "/api/v1/auth/register",
+        {
+            "invitation_code": plain_code,
+            "username": "mismatch_member",
+            "display_name": "密码不一致成员",
+            "password": "abc1234",
+            "confirm_password": "abc12345",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 422
+    assert response.data["error"]["code"] == "password_mismatch"
+    assert response.data["error"]["message"] == "两次输入的密码不一致。"
+    invitation.refresh_from_db()
+    assert invitation.status == InvitationCode.Status.UNUSED
+
+
+def test_register_equal_password_over_64_chars_returns_weak_password(api_client, unused_invitation):
+    invitation, plain_code = unused_invitation
+    overlong_password = f"MemberPass123{'A' * 52}"
+    assert len(overlong_password) == 65
+
+    response = api_client.post(
+        "/api/v1/auth/register",
+        {
+            "invitation_code": plain_code,
+            "username": "overlong_password_member",
+            "display_name": "超长密码成员",
+            "password": overlong_password,
+            "confirm_password": overlong_password,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 422
+    assert response.data["error"]["code"] == "weak_password"
+    assert "长度超过 64 位" in response.data["error"]["message"]
+    invitation.refresh_from_db()
+    assert invitation.status == InvitationCode.Status.UNUSED
+
+
+@pytest.mark.parametrize(
+    ("payload_override", "omitted_fields", "expected_detail_field"),
+    [
+        ({}, ["password"], "password"),
+        ({}, ["confirm_password"], "confirm_password"),
+        ({"password": None}, [], "password"),
+        ({"confirm_password": None}, [], "confirm_password"),
+        ({"password": ""}, [], "password"),
+        ({"confirm_password": ""}, [], "confirm_password"),
+    ],
+)
+def test_register_required_password_fields_return_validation_error(
+    api_client,
+    unused_invitation,
+    payload_override,
+    omitted_fields,
+    expected_detail_field,
+):
+    invitation, plain_code = unused_invitation
+    payload = {
+        "invitation_code": plain_code,
+        "username": "required_password_member",
+        "display_name": "必填字段成员",
+        "password": "MemberPass123",
+        "confirm_password": "MemberPass123",
+    }
+    payload.update(payload_override)
+    for field_name in omitted_fields:
+        payload.pop(field_name)
+
+    response = api_client.post("/api/v1/auth/register", payload, format="json")
+
+    assert response.status_code == 422
+    assert response.data["error"]["code"] == "validation_error"
+    assert expected_detail_field in response.data["error"]["details"][0]
+    invitation.refresh_from_db()
+    assert invitation.status == InvitationCode.Status.UNUSED
+
+
 def test_register_rejects_used_expired_or_revoked_invitation(api_client, admin_user):
     used_invitation, used_code = InvitationCode.objects.create_plain_code(
         role=UserAccount.Role.MEMBER,

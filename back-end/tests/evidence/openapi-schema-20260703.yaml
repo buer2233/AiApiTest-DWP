@@ -125,7 +125,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
-          description: 邀请码不可用或密码不满足要求
+          description: 邀请码不可用、账号格式非法、密码不一致或密码不满足要求
   /api/v1/invitations:
     get:
       operationId: v1_invitations_retrieve
@@ -523,12 +523,8 @@ components:
           minLength: 1
         password:
           type: string
-          maxLength: 64
-          minLength: 8
         confirm_password:
           type: string
-          maxLength: 64
-          minLength: 8
       required:
       - confirm_password
       - invitation_code

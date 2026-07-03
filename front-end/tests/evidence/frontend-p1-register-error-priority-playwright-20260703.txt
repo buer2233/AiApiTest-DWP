@@ -1,0 +1,27 @@
+
+> aiapitest-dwp-front-end@0.1.0 test:e2e
+> playwright test
+
+
+Running 18 tests using 4 workers
+
+  ok  1 [chromium] › e2e\p1-auth.spec.ts:223:3 › P1 用户权限底座 › 未登录用户直达受保护 URL 会回到纯登录页且不展示复合原型其他区域 (3.9s)
+  ok  3 [chromium] › e2e\p1-auth.spec.ts:257:3 › P1 用户权限底座 › 管理人员登录成功后进入受保护布局 (4.1s)
+  ok  2 [chromium] › e2e\p1-auth.spec.ts:238:3 › P1 用户权限底座 › 登录页点击邀请码注册链接后进入独立注册页 (4.3s)
+  ok  4 [chromium] › e2e\p1-auth.spec.ts:271:3 › P1 用户权限底座 › 退出登录后返回登录页并阻止继续访问受保护 URL (4.2s)
+  ok  6 [chromium] › e2e\p1-auth.spec.ts:297:3 › P1 用户权限底座 › 登录短密码错误时仍展示统一账户错误 (1.5s)
+  ok  5 [chromium] › e2e\p1-auth.spec.ts:285:3 › P1 用户权限底座 › 登录密码错误时展示统一账户错误 (1.9s)
+  ok  7 [chromium] › e2e\p1-auth.spec.ts:309:3 › P1 用户权限底座 › 邀请码注册成功后不自动登录并引导返回登录 (1.7s)
+  ok  8 [chromium] › e2e\p1-auth.spec.ts:329:3 › P1 用户权限底座 › 邀请码注册弱密码时展示缺失项提示 (1.8s)
+  ok 12 [chromium] › e2e\p1-auth.spec.ts:385:3 › P1 用户权限底座 › 邀请码注册修改输入后清除上一轮服务端错误 (1.3s)
+  ok  9 [chromium] › e2e\p1-auth.spec.ts:343:3 › P1 用户权限底座 › 邀请码注册中文账号时优先提示账号格式且不提交接口 (2.4s)
+  ok 10 [chromium] › e2e\p1-auth.spec.ts:357:3 › P1 用户权限底座 › 邀请码注册使用已使用邀请码时展示明确状态 (2.5s)
+  ok 11 [chromium] › e2e\p1-auth.spec.ts:370:3 › P1 用户权限底座 › 邀请码注册密码不一致时优先提示不一致且不提交接口 (2.7s)
+  ok 13 [chromium] › e2e\p1-auth.spec.ts:401:3 › P1 用户权限底座 › 普通成员直达用户管理页会看到 403 权限反馈 (1.4s)
+  ok 14 [chromium] › e2e\p1-auth.spec.ts:411:3 › P1 用户权限底座 › 管理人员可以查看用户列表且列表不泄露敏感字段 (1.6s)
+  ok 15 [chromium] › e2e\p1-auth.spec.ts:425:3 › P1 用户权限底座 › 管理人员可以按角色筛选用户并翻页 (2.3s)
+  ok 16 [chromium] › e2e\p1-auth.spec.ts:439:3 › P1 用户权限底座 › 管理人员可以查看并生成邀请码，列表不展示历史明文且可复制本次明文 (2.6s)
+  ok 17 [chromium] › e2e\p1-auth.spec.ts:468:3 › P1 用户权限底座 › 管理人员可以作废未使用邀请码 (2.2s)
+  ok 18 [chromium] › e2e\p1-auth.spec.ts:480:3 › P1 用户权限底座 › 管理人员可以按状态和角色筛选邀请码并翻页 (2.3s)
+
+  18 passed (28.8s)
