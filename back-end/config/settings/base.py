@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "rest_framework",
+    "drf_spectacular",
     "accounts",
 ]
 
@@ -24,6 +25,14 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {"context_processors": []},
+    }
+]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 APPEND_SLASH = False
 USE_TZ = True
@@ -33,6 +42,18 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": [],
     "EXCEPTION_HANDLER": "accounts.exceptions.api_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "AiApiTest-DWP 后端接口文档",
+    "DESCRIPTION": "企业级自动化测试平台 DRF API。当前阶段覆盖用户权限底座接口。",
+    "VERSION": "0.1.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "UserRoleEnum": "accounts.models.UserAccount.Role",
+        "InvitationStatusEnum": "accounts.models.InvitationCode.Status",
+    },
 }
 
 AUTH_COOKIE_NAME = os.getenv("AUTH_COOKIE_NAME", "authToken")

@@ -39,7 +39,7 @@ class RegisterSerializer(serializers.Serializer):
 
 
 class InvitationCreateSerializer(serializers.Serializer):
-    role = serializers.ChoiceField(choices=[UserAccount.Role.ADMIN, UserAccount.Role.MEMBER])
+    role = serializers.ChoiceField(choices=UserAccount.Role.choices)
     expires_at = serializers.DateTimeField(required=False)
 
     def validate_expires_at(self, value):
@@ -77,3 +77,55 @@ class InvitationSummarySerializer(serializers.ModelSerializer):
 
     def get_status(self, obj: InvitationCode) -> str:
         return obj.effective_status
+
+
+class PaginationMetaSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    page = serializers.IntegerField()
+    per_page = serializers.IntegerField()
+    total_pages = serializers.IntegerField()
+
+
+class ApiErrorDetailSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    message = serializers.CharField()
+    details = serializers.ListField(child=serializers.JSONField())
+
+
+class ApiErrorResponseSerializer(serializers.Serializer):
+    error = ApiErrorDetailSerializer()
+
+
+class UserDataResponseSerializer(serializers.Serializer):
+    data = UserSummarySerializer()
+
+
+class UserListResponseSerializer(serializers.Serializer):
+    data = UserSummarySerializer(many=True)
+    meta = PaginationMetaSerializer()
+
+
+class InvitationDataResponseSerializer(serializers.Serializer):
+    data = InvitationSummarySerializer()
+
+
+class InvitationListResponseSerializer(serializers.Serializer):
+    data = InvitationSummarySerializer(many=True)
+    meta = PaginationMetaSerializer()
+
+
+class InvitationCreateDataSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    role = serializers.ChoiceField(choices=UserAccount.Role.choices)
+    status = serializers.ChoiceField(choices=[choice.value for choice in InvitationCode.Status])
+    expires_at = serializers.DateTimeField()
+    created_by = serializers.CharField()
+    used_by = serializers.CharField(allow_null=True)
+    used_at = serializers.DateTimeField(allow_null=True)
+    revoked_at = serializers.DateTimeField(allow_null=True)
+    created_at = serializers.DateTimeField()
+    plain_code = serializers.CharField()
+
+
+class InvitationCreateResponseSerializer(serializers.Serializer):
+    data = InvitationCreateDataSerializer()

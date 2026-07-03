@@ -1,0 +1,50 @@
+..                                                                       [100%]
+============================== warnings summary ===============================
+tests/test_swagger_docs.py::test_openapi_schema_includes_current_backend_contract
+  D:\Python3.12\Lib\site-packages\rest_framework_simplejwt\__init__.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    from pkg_resources import DistributionNotFound, get_distribution
+
+tests/test_swagger_docs.py::test_openapi_schema_includes_current_backend_contract
+  D:\Python3.12\Lib\site-packages\pkg_resources\__init__.py:3142: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('google')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+tests/test_swagger_docs.py::test_openapi_schema_includes_current_backend_contract
+  D:\Python3.12\Lib\site-packages\pkg_resources\__init__.py:3142: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('mpl_toolkits')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+tests/test_swagger_docs.py::test_openapi_schema_includes_current_backend_contract
+tests/test_swagger_docs.py::test_openapi_schema_includes_current_backend_contract
+  D:\Python3.12\Lib\site-packages\pkg_resources\__init__.py:3142: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('zope')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.12.6-final-0 _______________
+
+Name                                         Stmts   Miss  Cover   Missing
+--------------------------------------------------------------------------
+accounts\__init__.py                             0      0   100%
+accounts\apps.py                                 5      0   100%
+accounts\authentication.py                      23     10    57%   24-46, 49
+accounts\exceptions.py                          22      3    86%   19, 28, 40
+accounts\management\__init__.py                  0      0   100%
+accounts\management\commands\__init__.py         0      0   100%
+accounts\management\commands\init_admin.py      33     33     0%   1-48
+accounts\migrations\0001_initial.py              6      6     0%   2-11
+accounts\migrations\__init__.py                  0      0   100%
+accounts\models.py                             100     34    66%   23-32, 57, 61-68, 71, 74, 77-78, 81, 92-102, 105, 147, 151-153, 156, 159-162, 165-168, 171
+accounts\serializers.py                         82     13    84%   28-30, 33-38, 46-48, 79
+accounts\tokens.py                              10      3    70%   13-21
+accounts\views.py                              167    111    34%   32, 41-43, 47-54, 58-63, 93-116, 133-135, 152, 172-201, 225-241, 266-292, 307-322, 345-358
+config\__init__.py                               2      0   100%
+config\settings\__init__.py                      0      0   100%
+config\settings\base.py                         26      1    96%   63
+config\settings\local.py                         2      2     0%   1-4
+config\settings\test.py                         10      2    80%   18, 21
+config\urls.py                                   4      0   100%
+--------------------------------------------------------------------------
+TOTAL                                          492    218    56%
+Coverage HTML written to dir tests/evidence/htmlcov
