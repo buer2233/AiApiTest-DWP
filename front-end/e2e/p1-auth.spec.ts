@@ -199,16 +199,38 @@ async function mockApi(page: Page, options: { user?: typeof adminUser | typeof m
 }
 
 test.describe('P1 用户权限底座', () => {
-  test('未登录用户直达受保护 URL 会回到登录页并看到 401 门禁', async ({ page }) => {
+  test('未登录用户直达受保护 URL 会回到纯登录页且不展示复合原型其他区域', async ({ page }) => {
     await mockApi(page)
 
     await page.goto('/dashboard')
 
     await expect(page).toHaveURL(/\/login/)
     await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
-    await expect(page.getByText('401')).toBeVisible()
-    await expect(page.getByText('未检测到有效 Cookie')).toBeVisible()
-    await page.screenshot({ path: 'tests/evidence/screenshots/p1-login-401.png', fullPage: true })
+    await expect(page.getByRole('heading', { name: '邀请码注册' })).toHaveCount(0)
+    await expect(page.getByText('选择身份')).toHaveCount(0)
+    await expect(page.getByText('401')).toHaveCount(0)
+    await expect(page.getByText('authToken Cookie')).toHaveCount(0)
+    await expect(page.getByText('未检测到有效 Cookie')).toHaveCount(0)
+    await page.screenshot({ path: 'tests/evidence/screenshots/p1-login-redirect.png', fullPage: true })
+  })
+
+  test('登录页点击邀请码注册链接后进入独立注册页', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/login')
+
+    await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '邀请码注册' })).toHaveCount(0)
+
+    await page.getByRole('link', { name: /使用邀请码注册/ }).click()
+
+    await expect(page).toHaveURL(/\/register/)
+    await expect(page.getByRole('heading', { name: '邀请码注册' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '登录' })).toHaveCount(0)
+    await expect(page.getByText('选择身份')).toHaveCount(0)
+    await expect(page.getByText('401')).toHaveCount(0)
+    await expect(page.getByText('authToken Cookie')).toHaveCount(0)
+    await expect(page.getByText('平台访问已解锁')).toHaveCount(0)
+    await page.screenshot({ path: 'tests/evidence/screenshots/p1-register-route.png', fullPage: true })
   })
 
   test('管理人员登录成功后进入受保护布局', async ({ page }) => {
@@ -234,7 +256,9 @@ test.describe('P1 用户权限底座', () => {
     await expect(page).toHaveURL(/\/login/)
     await page.goto('/dashboard')
     await expect(page).toHaveURL(/\/login/)
-    await expect(page.getByText('未检测到有效 Cookie')).toBeVisible()
+    await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+    await expect(page.getByText('未检测到有效 Cookie')).toHaveCount(0)
+    await expect(page.getByText('401')).toHaveCount(0)
   })
 
   test('登录密码错误时展示字段可恢复错误', async ({ page }) => {
@@ -252,6 +276,13 @@ test.describe('P1 用户权限底座', () => {
   test('邀请码注册成功后不自动登录并引导返回登录', async ({ page }) => {
     await mockApi(page)
     await page.goto('/register')
+
+    await expect(page.getByRole('heading', { name: '邀请码注册' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '登录' })).toHaveCount(0)
+    await expect(page.getByText('选择身份')).toHaveCount(0)
+    await expect(page.getByText('401')).toHaveCount(0)
+    await expect(page.getByText('authToken Cookie')).toHaveCount(0)
+    await expect(page.getByText('平台访问已解锁')).toHaveCount(0)
 
     await page.getByLabel('邀请码', { exact: true }).fill('INVITE-EXAMPLE-REDACTED')
     await page.getByLabel('注册账号', { exact: true }).fill('member01')
