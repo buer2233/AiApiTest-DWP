@@ -44,6 +44,20 @@ def test_login_rejects_invalid_credentials_without_cookie(api_client, admin_user
 
     assert response.status_code == 401
     assert response.data["error"]["code"] == "invalid_credentials"
+    assert response.data["error"]["message"] == "账户或密码错误。"
+    assert "authToken" not in response.cookies
+
+
+def test_login_short_wrong_password_returns_invalid_credentials_message(api_client, admin_user):
+    response = api_client.post(
+        "/api/v1/auth/login",
+        {"username": admin_user.username, "password": "222"},
+        format="json",
+    )
+
+    assert response.status_code == 401
+    assert response.data["error"]["code"] == "invalid_credentials"
+    assert response.data["error"]["message"] == "账户或密码错误。"
     assert "authToken" not in response.cookies
 
 

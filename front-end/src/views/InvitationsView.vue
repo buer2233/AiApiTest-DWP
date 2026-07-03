@@ -14,6 +14,7 @@ const dialogOpen = shallowRef(false)
 const creating = shallowRef(false)
 const revokingId = shallowRef<number | null>(null)
 const plainCode = shallowRef('')
+const copyStatus = shallowRef('')
 const createdInvitation = shallowRef<InvitationCreateResponse | null>(null)
 const statusFilter = shallowRef('')
 const roleFilter = shallowRef<UserRole | ''>('')
@@ -49,6 +50,7 @@ async function loadInvitations() {
 
 function openCreateDialog() {
   plainCode.value = ''
+  copyStatus.value = ''
   createdInvitation.value = null
   createForm.role = 'member'
   createForm.expires_at = ''
@@ -59,12 +61,14 @@ function closeCreateDialog() {
   dialogOpen.value = false
   // 邀请码明文只允许本次展示，关闭弹窗后立即从前端状态移除。
   plainCode.value = ''
+  copyStatus.value = ''
   createdInvitation.value = null
 }
 
 async function submitCreateInvitation() {
   creating.value = true
   plainCode.value = ''
+  copyStatus.value = ''
   createdInvitation.value = null
   try {
     const response = await createInvitation({
@@ -75,6 +79,38 @@ async function submitCreateInvitation() {
     createdInvitation.value = response
   } finally {
     creating.value = false
+  }
+}
+
+function copyWithFallback(value: string) {
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.setAttribute('readonly', 'readonly')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  try {
+    return document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
+async function copyPlainCode() {
+  if (!plainCode.value) {
+    return
+  }
+  copyStatus.value = ''
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(plainCode.value)
+    } else if (!copyWithFallback(plainCode.value)) {
+      throw new Error('clipboard fallback failed')
+    }
+    copyStatus.value = '已复制，本窗口关闭后不再展示明文。'
+  } catch {
+    copyStatus.value = copyWithFallback(plainCode.value) ? '已复制，本窗口关闭后不再展示明文。' : '复制失败，请手动复制。'
   }
 }
 
@@ -196,7 +232,8 @@ onMounted(loadInvitations)
           <span v-if="createdInvitation">目标角色：{{ createdInvitation.role }}</span>
           <span v-if="createdInvitation">过期时间：{{ createForm.expires_at || createdInvitation.expires_at }}</span>
           <code>{{ plainCode }}</code>
-          <button type="button"><Copy :size="16" aria-hidden="true" />复制</button>
+          <button type="button" @click="copyPlainCode"><Copy :size="16" aria-hidden="true" />复制</button>
+          <span v-if="copyStatus" class="copy-status">{{ copyStatus }}</span>
         </div>
         <button class="ghost-button" type="button" @click="closeCreateDialog">关闭</button>
       </section>
@@ -366,5 +403,11 @@ p,
   border: 1px solid var(--color-hairline);
   border-radius: 8px;
   background: var(--color-canvas);
+}
+
+.copy-status {
+  color: #2d7c43;
+  font-size: 13px;
+  font-weight: 700;
 }
 </style>

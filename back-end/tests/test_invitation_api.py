@@ -152,6 +152,42 @@ def test_register_with_valid_invitation_marks_code_used_without_setting_cookie(a
     assert invitation.used_at is not None
 
 
+@pytest.mark.parametrize(
+    ("password", "expected_fragment", "username"),
+    [
+        ("12345678", "缺少字母", "weak_member_digits"),
+        ("abcdefgh", "缺少数字", "weak_member_letters"),
+        ("abc1234", "长度不足 8 位", "weak_member_short"),
+    ],
+)
+def test_register_weak_password_returns_specific_requirement(api_client, admin_user, password, expected_fragment, username):
+    invitation, plain_code = InvitationCode.objects.create_plain_code(
+        role=UserAccount.Role.MEMBER,
+        created_by=admin_user,
+    )
+
+    response = api_client.post(
+        "/api/v1/auth/register",
+        {
+            "invitation_code": plain_code,
+            "username": username,
+            "display_name": "弱密码成员",
+            "password": password,
+            "confirm_password": password,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 422
+    assert response.data["error"]["code"] == "weak_password"
+    assert "密码需 8-64 位，至少包含字母和数字" in response.data["error"]["message"]
+    assert expected_fragment in response.data["error"]["message"]
+    assert not UserAccount.objects.filter(username=username).exists()
+
+    invitation.refresh_from_db()
+    assert invitation.status == InvitationCode.Status.UNUSED
+
+
 def test_register_rejects_used_expired_or_revoked_invitation(api_client, admin_user):
     used_invitation, used_code = InvitationCode.objects.create_plain_code(
         role=UserAccount.Role.MEMBER,

@@ -1,0 +1,30 @@
+..........................                                               [100%]
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.12.6-final-0 _______________
+
+Name                                         Stmts   Miss  Cover   Missing
+--------------------------------------------------------------------------
+accounts\__init__.py                             0      0   100%
+accounts\apps.py                                 7      0   100%
+accounts\authentication.py                      23      2    91%   41, 49
+accounts\exceptions.py                          22      2    91%   28, 40
+accounts\management\__init__.py                  0      0   100%
+accounts\management\commands\__init__.py         0      0   100%
+accounts\management\commands\init_admin.py      33      8    76%   23, 38-39, 41-42, 44-46
+accounts\migrations\0001_initial.py              6      6     0%   2-11
+accounts\migrations\__init__.py                  0      0   100%
+accounts\models.py                             100      4    96%   57, 81, 105, 171
+accounts\schema.py                               8      0   100%
+accounts\serializers.py                         96      4    96%   21, 29, 47, 53
+accounts\tokens.py                              10      0   100%
+accounts\views.py                              168     16    90%   51-52, 96, 183-185, 243, 275, 279, 285, 287, 291, 298, 355, 359, 363
+config\__init__.py                               2      0   100%
+config\settings\__init__.py                      0      0   100%
+config\settings\base.py                         26      1    96%   67
+config\settings\local.py                         2      2     0%   1-4
+config\settings\test.py                         10      0   100%
+config\urls.py                                   4      0   100%
+--------------------------------------------------------------------------
+TOTAL                                          517     45    91%
+Coverage HTML written to dir tests/evidence/htmlcov
+26 passed in 2.31s
