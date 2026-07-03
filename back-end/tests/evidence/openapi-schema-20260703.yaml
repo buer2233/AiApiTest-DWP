@@ -1,0 +1,614 @@
+openapi: 3.0.3
+info:
+  title: AiApiTest-DWP 后端接口文档
+  version: 0.1.0
+  description: 企业级自动化测试平台 DRF API。当前阶段覆盖用户权限底座接口。
+paths:
+  /api/v1/auth/login:
+    post:
+      operationId: v1_auth_login_create
+      description: 校验账号密码，成功后写入 HttpOnly `authToken` Cookie，并返回当前用户摘要。
+      summary: 用户登录
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDataResponse'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 账号或密码错误
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 用户不可登录
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 请求参数校验失败
+  /api/v1/auth/logout:
+    post:
+      operationId: v1_auth_logout_create
+      description: 清理浏览器侧认证 Cookie。该接口需要携带有效认证 Cookie。
+      summary: 用户登出
+      tags:
+      - 认证
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: 登出成功，无响应体
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 未登录或 Cookie 无效
+  /api/v1/auth/me:
+    get:
+      operationId: v1_auth_me_retrieve
+      description: 根据认证 Cookie 返回当前登录用户摘要和权限编码。
+      summary: 获取当前用户
+      tags:
+      - 认证
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDataResponse'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 未登录或 Cookie 无效
+  /api/v1/auth/register:
+    post:
+      operationId: v1_auth_register_create
+      description: 使用未过期且未使用的邀请码注册用户。注册成功不自动登录，不写入认证 Cookie。
+      summary: 邀请码注册
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Register'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Register'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDataResponse'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 账号已存在
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 邀请码不可用或密码不满足要求
+  /api/v1/invitations:
+    get:
+      operationId: v1_invitations_retrieve
+      description: 管理人员按角色和状态分页查询邀请码。`unused` 会排除已过期记录，`expired` 会返回已过期未使用记录。
+      summary: 分页查询邀请码
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: 页码，从 1 开始
+      - in: query
+        name: per_page
+        schema:
+          type: integer
+        description: 每页条数，范围 1-100
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - admin
+          - member
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - expired
+          - revoked
+          - unused
+          - used
+      tags:
+      - 邀请码
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationListResponse'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 未登录或 Cookie 无效
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 需要管理人员权限
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 分页或筛选参数非法
+    post:
+      operationId: v1_invitations_create
+      description: 管理人员创建一次性邀请码。明文邀请码只在创建响应中返回一次。
+      summary: 创建邀请码
+      tags:
+      - 邀请码
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InvitationCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InvitationCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationCreateResponse'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 未登录或 Cookie 无效
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 需要管理人员权限
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 请求参数校验失败
+  /api/v1/invitations/{invitation_id}/revoke:
+    post:
+      operationId: v1_invitations_revoke_create
+      description: 管理人员作废未使用且未过期的邀请码。已使用、已作废或已过期的邀请码不可作废。
+      summary: 作废邀请码
+      parameters:
+      - in: path
+        name: invitation_id
+        schema:
+          type: integer
+        description: 邀请码记录 ID
+        required: true
+      tags:
+      - 邀请码
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationDataResponse'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 未登录或 Cookie 无效
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 需要管理人员权限
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 邀请码不存在
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 邀请码状态不允许作废
+  /api/v1/users:
+    get:
+      operationId: v1_users_retrieve
+      description: 管理人员按角色分页查询用户列表。普通成员访问返回 `admin_required`。
+      summary: 分页查询用户
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: 页码，从 1 开始
+      - in: query
+        name: per_page
+        schema:
+          type: integer
+        description: 每页条数，范围 1-100
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - admin
+          - member
+      tags:
+      - 用户管理
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 未登录或 Cookie 无效
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 需要管理人员权限
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+          description: 分页或筛选参数非法
+components:
+  schemas:
+    ApiErrorDetail:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items: {}
+      required:
+      - code
+      - details
+      - message
+    ApiErrorResponse:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/ApiErrorDetail'
+      required:
+      - error
+    InvitationCreate:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/UserRoleEnum'
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - role
+    InvitationCreateData:
+      type: object
+      properties:
+        id:
+          type: integer
+        role:
+          $ref: '#/components/schemas/UserRoleEnum'
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        expires_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        used_by:
+          type: string
+          nullable: true
+        used_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        plain_code:
+          type: string
+      required:
+      - created_at
+      - created_by
+      - expires_at
+      - id
+      - plain_code
+      - revoked_at
+      - role
+      - status
+      - used_at
+      - used_by
+    InvitationCreateResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/InvitationCreateData'
+      required:
+      - data
+    InvitationDataResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/InvitationSummary'
+      required:
+      - data
+    InvitationListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvitationSummary'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+      required:
+      - data
+      - meta
+    InvitationSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        role:
+          $ref: '#/components/schemas/UserRoleEnum'
+        status:
+          type: string
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        used_by:
+          type: string
+          nullable: true
+        used_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - expires_at
+      - id
+      - status
+      - used_by
+    LangEnum:
+      enum:
+      - zh_CN
+      - en_US
+      type: string
+      description: |-
+        * `zh_CN` - zh_CN
+        * `en_US` - en_US
+    Login:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 64
+          minLength: 3
+        password:
+          type: string
+          maxLength: 64
+          minLength: 8
+        lang:
+          $ref: '#/components/schemas/LangEnum'
+      required:
+      - password
+      - username
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total_pages:
+          type: integer
+      required:
+      - page
+      - per_page
+      - total
+      - total_pages
+    Register:
+      type: object
+      properties:
+        invitation_code:
+          type: string
+        username:
+          type: string
+          maxLength: 64
+          minLength: 3
+        display_name:
+          type: string
+          maxLength: 64
+          minLength: 1
+        password:
+          type: string
+          maxLength: 64
+          minLength: 8
+        confirm_password:
+          type: string
+          maxLength: 64
+          minLength: 8
+      required:
+      - confirm_password
+      - invitation_code
+      - password
+      - username
+    StatusEnum:
+      enum:
+      - unused
+      - used
+      - revoked
+      - expired
+      type: string
+      description: |-
+        * `unused` - unused
+        * `used` - used
+        * `revoked` - revoked
+        * `expired` - expired
+    UserDataResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/UserSummary'
+      required:
+      - data
+    UserListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+      required:
+      - data
+      - meta
+    UserRoleEnum:
+      enum:
+      - admin
+      - member
+      type: string
+      description: |-
+        * `admin` - 管理人员
+        * `member` - 普通成员
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          maxLength: 64
+        display_name:
+          type: string
+          maxLength: 64
+        role:
+          $ref: '#/components/schemas/UserRoleEnum'
+        permissions:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - id
+      - permissions
+      - username
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: authToken
+      description: HttpOnly Cookie 中的平台 JWT 登录凭据。

@@ -3,6 +3,8 @@ from __future__ import annotations
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,8 +13,14 @@ from accounts.authentication import CookieJWTAuthentication
 from accounts.exceptions import api_error_response
 from accounts.models import InvitationCode, UserAccount
 from accounts.serializers import (
+    ApiErrorResponseSerializer,
+    InvitationCreateResponseSerializer,
     InvitationCreateSerializer,
+    InvitationDataResponseSerializer,
+    InvitationListResponseSerializer,
     InvitationSummarySerializer,
+    UserDataResponseSerializer,
+    UserListResponseSerializer,
     LoginSerializer,
     RegisterSerializer,
     UserSummarySerializer,
@@ -69,6 +77,18 @@ class LoginView(APIView):
     authentication_classes = []
     permission_classes = []
 
+    @extend_schema(
+        tags=["认证"],
+        summary="用户登录",
+        description="校验账号密码，成功后写入 HttpOnly `authToken` Cookie，并返回当前用户摘要。",
+        request=LoginSerializer,
+        responses={
+            200: UserDataResponseSerializer,
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="账号或密码错误"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="用户不可登录"),
+            422: OpenApiResponse(ApiErrorResponseSerializer, description="请求参数校验失败"),
+        },
+    )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
@@ -100,6 +120,16 @@ class LogoutView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
 
+    @extend_schema(
+        tags=["认证"],
+        summary="用户登出",
+        description="清理浏览器侧认证 Cookie。该接口需要携带有效认证 Cookie。",
+        request=None,
+        responses={
+            204: OpenApiResponse(description="登出成功，无响应体"),
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
+        },
+    )
     def post(self, request):
         response = Response(status=status.HTTP_204_NO_CONTENT)
         response.delete_cookie(settings.AUTH_COOKIE_NAME, path="/", samesite="Lax")
@@ -110,6 +140,15 @@ class AuthMeView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
 
+    @extend_schema(
+        tags=["认证"],
+        summary="获取当前用户",
+        description="根据认证 Cookie 返回当前登录用户摘要和权限编码。",
+        responses={
+            200: UserDataResponseSerializer,
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
+        },
+    )
     def get(self, request):
         return Response({"data": UserSummarySerializer(request.user).data})
 
@@ -118,6 +157,17 @@ class RegisterView(APIView):
     authentication_classes = []
     permission_classes = []
 
+    @extend_schema(
+        tags=["认证"],
+        summary="邀请码注册",
+        description="使用未过期且未使用的邀请码注册用户。注册成功不自动登录，不写入认证 Cookie。",
+        request=RegisterSerializer,
+        responses={
+            201: UserDataResponseSerializer,
+            409: OpenApiResponse(ApiErrorResponseSerializer, description="账号已存在"),
+            422: OpenApiResponse(ApiErrorResponseSerializer, description="邀请码不可用或密码不满足要求"),
+        },
+    )
     @transaction.atomic
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -156,6 +206,22 @@ class UserListView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
 
+    @extend_schema(
+        tags=["用户管理"],
+        summary="分页查询用户",
+        description="管理人员按角色分页查询用户列表。普通成员访问返回 `admin_required`。",
+        parameters=[
+            OpenApiParameter("role", OpenApiTypes.STR, OpenApiParameter.QUERY, enum=["admin", "member"]),
+            OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="页码，从 1 开始"),
+            OpenApiParameter("per_page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="每页条数，范围 1-100"),
+        ],
+        responses={
+            200: UserListResponseSerializer,
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限"),
+            422: OpenApiResponse(ApiErrorResponseSerializer, description="分页或筛选参数非法"),
+        },
+    )
     def get(self, request):
         forbidden = require_admin(request.user)
         if forbidden:
@@ -180,6 +246,23 @@ class InvitationListCreateView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
 
+    @extend_schema(
+        tags=["邀请码"],
+        summary="分页查询邀请码",
+        description="管理人员按角色和状态分页查询邀请码。`unused` 会排除已过期记录，`expired` 会返回已过期未使用记录。",
+        parameters=[
+            OpenApiParameter("role", OpenApiTypes.STR, OpenApiParameter.QUERY, enum=["admin", "member"]),
+            OpenApiParameter("status", OpenApiTypes.STR, OpenApiParameter.QUERY, enum=["unused", "used", "revoked", "expired"]),
+            OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="页码，从 1 开始"),
+            OpenApiParameter("per_page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="每页条数，范围 1-100"),
+        ],
+        responses={
+            200: InvitationListResponseSerializer,
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限"),
+            422: OpenApiResponse(ApiErrorResponseSerializer, description="分页或筛选参数非法"),
+        },
+    )
     def get(self, request):
         forbidden = require_admin(request.user)
         if forbidden:
@@ -209,6 +292,18 @@ class InvitationListCreateView(APIView):
                 queryset = queryset.filter(status=status_filter)
         return paginated_response(queryset, InvitationSummarySerializer, page, per_page)
 
+    @extend_schema(
+        tags=["邀请码"],
+        summary="创建邀请码",
+        description="管理人员创建一次性邀请码。明文邀请码只在创建响应中返回一次。",
+        request=InvitationCreateSerializer,
+        responses={
+            201: InvitationCreateResponseSerializer,
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限"),
+            422: OpenApiResponse(ApiErrorResponseSerializer, description="请求参数校验失败"),
+        },
+    )
     def post(self, request):
         forbidden = require_admin(request.user)
         if forbidden:
@@ -232,6 +327,22 @@ class InvitationRevokeView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
 
+    @extend_schema(
+        tags=["邀请码"],
+        summary="作废邀请码",
+        description="管理人员作废未使用且未过期的邀请码。已使用、已作废或已过期的邀请码不可作废。",
+        request=None,
+        parameters=[
+            OpenApiParameter("invitation_id", OpenApiTypes.INT, OpenApiParameter.PATH, description="邀请码记录 ID"),
+        ],
+        responses={
+            200: InvitationDataResponseSerializer,
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限"),
+            404: OpenApiResponse(ApiErrorResponseSerializer, description="邀请码不存在"),
+            409: OpenApiResponse(ApiErrorResponseSerializer, description="邀请码状态不允许作废"),
+        },
+    )
     def post(self, request, invitation_id: int):
         forbidden = require_admin(request.user)
         if forbidden:
