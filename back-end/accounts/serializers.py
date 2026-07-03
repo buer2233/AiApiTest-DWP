@@ -9,11 +9,29 @@ from accounts.models import InvitationCode, UserAccount
 
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+PASSWORD_REQUIREMENT_TEXT = "密码需 8-64 位，至少包含字母和数字"
+
+
+def build_password_requirement_message(password: str) -> str:
+    """按当前密码内容生成可执行的弱密码原因，避免前端猜测复杂度规则。"""
+    missing_reasons: list[str] = []
+    if len(password) < 8:
+        missing_reasons.append("长度不足 8 位")
+    if len(password) > 64:
+        missing_reasons.append("长度超过 64 位")
+    if not any(ch.isalpha() for ch in password):
+        missing_reasons.append("缺少字母")
+    if not any(ch.isdigit() for ch in password):
+        missing_reasons.append("缺少数字")
+
+    if missing_reasons:
+        return f"{PASSWORD_REQUIREMENT_TEXT}；当前{'，'.join(missing_reasons)}。"
+    return f"{PASSWORD_REQUIREMENT_TEXT}。"
 
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(min_length=3, max_length=64)
-    password = serializers.CharField(min_length=8, max_length=64, trim_whitespace=False)
+    password = serializers.CharField(max_length=64, trim_whitespace=False)
     lang = serializers.ChoiceField(choices=["zh_CN", "en_US"], required=False)
 
 
@@ -34,7 +52,7 @@ class RegisterSerializer(serializers.Serializer):
         if attrs["password"] != attrs["confirm_password"]:
             raise serializers.ValidationError({"confirm_password": "两次输入的密码不一致。"})
         if not any(ch.isalpha() for ch in password) or not any(ch.isdigit() for ch in password):
-            raise serializers.ValidationError({"password": "密码需至少包含字母和数字。"})
+            raise serializers.ValidationError({"password": build_password_requirement_message(password)})
         return attrs
 
 

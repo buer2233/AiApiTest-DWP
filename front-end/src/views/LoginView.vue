@@ -20,7 +20,7 @@ async function login(payload: { username: string; password: string }) {
     await authStore.login(payload)
     await router.replace(redirectTarget.value)
   } catch (error) {
-    loginError.value = toApiError(error).message || '账号或密码错误。'
+    loginError.value = toApiError(error).message || '账户或密码错误。'
   }
 }
 </script>

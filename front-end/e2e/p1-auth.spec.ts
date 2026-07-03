@@ -36,7 +36,7 @@ async function mockApi(page: Page, options: { user?: typeof adminUser | typeof m
     if (body.password !== 'TestPass123') {
       await route.fulfill({
         status: 401,
-        json: { error: { code: 'invalid_credentials', message: '账号或密码错误。', details: [] } },
+        json: { error: { code: 'invalid_credentials', message: '账户或密码错误。', details: [] } },
       })
       return
     }
@@ -54,11 +54,24 @@ async function mockApi(page: Page, options: { user?: typeof adminUser | typeof m
   })
 
   await page.route('**/api/v1/auth/register', async (route) => {
-    const body = route.request().postDataJSON() as { invitation_code: string; username: string }
+    const body = route.request().postDataJSON() as { invitation_code: string; username: string; password: string }
     if (body.invitation_code === 'USED-CODE') {
       await route.fulfill({
         status: 422,
         json: { error: { code: 'invalid_invitation_code', message: '邀请码不可用。', details: [] } },
+      })
+      return
+    }
+    if (body.password === '12345678') {
+      await route.fulfill({
+        status: 422,
+        json: {
+          error: {
+            code: 'weak_password',
+            message: '密码需 8-64 位，至少包含字母和数字；当前缺少字母。',
+            details: [],
+          },
+        },
       })
       return
     }
@@ -261,7 +274,7 @@ test.describe('P1 用户权限底座', () => {
     await expect(page.getByText('401')).toHaveCount(0)
   })
 
-  test('登录密码错误时展示字段可恢复错误', async ({ page }) => {
+  test('登录密码错误时展示统一账户错误', async ({ page }) => {
     await mockApi(page)
     await page.goto('/login')
 
@@ -269,7 +282,19 @@ test.describe('P1 用户权限底座', () => {
     await page.getByLabel('密码', { exact: true }).fill('WrongPass123')
     await page.getByRole('button', { name: '进入平台' }).click()
 
-    await expect(page.getByRole('alert')).toContainText('账号或密码错误')
+    await expect(page.getByRole('alert')).toContainText('账户或密码错误')
+    await expect(page).toHaveURL(/\/login/)
+  })
+
+  test('登录短密码错误时仍展示统一账户错误', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/login')
+
+    await page.getByLabel('账号', { exact: true }).fill('admin_user')
+    await page.getByLabel('密码', { exact: true }).fill('222')
+    await page.getByRole('button', { name: '进入平台' }).click()
+
+    await expect(page.getByRole('alert')).toContainText('账户或密码错误')
     await expect(page).toHaveURL(/\/login/)
   })
 
@@ -291,6 +316,20 @@ test.describe('P1 用户权限底座', () => {
     await page.getByRole('button', { name: '创建账号' }).click()
 
     await expect(page.getByRole('status')).toContainText('注册成功，请返回登录')
+  })
+
+  test('邀请码注册弱密码时展示缺失项提示', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/register')
+
+    await page.getByLabel('邀请码', { exact: true }).fill('INVITE-EXAMPLE-REDACTED')
+    await page.getByLabel('注册账号', { exact: true }).fill('weak_member')
+    await page.getByLabel('注册密码', { exact: true }).fill('12345678')
+    await page.getByLabel('确认密码', { exact: true }).fill('12345678')
+    await page.getByRole('button', { name: '创建账号' }).click()
+
+    await expect(page.getByRole('alert')).toContainText('密码需 8-64 位，至少包含字母和数字')
+    await expect(page.getByRole('alert')).toContainText('缺少字母')
   })
 
   test('普通成员直达用户管理页会看到 403 权限反馈', async ({ page }) => {
@@ -331,7 +370,8 @@ test.describe('P1 用户权限底座', () => {
     await expect(page.getByText('当前第 2 页')).toBeVisible()
   })
 
-  test('管理人员可以查看并生成邀请码，列表不展示历史明文', async ({ page }) => {
+  test('管理人员可以查看并生成邀请码，列表不展示历史明文且可复制本次明文', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' })
     await mockApi(page, { user: adminUser })
 
     await page.goto('/invitations')
@@ -348,6 +388,10 @@ test.describe('P1 用户权限底座', () => {
     await expect(page.getByText('INVITE-EXAMPLE-REDACTED')).toBeVisible()
     await expect(page.getByText('目标角色：admin')).toBeVisible()
     await expect(page.getByText('过期时间：2026-07-12T12:00')).toBeVisible()
+    await page.evaluate(() => navigator.clipboard.writeText(''))
+    await page.getByRole('button', { name: '复制' }).click()
+    await expect(page.getByRole('status')).toContainText('已复制')
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('INVITE-EXAMPLE-REDACTED')
     await page.screenshot({ path: 'tests/evidence/screenshots/p1-invitations-admin.png', fullPage: true })
 
     await page.getByRole('button', { name: '关闭' }).click()

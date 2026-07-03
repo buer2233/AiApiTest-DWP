@@ -24,6 +24,7 @@ from accounts.serializers import (
     LoginSerializer,
     RegisterSerializer,
     UserSummarySerializer,
+    build_password_requirement_message,
 )
 from accounts.tokens import issue_auth_token
 
@@ -84,7 +85,7 @@ class LoginView(APIView):
         request=LoginSerializer,
         responses={
             200: UserDataResponseSerializer,
-            401: OpenApiResponse(ApiErrorResponseSerializer, description="账号或密码错误"),
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="账户或密码错误"),
             403: OpenApiResponse(ApiErrorResponseSerializer, description="用户不可登录"),
             422: OpenApiResponse(ApiErrorResponseSerializer, description="请求参数校验失败"),
         },
@@ -98,7 +99,7 @@ class LoginView(APIView):
         password = serializer.validated_data["password"]
         user = UserAccount.objects.filter(username=username).first()
         if user is None or not user.check_password(password):
-            return api_error_response("invalid_credentials", "账号或密码错误。", status.HTTP_401_UNAUTHORIZED)
+            return api_error_response("invalid_credentials", "账户或密码错误。", status.HTTP_401_UNAUTHORIZED)
         if not user.is_active:
             return api_error_response("user_inactive", "用户不可登录。", status.HTTP_403_FORBIDDEN)
 
@@ -173,7 +174,12 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
             if "password" in serializer.errors:
-                return api_error_response("weak_password", "密码不满足复杂度要求。", status.HTTP_422_UNPROCESSABLE_ENTITY)
+                password = request.data.get("password", "")
+                return api_error_response(
+                    "weak_password",
+                    build_password_requirement_message(str(password)),
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
             if "confirm_password" in serializer.errors:
                 return api_error_response("password_mismatch", "两次输入的密码不一致。", status.HTTP_422_UNPROCESSABLE_ENTITY)
             return validation_error(serializer)
