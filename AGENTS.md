@@ -9,6 +9,26 @@
 - 开发过程中需要添加必要且清晰的简体中文注释。
 - 不能把本项目当成无历史的新项目处理，必须保持多阶段开发上下文完整。
 
+## 全局技能使用要求
+
+必须优先使用：`/using-superpowers`， 和`/planning-with-files`
+
+其它全局技能推荐：
+
+- `brainstorming`：新需求、新功能、架构和行为变更前使用。
+- `product-requirements`：需求分析和 PRD 编写时使用。
+- `test-driven-development`：所有开发阶段遵循 TDD。
+- `systematic-debugging`：遇到问题、失败或异常行为时使用。
+- `receiving-code-review`：处理代码审查意见时使用。
+- `drawio-skill`：架构图、流程图、ER 图等可视化资料使用。
+- `subagent-driven-development`：需求阶段完成且任务边界独立时，用于并行推进测试设计、UI 原型、独立实现和审查任务。
+
+模块技能：
+
+- 后端：`django-tdd`、`api-design`、`python-patterns`、`python-testing`
+- 前端：`vue-best-practices`、`frontend-design`、`vue-router-best-practices`、`vue-pinia-best-practices`、`vue-testing-best-practices`
+- 设计：`ui-ux-pro-max`、`ckm:design-system`
+
 ## 固定开发循环
 
 每一个需求都是一次完整 loop，同一需求在不同阶段的产物命名必须一致，仅后缀不同，并能明确区分阶段。每次需求先按下方“需求分级”确定 loop 深度，再按对应档位包含相应产物和阶段；除用户另有明确指示外，不得擅自省略所属档位要求的阶段。
@@ -168,29 +188,6 @@
 - `docs/`：额外说明文档。
 
 详细架构以 `project-info/project_detail/project-architecture.md` 为准。
-
-## 全局技能推荐
-
-必须优先使用：
-
-- `/using-superpowers`
-- `/planning-with-files`
-
-全局推荐：
-
-- `brainstorming`：新需求、新功能、架构和行为变更前使用。
-- `product-requirements`：需求分析和 PRD 编写时使用。
-- `test-driven-development`：所有开发阶段遵循 TDD。
-- `systematic-debugging`：遇到问题、失败或异常行为时使用。
-- `receiving-code-review`：处理代码审查意见时使用。
-- `drawio-skill`：架构图、流程图、ER 图等可视化资料使用。
-- `subagent-driven-development`：需求阶段完成且任务边界独立时，用于并行推进测试设计、UI 原型、独立实现和审查任务。
-
-模块技能：
-
-- 后端：`django-tdd`、`api-design`、`python-patterns`、`python-testing`
-- 前端：`vue-best-practices`、`frontend-design`、`vue-router-best-practices`、`vue-pinia-best-practices`、`vue-testing-best-practices`
-- 设计：`ui-ux-pro-max`、`ckm:design-system`
 
 ## 安全规范
 
