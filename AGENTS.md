@@ -114,6 +114,17 @@
 
 后期平台必须支持作为一个 Docker Compose 项目整体打包部署。后续任何后端、前端、Jenkins、`api-test` 执行器和报告入口设计，都必须避免绑定个人本机路径、宿主机固定端口或不可迁移环境，保证可以通过环境变量、Compose 服务名、volume 和标准镜像构建方式迁移到整体容器化部署。
 
+## 环境配置标准流程
+
+根目录 `.env` 是本项目本地启动和验收的唯一私有配置入口，`.env.example` 是可提交的脱敏模板。后续任何服务地址、端口、数据库、Jenkins、前端代理、Playwright、初始化管理员、报告路径或启动后不建议修改的配置，都必须先进入 `.env.example` 并在相关文档说明后，再由本地 `.env` 或 CI/Jenkins 环境变量注入。
+
+- 后端正式运行默认读取根 `.env`，并使用 Docker MySQL；pytest 测试配置可继续使用内存 SQLite 以保证单元/接口测试速度。
+- 前端 Vite 配置必须从仓库根目录加载 `.env`，客户端可见变量必须使用 `VITE_` 前缀，dev server、代理目标和 Playwright webServer/baseURL 不得写死本机端口。
+- Docker Compose 只能通过 `.env`、Compose 服务名、volume 和标准镜像参数注入可变配置；不得把真实 `.env`、数据库数据或 Jenkins home 打包进镜像。
+- Jenkins Pipeline 的可变路径、默认 case path、虚拟环境目录和公开访问地址应由 Jenkins 环境变量或 `.env.example` 中的脱敏变量说明驱动；`api-test` 执行协议变更必须单独走需求 loop。
+- 启动后不建议修改的配置必须在 `.env.example` 或部署文档中备注，例如 MySQL 数据库名、root 密码、数据卷、Jenkins home、Jenkins 端口、`AUTH_TOKEN_SECRET` 和 Cookie 策略。
+- 每次新增、删除或改名环境变量，都必须同步更新 `.env.example`、对应模块文档、相关静态测试和验收包；不得只改本机 `.env`。
+
 ## 流程检查点和并行规则
 
 固定 loop 保持阶段产物完整和命名一致，但不要求所有阶段机械串行。满足输入完整、边界清晰、产物可汇合时，可以使用 subagent 并行推进独立阶段。

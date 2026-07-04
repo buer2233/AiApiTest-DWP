@@ -33,6 +33,10 @@ services:
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       JENKINS_OPTS: ${JENKINS_OPTS:-}
+      JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}
+      JENKINS_DEFAULT_CASE_PATH: ${JENKINS_DEFAULT_CASE_PATH:-test_case/test_gbif_case}
+      JENKINS_API_TEST_DIR: ${JENKINS_API_TEST_DIR:-api-test}
+      JENKINS_PYTHON_VENV_DIR: ${JENKINS_PYTHON_VENV_DIR:-.venv}
     ports:
       - "${JENKINS_HTTP_PORT:-8080}:8080"
       - "${JENKINS_AGENT_PORT:-50001}:50000"

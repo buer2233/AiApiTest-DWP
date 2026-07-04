@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { playwrightPermissionOrigin } from '../playwright.config'
+
 const adminUser = {
   id: 1,
   username: 'admin_user',
@@ -437,7 +439,7 @@ test.describe('P1 用户权限底座', () => {
   })
 
   test('管理人员可以查看并生成邀请码，列表不展示历史明文且可复制本次明文', async ({ page, context }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' })
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: playwrightPermissionOrigin })
     await mockApi(page, { user: adminUser })
 
     await page.goto('/invitations')

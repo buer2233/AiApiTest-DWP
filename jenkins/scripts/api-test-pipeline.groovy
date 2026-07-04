@@ -17,7 +17,7 @@ def call() {
         parameters([
             string(
                 name: 'CASE_PATH',
-                defaultValue: 'test_case/test_gbif_case',
+                defaultValue: env.JENKINS_DEFAULT_CASE_PATH ?: 'test_case/test_gbif_case',
                 description: 'pytest module or case path relative to api-test'
             ),
             text(
@@ -48,9 +48,10 @@ def call() {
         ])
     ])
 
-    def apiTestDir = 'api-test'
-    def unixPython = '.venv/bin/python'
-    def windowsPython = '.venv\\Scripts\\python'
+    def apiTestDir = env.JENKINS_API_TEST_DIR ?: 'api-test'
+    def pythonVenvDir = env.JENKINS_PYTHON_VENV_DIR ?: '.venv'
+    def unixPython = "${pythonVenvDir}/bin/python"
+    def windowsPython = "${pythonVenvDir}\\Scripts\\python"
     def runId = env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"
     def runDir = "${apiTestDir}/runtime/ci-runs/${runId}"
 
@@ -85,8 +86,8 @@ def call() {
         stage('Install API Test Requirements') {
             // 每次构建在 api-test 目录创建隔离虚拟环境，避免污染 Jenkins agent 全局 Python。
             runCommand(
-                "cd ${apiTestDir} && python -m venv .venv && ${unixPython} -m pip install -r requirements.txt",
-                "cd ${apiTestDir} && python -m venv .venv && ${windowsPython} -m pip install -r requirements.txt"
+                "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && ${unixPython} -m pip install -r requirements.txt",
+                "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && ${windowsPython} -m pip install -r requirements.txt"
             )
         }
 

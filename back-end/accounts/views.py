@@ -134,8 +134,8 @@ class LoginView(APIView):
             max_age=settings.AUTH_COOKIE_MAX_AGE_SECONDS,
             httponly=True,
             secure=settings.AUTH_COOKIE_SECURE,
-            samesite="Lax",
-            path="/",
+            samesite=settings.AUTH_COOKIE_SAMESITE,
+            path=settings.AUTH_COOKIE_PATH,
         )
         return response
 
@@ -156,7 +156,11 @@ class LogoutView(APIView):
     )
     def post(self, request):
         response = Response(status=status.HTTP_204_NO_CONTENT)
-        response.delete_cookie(settings.AUTH_COOKIE_NAME, path="/", samesite="Lax")
+        response.delete_cookie(
+            settings.AUTH_COOKIE_NAME,
+            path=settings.AUTH_COOKIE_PATH,
+            samesite=settings.AUTH_COOKIE_SAMESITE,
+        )
         return response
 
 

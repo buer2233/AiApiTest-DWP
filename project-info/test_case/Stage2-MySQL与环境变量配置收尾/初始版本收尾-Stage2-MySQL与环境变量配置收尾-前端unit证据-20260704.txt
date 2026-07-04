@@ -1,0 +1,14 @@
+
+> aiapitest-dwp-front-end@0.1.0 test:unit
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m<PROJECT_ROOT>/front-end[39m
+
+ [32m✓[39m tests/api-env.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/config-env.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 13:23:08
+[2m   Duration [22m 3.75s[2m (transform 139ms, setup 0ms, collect 196ms, tests 14ms, environment 4.77s, prepare 851ms)[22m
