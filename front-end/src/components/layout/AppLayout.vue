@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Home, LogOut, Ticket, UsersRound } from '@lucide/vue'
+import { BarChart3, Gauge, Home, LogOut, Ticket, UsersRound } from '@lucide/vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
@@ -24,6 +24,8 @@ async function logout() {
       </a>
       <nav aria-label="平台导航">
         <RouterLink class="nav-link" to="/dashboard"><Home :size="18" />概览</RouterLink>
+        <RouterLink class="nav-link" to="/environments"><Gauge :size="18" />环境通过率</RouterLink>
+        <RouterLink class="nav-link" to="/modules"><BarChart3 :size="18" />模块通过率</RouterLink>
         <RouterLink v-if="isAdmin" class="nav-link" to="/users"><UsersRound :size="18" />用户与权限</RouterLink>
         <RouterLink v-if="isAdmin" class="nav-link" to="/invitations"><Ticket :size="18" />邀请码</RouterLink>
       </nav>
@@ -53,6 +55,7 @@ async function logout() {
   display: grid;
   align-content: start;
   gap: 30px;
+  min-width: 0;
   padding: 26px;
   border-right: 1px solid var(--color-hairline);
   background: var(--color-surface-soft);
@@ -62,6 +65,7 @@ async function logout() {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   color: var(--color-ink);
   text-decoration: none;
 }
@@ -88,6 +92,7 @@ async function logout() {
   align-items: center;
   gap: 10px;
   min-height: 42px;
+  min-width: 0;
   padding: 0 12px;
   border-radius: 8px;
   color: var(--color-body);
@@ -104,6 +109,7 @@ async function logout() {
   display: grid;
   align-content: start;
   gap: 24px;
+  min-width: 0;
   padding: 26px 34px;
 }
 
@@ -144,6 +150,10 @@ async function logout() {
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--color-hairline);
+  }
+
+  .content {
+    padding: 22px 18px;
   }
 }
 </style>

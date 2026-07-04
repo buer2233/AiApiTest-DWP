@@ -5,8 +5,8 @@ from django.conf import settings
 from rest_framework import status
 from rest_framework.authentication import BaseAuthentication
 
-from accounts.exceptions import ApiError
 from accounts.models import UserAccount
+from common.exceptions import ApiError
 
 
 class CookieJWTAuthentication(BaseAuthentication):

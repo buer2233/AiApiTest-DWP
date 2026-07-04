@@ -2,9 +2,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
 import DashboardView from '@/views/DashboardView.vue'
+import EnvironmentsView from '@/views/EnvironmentsView.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
 import InvitationsView from '@/views/InvitationsView.vue'
 import LoginView from '@/views/LoginView.vue'
+import ModulesView from '@/views/ModulesView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import UsersView from '@/views/UsersView.vue'
 
@@ -15,6 +17,8 @@ const router = createRouter({
     { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
     { path: '/register', name: 'register', component: RegisterView, meta: { public: true } },
     { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
+    { path: '/environments', name: 'environments', component: EnvironmentsView, meta: { requiresAuth: true } },
+    { path: '/modules', name: 'modules', component: ModulesView, meta: { requiresAuth: true } },
     { path: '/users', name: 'users', component: UsersView, meta: { requiresAuth: true, adminOnly: true } },
     { path: '/invitations', name: 'invitations', component: InvitationsView, meta: { requiresAuth: true, adminOnly: true } },
     { path: '/forbidden', name: 'forbidden', component: ForbiddenView, meta: { requiresAuth: true } },

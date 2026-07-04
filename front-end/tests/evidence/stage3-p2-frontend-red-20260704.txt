@@ -1,0 +1,221 @@
+RED command: npm run test:e2e -- e2e/stage3-p2-metrics.spec.ts --output=tests/evidence/stage3-p2-playwright-red-results
+Working directory: D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end
+Timestamp: 2026-07-04
+
+
+> aiapitest-dwp-front-end@0.1.0 test:e2e
+> playwright test e2e/stage3-p2-metrics.spec.ts
+
+
+Running 7 tests using 4 workers
+
+  x  2 [chromium] › e2e\stage3-p2-metrics.spec.ts:130:3 › Stage3 P2 环境与模块通过率只读页面 RED › 环境页展示环境下拉、汇总、后端返回地址和模块通过率入口 (6.6s)
+  x  4 [chromium] › e2e\stage3-p2-metrics.spec.ts:170:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页展示核心字段并把 total=100 failed=4 渲染为 96.00% (6.6s)
+  x  3 [chromium] › e2e\stage3-p2-metrics.spec.ts:149:3 › Stage3 P2 环境与模块通过率只读页面 RED › 环境页在无快照时展示暂无执行结果空态且不出现前端异常 (6.6s)
+  x  6 [chromium] › e2e\stage3-p2-metrics.spec.ts:211:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页 actions 全为 false 时后置能力按钮保持禁用且点击不会产生副作用 (5.5s)
+  x  7 [chromium] › e2e\stage3-p2-metrics.spec.ts:227:3 › Stage3 P2 环境与模块通过率只读页面 RED › 移动端环境页和模块页不会让 body 出现横向滚动 (5.4s)
+  x  1 [chromium] › e2e\stage3-p2-metrics.spec.ts:159:3 › Stage3 P2 环境与模块通过率只读页面 RED › 生成环境报告按钮只提示后续实现且不触发 Jenkins、重试或报告创建请求 (30.1s)
+  x  5 [chromium] › e2e\stage3-p2-metrics.spec.ts:190:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页筛选和分页会同步到 URL query 并请求后端分页接口 (30.1s)
+
+
+  1) [chromium] › e2e\stage3-p2-metrics.spec.ts:130:3 › Stage3 P2 环境与模块通过率只读页面 RED › 环境页展示环境下拉、汇总、后端返回地址和模块通过率入口
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '环境通过率' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: '环境通过率' })
+
+
+      133 |     await page.goto('/environments')
+      134 |
+    > 135 |     await expect(page.getByRole('heading', { name: '环境通过率' })).toBeVisible()
+          |                                                                ^
+      136 |     await expect(page.getByLabel(/测试环境|环境/)).toBeVisible()
+      137 |     await expect(page.getByText('模拟测试环境')).toBeVisible()
+      138 |     await expect(page.getByText(TEST_ENV_BASE_URL)).toBeVisible()
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage3-p2-metrics.spec.ts:135:64
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage3-p2-metrics-Stage3-P-b0b08-环境页展示环境下拉、汇总、后端返回地址和模块通过率入口-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage3-p2-metrics-Stage3-P-b0b08-环境页展示环境下拉、汇总、后端返回地址和模块通过率入口-chromium\error-context.md
+
+  2) [chromium] › e2e\stage3-p2-metrics.spec.ts:149:3 › Stage3 P2 环境与模块通过率只读页面 RED › 环境页在无快照时展示暂无执行结果空态且不出现前端异常
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '环境通过率' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: '环境通过率' })
+
+
+      152 |     await page.goto('/environments')
+      153 |
+    > 154 |     await expect(page.getByRole('heading', { name: '环境通过率' })).toBeVisible()
+          |                                                                ^
+      155 |     await expect(page.getByText('暂无执行结果')).toBeVisible()
+      156 |     await expect(page.getByText(/TypeError|ReferenceError|Cannot read/i)).toHaveCount(0)
+      157 |   })
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage3-p2-metrics.spec.ts:154:64
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage3-p2-metrics-Stage3-P-360bf--环境页在无快照时展示暂无执行结果空态且不出现前端异常-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage3-p2-metrics-Stage3-P-360bf--环境页在无快照时展示暂无执行结果空态且不出现前端异常-chromium\error-context.md
+
+  3) [chromium] › e2e\stage3-p2-metrics.spec.ts:159:3 › Stage3 P2 环境与模块通过率只读页面 RED › 生成环境报告按钮只提示后续实现且不触发 Jenkins、重试或报告创建请求
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: '生成环境报告' })
+
+
+      161 |
+      162 |     await page.goto('/environments')
+    > 163 |     await page.getByRole('button', { name: '生成环境报告' }).click()
+          |                                                        ^
+      164 |
+      165 |     await expect(page.getByText('AI 分析报告功能后续实现')).toBeVisible()
+      166 |     await page.waitForTimeout(100)
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage3-p2-metrics.spec.ts:163:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage3-p2-metrics-Stage3-P-0059e-示后续实现且不触发-Jenkins、重试或报告创建请求-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage3-p2-metrics-Stage3-P-0059e-示后续实现且不触发-Jenkins、重试或报告创建请求-chromium\error-context.md
+
+  4) [chromium] › e2e\stage3-p2-metrics.spec.ts:170:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页展示核心字段并把 total=100 failed=4 渲染为 96.00%
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '模块通过率' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: '模块通过率' })
+
+
+      173 |     await page.goto('/modules?environment_id=1')
+      174 |
+    > 175 |     await expect(page.getByRole('heading', { name: '模块通过率' })).toBeVisible()
+          |                                                                ^
+      176 |     await expect(page.getByText('日期')).toBeVisible()
+      177 |     await expect(page.getByText('用例包名')).toBeVisible()
+      178 |     await expect(page.getByText('模块名称')).toBeVisible()
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage3-p2-metrics.spec.ts:175:64
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage3-p2-metrics-Stage3-P-185ac-tal-100-failed-4-渲染为-96-00--chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage3-p2-metrics-Stage3-P-185ac-tal-100-failed-4-渲染为-96-00--chromium\error-context.md
+
+  5) [chromium] › e2e\stage3-p2-metrics.spec.ts:190:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页筛选和分页会同步到 URL query 并请求后端分页接口
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.fill: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByLabel('模块名称')
+
+
+      192 |
+      193 |     await page.goto('/modules?environment_id=1')
+    > 194 |     await page.getByLabel('模块名称').fill('物种')
+          |                                   ^
+      195 |     await page.getByLabel('用例包名').fill('test_gbif_case')
+      196 |     await page.getByLabel('模块测试').fill('李四')
+      197 |     await page.getByLabel('通过率上限').fill('90')
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage3-p2-metrics.spec.ts:194:35
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage3-p2-metrics-Stage3-P-6a353-和分页会同步到-URL-query-并请求后端分页接口-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage3-p2-metrics-Stage3-P-6a353-和分页会同步到-URL-query-并请求后端分页接口-chromium\error-context.md
+
+  6) [chromium] › e2e\stage3-p2-metrics.spec.ts:211:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页 actions 全为 false 时后置能力按钮保持禁用且点击不会产生副作用
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('button', { name: /失败重试/ })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('button', { name: /失败重试/ })
+
+
+      217 |     for (const actionName of actionNames) {
+      218 |       const button = page.getByRole('button', { name: actionName })
+    > 219 |       await expect(button).toBeVisible()
+          |                            ^
+      220 |       await expect(button).toBeDisabled()
+      221 |     }
+      222 |
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage3-p2-metrics.spec.ts:219:28
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage3-p2-metrics-Stage3-P-258dc-false-时后置能力按钮保持禁用且点击不会产生副作用-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage3-p2-metrics-Stage3-P-258dc-false-时后置能力按钮保持禁用且点击不会产生副作用-chromium\error-context.md
+
+  7) [chromium] › e2e\stage3-p2-metrics.spec.ts:227:3 › Stage3 P2 环境与模块通过率只读页面 RED › 移动端环境页和模块页不会让 body 出现横向滚动
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: /环境通过率|模块通过率/ })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: /环境通过率|模块通过率/ })
+
+
+      231 |     for (const routePath of ['/environments', '/modules?environment_id=1']) {
+      232 |       await page.goto(routePath)
+    > 233 |       await expect(page.getByRole('heading', { name: /环境通过率|模块通过率/ })).toBeVisible()
+          |                                                                        ^
+      234 |
+      235 |       const horizontalOverflow = await page.evaluate(() => {
+      236 |         const documentWidth = document.documentElement.clientWidth
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage3-p2-metrics.spec.ts:233:72
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage3-p2-metrics-Stage3-P-7e98b-D-移动端环境页和模块页不会让-body-出现横向滚动-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage3-p2-metrics-Stage3-P-7e98b-D-移动端环境页和模块页不会让-body-出现横向滚动-chromium\error-context.md
+
+  7 failed
+    [chromium] › e2e\stage3-p2-metrics.spec.ts:130:3 › Stage3 P2 环境与模块通过率只读页面 RED › 环境页展示环境下拉、汇总、后端返回地址和模块通过率入口
+    [chromium] › e2e\stage3-p2-metrics.spec.ts:149:3 › Stage3 P2 环境与模块通过率只读页面 RED › 环境页在无快照时展示暂无执行结果空态且不出现前端异常
+    [chromium] › e2e\stage3-p2-metrics.spec.ts:159:3 › Stage3 P2 环境与模块通过率只读页面 RED › 生成环境报告按钮只提示后续实现且不触发 Jenkins、重试或报告创建请求
+    [chromium] › e2e\stage3-p2-metrics.spec.ts:170:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页展示核心字段并把 total=100 failed=4 渲染为 96.00%
+    [chromium] › e2e\stage3-p2-metrics.spec.ts:190:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页筛选和分页会同步到 URL query 并请求后端分页接口
+    [chromium] › e2e\stage3-p2-metrics.spec.ts:211:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页 actions 全为 false 时后置能力按钮保持禁用且点击不会产生副作用
+    [chromium] › e2e\stage3-p2-metrics.spec.ts:227:3 › Stage3 P2 环境与模块通过率只读页面 RED › 移动端环境页和模块页不会让 body 出现横向滚动

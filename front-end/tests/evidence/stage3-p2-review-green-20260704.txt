@@ -1,0 +1,16 @@
+
+> aiapitest-dwp-front-end@0.1.0 test:e2e
+> playwright test e2e/stage3-p2-metrics.spec.ts
+
+
+Running 7 tests using 4 workers
+
+  ok 1 [chromium] › e2e\stage3-p2-metrics.spec.ts:152:3 › Stage3 P2 环境与模块通过率只读页面 RED › 环境页在无快照时展示暂无执行结果空态且不出现前端异常 (2.3s)
+  ok 2 [chromium] › e2e\stage3-p2-metrics.spec.ts:162:3 › Stage3 P2 环境与模块通过率只读页面 RED › 生成环境报告按钮只提示后续实现且不触发 Jenkins、重试或报告创建请求 (2.4s)
+  ok 3 [chromium] › e2e\stage3-p2-metrics.spec.ts:173:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页展示核心字段并把 total=100 failed=4 渲染为 96.00% (2.4s)
+  ok 4 [chromium] › e2e\stage3-p2-metrics.spec.ts:130:3 › Stage3 P2 环境与模块通过率只读页面 RED › 环境页展示环境下拉、汇总、后端返回地址和模块通过率入口 (2.5s)
+  ok 6 [chromium] › e2e\stage3-p2-metrics.spec.ts:230:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页 actions 全为 false 时后置能力按钮保持禁用且点击不会产生副作用 (1.3s)
+  ok 7 [chromium] › e2e\stage3-p2-metrics.spec.ts:246:3 › Stage3 P2 环境与模块通过率只读页面 RED › 移动端环境页和模块页不会让 body 出现横向滚动 (1.5s)
+  ok 5 [chromium] › e2e\stage3-p2-metrics.spec.ts:198:3 › Stage3 P2 环境与模块通过率只读页面 RED › 模块页筛选、重置和分页会同步到 URL query 并请求后端分页接口 (1.7s)
+
+  7 passed (9.2s)
