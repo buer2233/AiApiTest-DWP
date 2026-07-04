@@ -10,6 +10,7 @@ from accounts.views import (
     RegisterView,
     UserListView,
 )
+from metrics.views import EnvironmentSummaryView, ModuleSnapshotListView, TestEnvironmentListView
 
 
 urlpatterns = [
@@ -26,4 +27,11 @@ urlpatterns = [
         InvitationRevokeView.as_view(),
         name="invitation-revoke",
     ),
+    path("api/v1/test-environments", TestEnvironmentListView.as_view(), name="test-environment-list"),
+    path(
+        "api/v1/test-environments/<int:environment_id>/summary",
+        EnvironmentSummaryView.as_view(),
+        name="test-environment-summary",
+    ),
+    path("api/v1/module-snapshots", ModuleSnapshotListView.as_view(), name="module-snapshot-list"),
 ]

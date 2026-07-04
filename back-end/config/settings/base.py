@@ -67,7 +67,9 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "rest_framework",
     "drf_spectacular",
+    "common",
     "accounts",
+    "metrics",
 ]
 
 MIDDLEWARE = [
@@ -92,18 +94,20 @@ TIME_ZONE = os.getenv("DJANGO_TIME_ZONE", os.getenv("TZ", "Asia/Shanghai"))
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": [],
-    "EXCEPTION_HANDLER": "accounts.exceptions.api_exception_handler",
+    "EXCEPTION_HANDLER": "common.exceptions.api_exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "AiApiTest-DWP 后端接口文档",
-    "DESCRIPTION": "企业级自动化测试平台 DRF API。当前阶段覆盖用户权限底座接口。",
+    "DESCRIPTION": "企业级自动化测试平台 DRF API。当前阶段覆盖用户权限底座与 P2 只读通过率接口。",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "ENUM_NAME_OVERRIDES": {
         "UserRoleEnum": "accounts.models.UserAccount.Role",
         "InvitationStatusEnum": "accounts.models.InvitationCode.Status",
+        "RunTypeEnum": "metrics.models.TestRun.RunType",
+        "RunStatusEnum": "metrics.models.TestRun.Status",
     },
 }
 

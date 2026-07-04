@@ -6,6 +6,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.models import InvitationCode, UserAccount
+from common.serializers import ApiErrorResponseSerializer, PaginationMetaSerializer
 
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -96,23 +97,6 @@ class InvitationSummarySerializer(serializers.ModelSerializer):
 
     def get_status(self, obj: InvitationCode) -> str:
         return obj.effective_status
-
-
-class PaginationMetaSerializer(serializers.Serializer):
-    total = serializers.IntegerField()
-    page = serializers.IntegerField()
-    per_page = serializers.IntegerField()
-    total_pages = serializers.IntegerField()
-
-
-class ApiErrorDetailSerializer(serializers.Serializer):
-    code = serializers.CharField()
-    message = serializers.CharField()
-    details = serializers.ListField(child=serializers.JSONField())
-
-
-class ApiErrorResponseSerializer(serializers.Serializer):
-    error = ApiErrorDetailSerializer()
 
 
 class UserDataResponseSerializer(serializers.Serializer):
