@@ -18,7 +18,7 @@ docker compose version | Out-Null
 # .env 是本地私有配置，不提交 git；首次部署时从模板复制一份。
 if (-not (Test-Path -LiteralPath ".env")) {
     Copy-Item -LiteralPath ".env.example" -Destination ".env"
-    Write-Host "Created .env from .env.example. Review MYSQL_ROOT_PASSWORD before shared use."
+    Write-Host "Created .env from .env.example. Fill private secrets in .env before starting shared services."
 }
 
 # 只启动平台依赖的 MySQL 和 Jenkins，保留已有数据卷。
