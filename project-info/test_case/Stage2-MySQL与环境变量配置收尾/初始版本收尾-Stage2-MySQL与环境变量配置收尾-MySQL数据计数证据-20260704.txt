@@ -1,0 +1,6 @@
+6 objects imported automatically (use -v 2 for details).
+
+database_vendor=mysql
+database_name=ai_api_test_platform
+user_account=2
+invitation_code=2

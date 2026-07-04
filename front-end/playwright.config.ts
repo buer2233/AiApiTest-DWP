@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test'
+import { loadEnv } from 'vite'
+
+import { repoRoot, resolvePlaywrightEnv } from './config/env'
+
+const env = resolvePlaywrightEnv(loadEnv(process.env.NODE_ENV || 'test', repoRoot, ''))
+
+export const playwrightPermissionOrigin = env.permissionOrigin
 
 export default defineConfig({
   testDir: './e2e',
@@ -6,7 +13,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   reporter: [['list'], ['html', { outputFolder: 'tests/evidence/playwright-report', open: 'never' }]],
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: env.baseUrl,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -17,8 +24,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4173',
-    url: 'http://127.0.0.1:4173/@vite/client',
+    command: `node node_modules/vite/bin/vite.js --host ${env.webServerHost} --port ${env.webServerPort}`,
+    url: env.webServerUrl,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

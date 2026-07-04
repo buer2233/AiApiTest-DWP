@@ -36,6 +36,7 @@ def test_pipeline_defines_required_parameters():
     ]:
         assert parameter in combined
 
+    assert "JENKINS_DEFAULT_CASE_PATH" in combined
     assert "test_case/test_gbif_case" in combined
     assert "none" in combined
     assert "selected" in combined
@@ -111,9 +112,12 @@ def test_pipeline_uses_python_virtual_environment_for_dependencies():
     """Pipeline 应使用 api-test 目录下的 Python 虚拟环境安装依赖。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
 
-    assert "python -m venv .venv" in pipeline
-    assert ".venv/bin/python" in pipeline
-    assert ".venv\\\\Scripts\\\\python" in pipeline
+    assert "JENKINS_API_TEST_DIR" in pipeline
+    assert "JENKINS_PYTHON_VENV_DIR" in pipeline
+    assert "python -m venv ${pythonVenvDir}" in pipeline
+    assert "python -m venv .venv" not in pipeline
+    assert "/bin/python" in pipeline
+    assert "\\\\Scripts\\\\python" in pipeline
 
 
 def test_pipeline_fails_when_allure_html_report_is_not_generated():

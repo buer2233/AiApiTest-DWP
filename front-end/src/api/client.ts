@@ -1,11 +1,12 @@
 import axios, { AxiosError } from 'axios'
 
+import { resolveApiTimeoutMs } from './env'
 import type { ApiErrorPayload } from '@/types/api'
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   withCredentials: true,
-  timeout: 10000,
+  timeout: resolveApiTimeoutMs(import.meta.env.VITE_API_TIMEOUT_MS),
 })
 
 export class ApiClientError extends Error {

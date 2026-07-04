@@ -26,8 +26,12 @@ docker compose up -d mysql jenkins
 docker compose ps
 
 # 从 .env 读取端口并输出访问提示；读取不到时回退到 Compose 默认端口。
+$envLines = Get-Content .env
+$jenkinsPublicBaseUrl = ($envLines | Select-String '^JENKINS_PUBLIC_BASE_URL=' | ForEach-Object { $_.ToString().Split('=', 2)[1] }) -replace '^$','http://localhost:8080'
+$mysqlBindHost = ($envLines | Select-String '^MYSQL_BIND_HOST=' | ForEach-Object { $_.ToString().Split('=', 2)[1] }) -replace '^$','127.0.0.1'
+$mysqlHostPort = ($envLines | Select-String '^MYSQL_HOST_PORT=' | ForEach-Object { $_.ToString().Split('=', 2)[1] }) -replace '^$','3307'
 Write-Host ""
-Write-Host "Jenkins: http://localhost:$((Get-Content .env | Select-String '^JENKINS_HTTP_PORT=' | ForEach-Object { $_.ToString().Split('=')[1] }) -replace '^$','8080')"
-Write-Host "MySQL: 127.0.0.1:$((Get-Content .env | Select-String '^MYSQL_HOST_PORT=' | ForEach-Object { $_.ToString().Split('=')[1] }) -replace '^$','3307')"
+Write-Host "Jenkins: $jenkinsPublicBaseUrl"
+Write-Host "MySQL: ${mysqlBindHost}:${mysqlHostPort}"
 Write-Host "Initial Jenkins password:"
 Write-Host "  docker exec aiapitest-jenkins cat /var/jenkins_home/secrets/initialAdminPassword"

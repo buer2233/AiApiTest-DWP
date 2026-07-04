@@ -37,6 +37,19 @@ def test_docker_compose_uses_env_driven_ports_and_safe_defaults():
     assert "MYSQL_ALLOW_EMPTY_PASSWORD" not in content
 
 
+def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
+    """Jenkins 容器必须显式接收根 .env 中声明的 Pipeline 默认变量。"""
+    content = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+
+    for variable in [
+        "JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}",
+        "JENKINS_DEFAULT_CASE_PATH: ${JENKINS_DEFAULT_CASE_PATH:-test_case/test_gbif_case}",
+        "JENKINS_API_TEST_DIR: ${JENKINS_API_TEST_DIR:-api-test}",
+        "JENKINS_PYTHON_VENV_DIR: ${JENKINS_PYTHON_VENV_DIR:-.venv}",
+    ]:
+        assert variable in content
+
+
 def test_env_example_documents_required_values_without_real_secrets():
     """环境模板只能包含占位值，不能写入真实账号、密码或 token。"""
     env_file = ROOT_DIR / ".env.example"
@@ -49,8 +62,28 @@ def test_env_example_documents_required_values_without_real_secrets():
     assert "MYSQL_DATABASE=ai_api_test_platform" in content
     assert "JENKINS_HTTP_PORT=8080" in content
     assert "JENKINS_AGENT_PORT=50001" in content
-    assert "admin123456" not in content
-    assert "token" not in content.lower()
+    for variable in [
+        "DJANGO_SETTINGS_MODULE=config.settings.local",
+        "DB_ENGINE=mysql",
+        "DJANGO_SECRET_KEY=change-me-django-secret-key",
+        "AUTH_TOKEN_SECRET=change-me-auth-token-secret",
+        "FRONTEND_DEV_HOST=127.0.0.1",
+        "FRONTEND_DEV_PORT=5173",
+        "FRONTEND_DEV_API_PROXY_TARGET=http://127.0.0.1:8000",
+        "VITE_API_BASE_URL=/api/v1",
+        "PLAYWRIGHT_WEB_SERVER_HOST=127.0.0.1",
+        "PLAYWRIGHT_WEB_SERVER_PORT=4173",
+        "INITIAL_ADMIN_USERNAME=admin",
+        "INITIAL_ADMIN_DISPLAY_NAME=平台管理员",
+        "INITIAL_ADMIN_PASSWORD=change-me-admin-password-123",
+        "JENKINS_PUBLIC_BASE_URL=http://localhost:8080",
+        "JENKINS_DEFAULT_CASE_PATH=test_case/test_gbif_case",
+        "JENKINS_API_TEST_DIR=api-test",
+        "JENKINS_PYTHON_VENV_DIR=.venv",
+    ]:
+        assert variable in content
+    for forbidden_secret in ["admin123456", "eyJ", "ghp_", "sk-", "xoxb-"]:
+        assert forbidden_secret not in content
 
 
 def test_local_env_file_is_git_ignored():
@@ -75,6 +108,10 @@ def test_one_click_scripts_start_compose_services():
     assert "docker compose up -d mysql jenkins" in ps_content
     assert "cp .env.example .env" in sh_content
     assert "docker compose up -d mysql jenkins" in sh_content
+    assert "JENKINS_PUBLIC_BASE_URL" in ps_content
+    assert "JENKINS_PUBLIC_BASE_URL" in sh_content
+    assert "MYSQL_BIND_HOST" in ps_content
+    assert "MYSQL_BIND_HOST" in sh_content
 
 
 def test_optional_jenkins_tools_override_builds_custom_image():

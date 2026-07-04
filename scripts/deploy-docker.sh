@@ -29,11 +29,12 @@ docker compose up -d mysql jenkins
 docker compose ps
 
 # 从 .env 读取端口并输出访问提示；读取不到时回退到 Compose 默认端口。
-JENKINS_HTTP_PORT="$(grep -E '^JENKINS_HTTP_PORT=' .env | cut -d= -f2- || true)"
+JENKINS_PUBLIC_BASE_URL="$(grep -E '^JENKINS_PUBLIC_BASE_URL=' .env | cut -d= -f2- || true)"
+MYSQL_BIND_HOST="$(grep -E '^MYSQL_BIND_HOST=' .env | cut -d= -f2- || true)"
 MYSQL_HOST_PORT="$(grep -E '^MYSQL_HOST_PORT=' .env | cut -d= -f2- || true)"
 
 echo
-echo "Jenkins: http://localhost:${JENKINS_HTTP_PORT:-8080}"
-echo "MySQL: 127.0.0.1:${MYSQL_HOST_PORT:-3307}"
+echo "Jenkins: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}"
+echo "MySQL: ${MYSQL_BIND_HOST:-127.0.0.1}:${MYSQL_HOST_PORT:-3307}"
 echo "Initial Jenkins password:"
 echo "  docker exec aiapitest-jenkins cat /var/jenkins_home/secrets/initialAdminPassword"

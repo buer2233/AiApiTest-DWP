@@ -27,23 +27,16 @@
 
 | 服务 | 镜像 | 容器名 | 主机端口 | 容器端口 | 数据卷 |
 |------|------|--------|----------|----------|--------|
-| MySQL | `mysql:8.4` | `aiapitest-mysql` | `127.0.0.1:3307` | `3306` | `aiapitest-mysql-data` |
-| Jenkins | `jenkins/jenkins:lts-jdk17` | `aiapitest-jenkins` | `8080`, `50001` | `8080`, `50000` | `aiapitest-jenkins-home` |
+| MySQL | `mysql:8.4` | `aiapitest-mysql` | `${MYSQL_BIND_HOST}:${MYSQL_HOST_PORT}` | `3306` | `aiapitest-mysql-data` |
+| Jenkins | `jenkins/jenkins:lts-jdk17` | `aiapitest-jenkins` | `${JENKINS_HTTP_PORT}`, `${JENKINS_AGENT_PORT}` | `8080`, `50000` | `aiapitest-jenkins-home` |
 
 Jenkins 访问地址：
 
-```text
-http://localhost:8080
-```
+由 `.env` 中 `JENKINS_PUBLIC_BASE_URL` 决定。
 
 MySQL 本机连接：
 
-```text
-host=127.0.0.1
-port=3307
-database=ai_api_test_platform
-user=root
-```
+由 `.env` 中 `MYSQL_BIND_HOST`、`MYSQL_HOST_PORT`、`MYSQL_DATABASE` 和后端数据库用户变量决定。
 
 ## 人工部署
 
@@ -77,6 +70,7 @@ docker compose up -d mysql jenkins
 MYSQL_ROOT_PASSWORD=change-me-local-root-password
 MYSQL_PASSWORD=change-me-local-root-password
 MYSQL_HOST_PORT=3307
+JENKINS_PUBLIC_BASE_URL=http://localhost:8080
 JENKINS_HTTP_PORT=8080
 JENKINS_AGENT_PORT=50001
 ```
@@ -110,27 +104,9 @@ docker compose logs --tail=80 jenkins
 
 ## 后端连接 Docker MySQL
 
-后端本地运行时需要使用和 `.env` 对齐的环境变量。
+后端本地运行默认读取仓库根目录 `.env`，正式运行使用 Docker MySQL。默认情况下后端会复用 `MYSQL_DATABASE`、`MYSQL_BIND_HOST`、`MYSQL_HOST_PORT` 和 `MYSQL_ROOT_PASSWORD`；如果后续启用非 root 用户，可通过 `MYSQL_USER` / `MYSQL_PASSWORD` 或 `DB_USER` / `DB_PASSWORD` 覆盖。如果需要覆盖容器内连接，可在 `.env` 中设置 `DB_HOST=mysql`、`DB_PORT=3306`。
 
-Windows PowerShell：
-
-```powershell
-$env:MYSQL_DATABASE="ai_api_test_platform"
-$env:MYSQL_USER="root"
-$env:MYSQL_PASSWORD="<和 .env 中 MYSQL_ROOT_PASSWORD 相同>"
-$env:MYSQL_PORT="3307"
-```
-
-Linux/macOS/Git Bash：
-
-```bash
-export MYSQL_DATABASE=ai_api_test_platform
-export MYSQL_USER=root
-export MYSQL_PASSWORD="<和 .env 中 MYSQL_ROOT_PASSWORD 相同>"
-export MYSQL_PORT=3307
-```
-
-如果把 `.env` 中 `MYSQL_HOST_PORT` 改为 `3306`，后端 `MYSQL_PORT` 也要同步改为 `3306`。
+测试环境仍由 `config.settings.test` 使用内存 SQLite，不依赖本机 MySQL。
 
 ## Jenkins 初始配置
 
@@ -203,6 +179,7 @@ docker compose down -v
 
 1. 修改 `.env` 中的 `MYSQL_HOST_PORT`、`JENKINS_HTTP_PORT` 或 `JENKINS_AGENT_PORT`。
 2. 重新执行一键部署脚本。
+3. 如果 Jenkins 已初始化或已被后端记录任务链接，修改 `JENKINS_PUBLIC_BASE_URL` 前需要确认历史链接是否仍可访问。
 
 同名容器已存在：
 
@@ -213,5 +190,5 @@ docker compose down -v
 MySQL 密码不一致：
 
 1. 确认 `.env` 中 `MYSQL_ROOT_PASSWORD`。
-2. 确认后端运行环境中的 `MYSQL_PASSWORD`。
+2. 默认 root 连接时确认后端运行环境读取的是 `MYSQL_ROOT_PASSWORD`；只有使用非 root 用户时才检查 `MYSQL_PASSWORD`。
 3. 已初始化过的数据卷不会因为修改 `.env` 自动改 root 密码；必要时需要人工进入 MySQL 修改密码，或在确认可删除数据后重建数据卷。
