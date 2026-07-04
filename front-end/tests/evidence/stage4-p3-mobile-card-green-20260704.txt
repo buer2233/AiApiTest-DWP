@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ok 1 [chromium] › e2e\stage4-p3-case-detail-trend.spec.ts:300:3 › Stage4 P3 用例详情、状态审计与趋势数据 RED › 重试和 Jenkins 入口保持禁用无副作用，移动端弹窗不横向溢出 (2.5s)
+
+  1 passed (8.7s)

@@ -7,6 +7,10 @@ const props = defineProps<{
   actions: ModuleSnapshotActions
 }>()
 
+const emit = defineEmits<{
+  trend: [days: 7 | 30]
+}>()
+
 const actionItems = computed(() => [
   { key: 'failed_rerun', label: '失败重试', enabled: props.actions.failed_rerun },
   { key: 'module_rerun', label: '模块重试', enabled: props.actions.module_rerun },
@@ -14,6 +18,15 @@ const actionItems = computed(() => [
   { key: 'trend_30d', label: '30天趋势', enabled: props.actions.trend_30d },
   { key: 'jenkins_tasks', label: 'Jenkins 任务', enabled: props.actions.jenkins_tasks },
 ])
+
+function handleAction(key: string) {
+  if (key === 'trend_7d' && props.actions.trend_7d) {
+    emit('trend', 7)
+  }
+  if (key === 'trend_30d' && props.actions.trend_30d) {
+    emit('trend', 30)
+  }
+}
 </script>
 
 <template>
@@ -24,6 +37,7 @@ const actionItems = computed(() => [
       class="readonly-actions__button"
       type="button"
       :disabled="!item.enabled"
+      @click="handleAction(item.key)"
     >
       {{ item.label }}
     </button>

@@ -12,6 +12,7 @@ from metrics.models import (
     TestModule as MetricModule,
     TestRun as MetricRun,
 )
+from tests.p3_metrics_helpers import metric_model
 
 
 pytestmark = pytest.mark.command
@@ -133,8 +134,16 @@ test_gbif_case_module2:
     assert MetricRun.objects.count() == 1
     assert EnvironmentSnapshot.objects.filter(environment=environment).count() == 1
     assert ModuleSnapshot.objects.filter(environment=environment).count() == 2
+    case_results = metric_model("TestCaseResult").objects.filter(environment=environment, is_current=True)
+    trend_rows = metric_model("ModuleRunHistory").objects.filter(environment=environment)
+    assert case_results.count() == 6
+    assert case_results.values("environment_id", "module_id", "node_id", "is_current").distinct().count() == 6
+    assert trend_rows.count() == 60
+    assert trend_rows.values("environment_id", "module_id", "run_date", "run_type", "source_run_id").distinct().count() == 60
     snapshot = EnvironmentSnapshot.objects.get(environment=environment)
     assert snapshot.total_count == 200
     assert snapshot.failed_count == 8
     assert str(snapshot.pass_rate) == "0.960000"
     assert "dev-only" in stdout.getvalue()
+    assert "case_results" in stdout.getvalue()
+    assert "module_run_history" in stdout.getvalue()

@@ -4,13 +4,17 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { fetchModuleSnapshots, fetchTestEnvironments } from '@/api/metrics'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import CaseDetailsDialog from '@/components/metrics/CaseDetailsDialog.vue'
+import ModuleTrendDialog from '@/components/metrics/ModuleTrendDialog.vue'
 import RateBadge from '@/components/metrics/RateBadge.vue'
 import ReadOnlyActionButtons from '@/components/metrics/ReadOnlyActionButtons.vue'
+import { useAuthStore } from '@/stores/auth'
 import type { PaginationMeta } from '@/types/api'
-import type { ModuleSnapshot, TestEnvironment } from '@/types/metrics'
+import type { CaseStatusUpdateResult, ModuleSnapshot, TestEnvironment } from '@/types/metrics'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const environments = shallowRef<TestEnvironment[]>([])
 const modules = shallowRef<ModuleSnapshot[]>([])
@@ -18,6 +22,10 @@ const meta = shallowRef<PaginationMeta>({ total: 0, page: 1, per_page: 20, total
 const loading = shallowRef(false)
 const environmentLoading = shallowRef(false)
 const errorMessage = shallowRef('')
+const selectedSnapshot = shallowRef<ModuleSnapshot | null>(null)
+const caseDialogOpen = shallowRef(false)
+const trendDialogOpen = shallowRef(false)
+const trendDays = shallowRef<7 | 30>(7)
 
 const filters = reactive({
   environment_id: '',
@@ -34,6 +42,8 @@ const perPage = shallowRef(20)
 const selectedEnvironmentName = computed(() => {
   return environments.value.find((environment) => String(environment.id) === filters.environment_id)?.env_name ?? '当前环境'
 })
+
+const isAdmin = computed(() => authStore.isAdmin)
 
 function getQueryValue(value: unknown): string {
   if (Array.isArray(value)) {
@@ -159,6 +169,21 @@ async function changePage(nextPage: number) {
   await router.replace({ path: '/modules', query: buildQuery(nextPage) })
 }
 
+function openCaseDetails(snapshot: ModuleSnapshot) {
+  selectedSnapshot.value = snapshot
+  caseDialogOpen.value = true
+}
+
+function openTrend(snapshot: ModuleSnapshot, days: 7 | 30) {
+  selectedSnapshot.value = snapshot
+  trendDays.value = days
+  trendDialogOpen.value = true
+}
+
+function handleCaseStatusUpdated(_result: CaseStatusUpdateResult) {
+  void loadModules()
+}
+
 watch(
   () => route.query,
   async () => {
@@ -224,7 +249,14 @@ onMounted(loadEnvironments)
           <el-table-column prop="module_name" label="模块名称" min-width="160" />
           <el-table-column label="通过率" min-width="150">
             <template #default="{ row }">
-              <RateBadge :value="row.pass_rate" compact />
+              <button
+                class="rate-entry-button"
+                type="button"
+                :aria-label="`查看${row.module_name}用例详情 ${Number(row.pass_rate) * 100}%`"
+                @click="openCaseDetails(row)"
+              >
+                <RateBadge :value="row.pass_rate" compact />
+              </button>
             </template>
           </el-table-column>
           <el-table-column label="执行时间" min-width="110">
@@ -239,7 +271,7 @@ onMounted(loadEnvironments)
           <el-table-column prop="skipped_count" label="跳过" min-width="90" />
           <el-table-column label="后置能力" min-width="280">
             <template #default="{ row }">
-              <ReadOnlyActionButtons :actions="row.actions" />
+              <ReadOnlyActionButtons :actions="row.actions" @trend="openTrend(row, $event)" />
             </template>
           </el-table-column>
         </el-table>
@@ -252,7 +284,14 @@ onMounted(loadEnvironments)
               <span>{{ item.package_name }}</span>
               <strong>{{ item.module_name }}</strong>
             </div>
-            <RateBadge :value="item.pass_rate" compact />
+            <button
+              class="rate-entry-button"
+              type="button"
+              :aria-label="`查看${item.module_name}用例详情 ${Number(item.pass_rate) * 100}%`"
+              @click="openCaseDetails(item)"
+            >
+              <RateBadge :value="item.pass_rate" compact />
+            </button>
           </header>
           <dl class="module-card__facts">
             <div>
@@ -284,7 +323,7 @@ onMounted(loadEnvironments)
               <dd>跳过 {{ item.skipped_count }}</dd>
             </div>
           </dl>
-          <ReadOnlyActionButtons :actions="item.actions" />
+          <ReadOnlyActionButtons :actions="item.actions" @trend="openTrend(item, $event)" />
         </article>
       </div>
 
@@ -306,6 +345,20 @@ onMounted(loadEnvironments)
         </div>
       </footer>
     </section>
+
+    <CaseDetailsDialog
+      v-model="caseDialogOpen"
+      :snapshot="selectedSnapshot"
+      :environment-name="selectedEnvironmentName"
+      :is-admin="isAdmin"
+      @status-updated="handleCaseStatusUpdated"
+    />
+    <ModuleTrendDialog
+      v-model="trendDialogOpen"
+      :snapshot="selectedSnapshot"
+      :environment-name="selectedEnvironmentName"
+      :days="trendDays"
+    />
   </AppLayout>
 </template>
 
@@ -406,6 +459,22 @@ p {
   max-width: 100%;
   min-width: 0;
   overflow-x: auto;
+}
+
+.rate-entry-button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.rate-entry-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+  outline-offset: 3px;
 }
 
 .mobile-card-list {

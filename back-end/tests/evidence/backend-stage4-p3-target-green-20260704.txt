@@ -1,0 +1,70 @@
+........................................                                 [100%]
+============================== warnings summary ===============================
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+  D:\Python3.12\Lib\site-packages\rest_framework_simplejwt\__init__.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    from pkg_resources import DistributionNotFound, get_distribution
+
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+  D:\Python3.12\Lib\site-packages\pkg_resources\__init__.py:3142: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('google')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+  D:\Python3.12\Lib\site-packages\pkg_resources\__init__.py:3142: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('mpl_toolkits')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+  D:\Python3.12\Lib\site-packages\pkg_resources\__init__.py:3142: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('zope')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.12.6-final-0 _______________
+
+Name                                                                                  Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------------------------------------------------------
+accounts\__init__.py                                                                      0      0   100%
+accounts\apps.py                                                                          7      0   100%
+accounts\authentication.py                                                               23      4    83%   32-33, 41, 49
+accounts\exceptions.py                                                                    2      2     0%   1-4
+accounts\management\__init__.py                                                           0      0   100%
+accounts\management\commands\__init__.py                                                  0      0   100%
+accounts\management\commands\init_admin.py                                               33     33     0%   1-48
+accounts\migrations\0001_initial.py                                                       6      6     0%   2-11
+accounts\migrations\__init__.py                                                           0      0   100%
+accounts\models.py                                                                      100     22    78%   57, 81, 92-102, 105, 147, 151-153, 156, 159-162, 165-168, 171
+accounts\schema.py                                                                        8      0   100%
+accounts\serializers.py                                                                  86     25    71%   18-30, 47-49, 52-58, 66-68, 99
+accounts\tokens.py                                                                       10      0   100%
+accounts\views.py                                                                       174    106    39%   34, 44-47, 51-53, 58-68, 90, 96, 98, 129-135, 152, 172-215, 239-255, 280-306, 321-336, 360-373
+common\__init__.py                                                                        0      0   100%
+common\apps.py                                                                            4      0   100%
+common\exceptions.py                                                                     22      1    95%   40
+common\pagination.py                                                                     20      8    60%   13-14, 21-26
+common\serializers.py                                                                    12      0   100%
+config\__init__.py                                                                        2      0   100%
+config\settings\__init__.py                                                               0      0   100%
+config\settings\base.py                                                                  51      5    90%   16, 31, 40-43
+config\settings\local.py                                                                  2      2     0%   1-4
+config\settings\test.py                                                                  10      0   100%
+config\urls.py                                                                            5      0   100%
+metrics\__init__.py                                                                       0      0   100%
+metrics\apps.py                                                                           4      0   100%
+metrics\management\__init__.py                                                            0      0   100%
+metrics\management\commands\__init__.py                                                   0      0   100%
+metrics\management\commands\seed_demo_metrics.py                                         47      2    96%   25, 29
+metrics\management\commands\seed_environment.py                                           9      0   100%
+metrics\management\commands\sync_modules.py                                              31      5    84%   26, 30, 41-43
+metrics\migrations\0001_initial.py                                                        6      6     0%   2-11
+metrics\migrations\0002_testcaseresult_casestatusaudit_modulerunhistory_and_more.py       5      5     0%   3-14
+metrics\migrations\__init__.py                                                            0      0   100%
+metrics\models.py                                                                       167      8    95%   21, 39, 72, 93, 118, 176, 213, 233
+metrics\serializers.py                                                                  100      1    99%   89
+metrics\views.py                                                                        205     65    68%   53-61, 65-73, 77-82, 106, 152-156, 177-209, 237-270
+-------------------------------------------------------------------------------------------------------------------
+TOTAL                                                                                  1151    306    73%
+Coverage HTML written to dir tests/evidence/htmlcov
+40 passed, 5 warnings in 4.66s

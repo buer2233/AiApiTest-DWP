@@ -1,0 +1,32 @@
+
+Running 1 test using 1 worker
+
+  x  1 [chromium] › e2e\stage4-p3-case-detail-trend.spec.ts:289:3 › Stage4 P3 用例详情、状态审计与趋势数据 RED › 用例详情分页可请求后续页，并区分原始执行状态和展示状态 (30.1s)
+
+
+  1) [chromium] › e2e\stage4-p3-case-detail-trend.spec.ts:289:3 › Stage4 P3 用例详情、状态审计与趋势数据 RED › 用例详情分页可请求后续页，并区分原始执行状态和展示状态
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('dialog', { name: /用例详情/ }).getByRole('button', { name: '下一页' })
+
+
+      295 |     await expect(dialog.getByRole('cell', { name: 'test_search_species', exact: true })).toBeVisible()
+      296 |
+    > 297 |     await dialog.getByRole('button', { name: '下一页' }).click()
+          |                                                       ^
+      298 |     await expect.poll(() => api.caseRequests.at(-1)?.searchParams.get('page')).toBe('2')
+      299 |     await expect(dialog.getByRole('cell', { name: 'test_page_two_species', exact: true })).toBeVisible()
+      300 |
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage4-p3-case-detail-trend.spec.ts:297:55
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage4-p3-case-detail-tren-13de5-用例详情分页可请求后续页，并区分原始执行状态和展示状态-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage4-p3-case-detail-tren-13de5-用例详情分页可请求后续页，并区分原始执行状态和展示状态-chromium\error-context.md
+
+  1 failed
+    [chromium] › e2e\stage4-p3-case-detail-trend.spec.ts:289:3 › Stage4 P3 用例详情、状态审计与趋势数据 RED › 用例详情分页可请求后续页，并区分原始执行状态和展示状态

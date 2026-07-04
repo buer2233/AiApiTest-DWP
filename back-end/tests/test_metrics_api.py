@@ -188,8 +188,8 @@ def test_module_snapshots_return_core_fields_actions_and_pagination(admin_client
     assert row["actions"] == {
         "failed_rerun": False,
         "module_rerun": False,
-        "trend_7d": False,
-        "trend_30d": False,
+        "trend_7d": True,
+        "trend_30d": True,
         "jenkins_tasks": False,
     }
 

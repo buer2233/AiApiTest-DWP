@@ -10,7 +10,14 @@ from accounts.views import (
     RegisterView,
     UserListView,
 )
-from metrics.views import EnvironmentSummaryView, ModuleSnapshotListView, TestEnvironmentListView
+from metrics.views import (
+    CaseResultStatusUpdateView,
+    EnvironmentSummaryView,
+    ModuleSnapshotCasesView,
+    ModuleSnapshotListView,
+    ModuleSnapshotTrendView,
+    TestEnvironmentListView,
+)
 
 
 urlpatterns = [
@@ -34,4 +41,19 @@ urlpatterns = [
         name="test-environment-summary",
     ),
     path("api/v1/module-snapshots", ModuleSnapshotListView.as_view(), name="module-snapshot-list"),
+    path(
+        "api/v1/module-snapshots/<int:snapshot_id>/cases",
+        ModuleSnapshotCasesView.as_view(),
+        name="module-snapshot-cases",
+    ),
+    path(
+        "api/v1/case-results/<int:case_result_id>/status",
+        CaseResultStatusUpdateView.as_view(),
+        name="case-result-status",
+    ),
+    path(
+        "api/v1/module-snapshots/<int:snapshot_id>/trend",
+        ModuleSnapshotTrendView.as_view(),
+        name="module-snapshot-trend",
+    ),
 ]
