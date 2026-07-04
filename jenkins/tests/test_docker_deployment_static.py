@@ -51,38 +51,63 @@ def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
 
 
 def test_env_example_documents_required_values_without_real_secrets():
-    """环境模板只能包含占位值，不能写入真实账号、密码或 token。"""
+    """环境模板只保留通用网络配置，账号、密码、密钥和固定默认值不进入模板。"""
     env_file = ROOT_DIR / ".env.example"
 
     assert env_file.exists()
 
     content = env_file.read_text(encoding="utf-8")
-    assert "MYSQL_ROOT_PASSWORD=change-me-local-root-password" in content
-    assert "MYSQL_PASSWORD=change-me-local-root-password" in content
-    assert "MYSQL_DATABASE=ai_api_test_platform" in content
-    assert "JENKINS_HTTP_PORT=8080" in content
-    assert "JENKINS_AGENT_PORT=50001" in content
     for variable in [
-        "DJANGO_SETTINGS_MODULE=config.settings.local",
-        "DB_ENGINE=mysql",
-        "DJANGO_SECRET_KEY=change-me-django-secret-key",
-        "AUTH_TOKEN_SECRET=change-me-auth-token-secret",
+        "MYSQL_BIND_HOST=127.0.0.1",
+        "MYSQL_HOST_PORT=3307",
+        "MYSQL_HOST=127.0.0.1",
+        "JENKINS_HTTP_PORT=8080",
+        "JENKINS_AGENT_PORT=50001",
+        "JENKINS_PUBLIC_BASE_URL=http://localhost:8080",
+        "PROJECT_WORKSPACE=.",
+        "BACKEND_SERVICE_URL=http://127.0.0.1:8000",
+        "BACKEND_API_BASE_URL=http://127.0.0.1:8000/api/v1",
+        "FRONTEND_SERVICE_URL=http://127.0.0.1:5173",
         "FRONTEND_DEV_HOST=127.0.0.1",
         "FRONTEND_DEV_PORT=5173",
         "FRONTEND_DEV_API_PROXY_TARGET=http://127.0.0.1:8000",
         "VITE_API_BASE_URL=/api/v1",
+        "VITE_API_TIMEOUT_MS=10000",
         "PLAYWRIGHT_WEB_SERVER_HOST=127.0.0.1",
         "PLAYWRIGHT_WEB_SERVER_PORT=4173",
-        "INITIAL_ADMIN_USERNAME=admin",
-        "INITIAL_ADMIN_DISPLAY_NAME=平台管理员",
-        "INITIAL_ADMIN_PASSWORD=change-me-admin-password-123",
-        "JENKINS_PUBLIC_BASE_URL=http://localhost:8080",
-        "JENKINS_DEFAULT_CASE_PATH=test_case/test_gbif_case",
-        "JENKINS_API_TEST_DIR=api-test",
-        "JENKINS_PYTHON_VENV_DIR=.venv",
+        "PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173",
     ]:
         assert variable in content
-    for forbidden_secret in ["admin123456", "eyJ", "ghp_", "sk-", "xoxb-"]:
+    for forbidden_variable in [
+        "MYSQL_DATABASE=",
+        "MYSQL_ROOT_PASSWORD=",
+        "MYSQL_PASSWORD=",
+        "DJANGO_SETTINGS_MODULE=",
+        "DJANGO_SECRET_KEY=",
+        "DJANGO_DEBUG=",
+        "DJANGO_ALLOWED_HOSTS=",
+        "DB_ENGINE=",
+        "DB_CONN_MAX_AGE=",
+        "AUTH_COOKIE_NAME=",
+        "AUTH_COOKIE_MAX_AGE_SECONDS=",
+        "AUTH_COOKIE_SECURE=",
+        "AUTH_COOKIE_SAMESITE=",
+        "AUTH_COOKIE_PATH=",
+        "AUTH_TOKEN_SECRET=",
+        "AUTH_TOKEN_ISSUER=",
+        "INITIAL_ADMIN_USERNAME=",
+        "INITIAL_ADMIN_DISPLAY_NAME=",
+        "INITIAL_ADMIN_PASSWORD=",
+        "JENKINS_DEFAULT_CASE_PATH=",
+        "JENKINS_API_TEST_DIR=",
+        "JENKINS_PYTHON_VENV_DIR=",
+        "JENKINS_OPTS=",
+        "FRONTEND_SERVICE_NAME=",
+        "BACKEND_SERVICE_NAME=",
+        "TZ=",
+    ]:
+        assert forbidden_variable not in content
+    for forbidden_secret in ["admin123456", "change-me-", "eyJ", "ghp_", "sk-", "xoxb-"]:
         assert forbidden_secret not in content
 
 

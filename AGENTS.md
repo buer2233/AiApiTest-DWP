@@ -116,13 +116,13 @@
 
 ## 环境配置标准流程
 
-根目录 `.env` 是本项目本地启动和验收的唯一私有配置入口，`.env.example` 是可提交的脱敏模板。后续任何服务地址、端口、数据库、Jenkins、前端代理、Playwright、初始化管理员、报告路径或启动后不建议修改的配置，都必须先进入 `.env.example` 并在相关文档说明后，再由本地 `.env` 或 CI/Jenkins 环境变量注入。
+根目录 `.env` 是本项目本地启动和验收的唯一私有配置入口，`.env.example` 是可提交的通用网络配置模板。后续服务地址、IP、端口、公开访问 URL、前端代理、Playwright 入口和本机挂载路径等通用可变配置，应进入 `.env.example`；账号、密码、token、Cookie、密钥、初始化管理员、数据库名和固定默认项只写入本地 `.env`、CI/Jenkins 私有环境变量或代码默认值，不进入 `.env.example`。
 
 - 后端正式运行默认读取根 `.env`，并使用 Docker MySQL；pytest 测试配置可继续使用内存 SQLite 以保证单元/接口测试速度。
 - 前端 Vite 配置必须从仓库根目录加载 `.env`，客户端可见变量必须使用 `VITE_` 前缀，dev server、代理目标和 Playwright webServer/baseURL 不得写死本机端口。
 - Docker Compose 只能通过 `.env`、Compose 服务名、volume 和标准镜像参数注入可变配置；不得把真实 `.env`、数据库数据或 Jenkins home 打包进镜像。
-- Jenkins Pipeline 的可变路径、默认 case path、虚拟环境目录和公开访问地址应由 Jenkins 环境变量或 `.env.example` 中的脱敏变量说明驱动；`api-test` 执行协议变更必须单独走需求 loop。
-- 启动后不建议修改的配置必须在 `.env.example` 或部署文档中备注，例如 MySQL 数据库名、root 密码、数据卷、Jenkins home、Jenkins 端口、`AUTH_TOKEN_SECRET` 和 Cookie 策略。
+- Jenkins Pipeline 的公开访问地址、本机端口和挂载路径可由 `.env.example` 说明；默认 case path、虚拟环境目录等固定默认值由 Pipeline 代码默认值维护，`api-test` 执行协议变更必须单独走需求 loop。
+- 启动后不建议修改的配置必须在部署文档中备注，例如 MySQL 数据库名、root 密码、数据卷、Jenkins home、Jenkins 端口、`AUTH_TOKEN_SECRET` 和 Cookie 策略；其中敏感项只在本地 `.env` 或私有环境变量中维护。
 - 每次新增、删除或改名环境变量，都必须同步更新 `.env.example`、对应模块文档、相关静态测试和验收包；不得只改本机 `.env`。
 
 ## 流程检查点和并行规则

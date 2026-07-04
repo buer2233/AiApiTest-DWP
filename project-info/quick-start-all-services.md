@@ -31,17 +31,16 @@ node --version
 npm --version
 ```
 
-首次运行前复制脱敏配置模板：
+首次运行前复制通用网络配置模板：
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-然后按本机情况修改 `.env`。必须重点确认：
+`.env.example` 只保留 IP、端口和服务入口等通用配置。然后按本机情况修改 `.env`，并补齐仅存在于私有 `.env` 的账号、密码和密钥。必须重点确认：
 
 - `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD`
 - `MYSQL_BIND_HOST` / `MYSQL_HOST_PORT`
-- `MYSQL_DATABASE`
 - `JENKINS_PUBLIC_BASE_URL`
 - `BACKEND_SERVICE_URL`
 - `FRONTEND_SERVICE_URL`
@@ -51,6 +50,8 @@ Copy-Item .env.example .env
 - `INITIAL_ADMIN_USERNAME`
 - `INITIAL_ADMIN_DISPLAY_NAME`
 - `INITIAL_ADMIN_PASSWORD`
+
+`MYSQL_DATABASE`、`DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET`、`AUTH_COOKIE_*`、`INITIAL_ADMIN_*` 等属于固定默认项或私有配置，不写入 `.env.example`，但本地验收 `.env` 必须包含实际值。
 
 ## 启动后不建议修改的配置
 

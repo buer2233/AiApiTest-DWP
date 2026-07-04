@@ -17,7 +17,7 @@
 |------|------|
 | `docker-compose.yml` | 默认 MySQL 和 Jenkins 服务定义 |
 | `docker-compose.jenkins-tools.yml` | 可选 Jenkins 工具链镜像 override |
-| `.env.example` | 本地部署配置模板 |
+| `.env.example` | 可提交的通用网络配置模板 |
 | `.env` | 本地私有部署配置，不提交 git |
 | `scripts/deploy-docker.ps1` | Windows PowerShell 一键部署脚本 |
 | `scripts/deploy-docker.sh` | Linux/macOS/Git Bash 一键部署脚本 |
@@ -58,24 +58,24 @@ Linux/macOS/Git Bash：
 bash scripts/deploy-docker.sh
 ```
 
-脚本会在缺少 `.env` 时从 `.env.example` 创建本地配置，然后执行：
+脚本会在缺少 `.env` 时从 `.env.example` 创建本地配置。`.env.example` 只包含 IP、端口和服务入口；首次启动前必须在本地 `.env` 中补齐 `MYSQL_ROOT_PASSWORD`、初始化管理员账号、Django/Auth 密钥等私有配置。
+
+补齐 `.env` 后执行：
 
 ```bash
 docker compose up -d mysql jenkins
 ```
 
-首次部署建议检查 `.env`：
+首次部署建议检查 `.env` 的通用网络配置：
 
 ```text
-MYSQL_ROOT_PASSWORD=change-me-local-root-password
-MYSQL_PASSWORD=change-me-local-root-password
 MYSQL_HOST_PORT=3307
 JENKINS_PUBLIC_BASE_URL=http://localhost:8080
 JENKINS_HTTP_PORT=8080
 JENKINS_AGENT_PORT=50001
 ```
 
-`MYSQL_ROOT_PASSWORD` 和 `MYSQL_PASSWORD` 在默认 root 连接方式下应保持一致。
+同时在 `.env` 中维护私有配置，例如 `MYSQL_ROOT_PASSWORD`、`DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET`、`INITIAL_ADMIN_USERNAME` 和 `INITIAL_ADMIN_PASSWORD`。默认 root 连接优先使用 `MYSQL_ROOT_PASSWORD`；只有启用非 root 用户时才使用 `MYSQL_PASSWORD`。
 
 ## AI 部署
 
@@ -104,7 +104,7 @@ docker compose logs --tail=80 jenkins
 
 ## 后端连接 Docker MySQL
 
-后端本地运行默认读取仓库根目录 `.env`，正式运行使用 Docker MySQL。默认情况下后端会复用 `MYSQL_DATABASE`、`MYSQL_BIND_HOST`、`MYSQL_HOST_PORT` 和 `MYSQL_ROOT_PASSWORD`；如果后续启用非 root 用户，可通过 `MYSQL_USER` / `MYSQL_PASSWORD` 或 `DB_USER` / `DB_PASSWORD` 覆盖。如果需要覆盖容器内连接，可在 `.env` 中设置 `DB_HOST=mysql`、`DB_PORT=3306`。
+后端本地运行默认读取仓库根目录 `.env`，正式运行使用 Docker MySQL。默认情况下后端会复用 `MYSQL_DATABASE`、`MYSQL_BIND_HOST`、`MYSQL_HOST_PORT` 和 `MYSQL_ROOT_PASSWORD`；这些私有值写在本地 `.env`，不写入 `.env.example`。如果后续启用非 root 用户，可通过 `MYSQL_USER` / `MYSQL_PASSWORD` 或 `DB_USER` / `DB_PASSWORD` 覆盖。如果需要覆盖容器内连接，可在 `.env` 中设置 `DB_HOST=mysql`、`DB_PORT=3306`。
 
 测试环境仍由 `config.settings.test` 使用内存 SQLite，不依赖本机 MySQL。
 
