@@ -1,0 +1,113 @@
+.....................................F.................................. [ 79%]
+...................                                                      [100%]
+================================== FAILURES ===================================
+_______ test_module_snapshots_return_core_fields_actions_and_pagination _______
+
+admin_client = <rest_framework.test.APIClient object at 0x0000018F9A5B4F20>
+environment = <TestEnvironment: ģ����Ի���>
+seeded_snapshots = <TestRun: demo-daily-full>
+
+    def test_module_snapshots_return_core_fields_actions_and_pagination(admin_client, environment, seeded_snapshots):
+        response = admin_client.get(
+            "/api/v1/module-snapshots",
+            {"environment_id": environment.id, "page": 1, "per_page": 20},
+        )
+
+        assert response.status_code == 200
+        assert response.data["meta"] == {"total": 2, "page": 1, "per_page": 20, "total_pages": 1}
+        row = response.data["data"][0]
+        assert row["package_name"] in {"test_gbif_case", "test_gbif_case_module2"}
+        assert row["module_name"].startswith("ʾ��ģ��")
+        assert row["module_dev"] in {"����", "����"}
+        assert row["module_test"] in {"����", "������"}
+        assert row["total_count"] == 100
+        assert row["failed_count"] == 4
+        assert row["skipped_count"] in {0, 3}
+        assert row["pass_rate"] == "0.960000"
+        assert row["duration_seconds"] == "552.00"
+>       assert row["actions"] == {
+            "failed_rerun": False,
+            "module_rerun": False,
+            "trend_7d": False,
+            "trend_30d": False,
+            "jenkins_tasks": False,
+        }
+E       AssertionError: assert {'failed_reru...d': True, ...} == {'failed_reru...': False, ...}
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'trend_7d': True} != {'trend_7d': False}
+E         {'trend_30d': True} != {'trend_30d': False}
+E         Use -v to get more diff
+
+tests\test_metrics_api.py:188: AssertionError
+============================== warnings summary ===============================
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+  D:\Python3.12\Lib\site-packages\rest_framework_simplejwt\__init__.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    from pkg_resources import DistributionNotFound, get_distribution
+
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+  D:\Python3.12\Lib\site-packages\pkg_resources\__init__.py:3142: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('google')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+  D:\Python3.12\Lib\site-packages\pkg_resources\__init__.py:3142: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('mpl_toolkits')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+tests/test_metrics_swagger_docs.py::test_openapi_schema_includes_metrics_contract
+  D:\Python3.12\Lib\site-packages\pkg_resources\__init__.py:3142: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('zope')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.12.6-final-0 _______________
+
+Name                                                                                  Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------------------------------------------------------
+accounts\__init__.py                                                                      0      0   100%
+accounts\apps.py                                                                          7      0   100%
+accounts\authentication.py                                                               23      2    91%   41, 49
+accounts\exceptions.py                                                                    2      2     0%   1-4
+accounts\management\__init__.py                                                           0      0   100%
+accounts\management\commands\__init__.py                                                  0      0   100%
+accounts\management\commands\init_admin.py                                               33      8    76%   23, 38-39, 41-42, 44-46
+accounts\migrations\0001_initial.py                                                       6      6     0%   2-11
+accounts\migrations\__init__.py                                                           0      0   100%
+accounts\models.py                                                                      100      4    96%   57, 81, 105, 171
+accounts\schema.py                                                                        8      0   100%
+accounts\serializers.py                                                                  86      1    99%   30
+accounts\tokens.py                                                                       10      0   100%
+accounts\views.py                                                                       174     15    91%   46, 59, 67, 90, 196, 250, 282, 286, 292, 294, 298, 305, 362, 366, 370
+common\__init__.py                                                                        0      0   100%
+common\apps.py                                                                            4      0   100%
+common\exceptions.py                                                                     22      2    91%   28, 40
+common\pagination.py                                                                     20      2    90%   13-14
+common\serializers.py                                                                    12      0   100%
+config\__init__.py                                                                        2      0   100%
+config\settings\__init__.py                                                               0      0   100%
+config\settings\base.py                                                                  51      2    96%   16, 43
+config\settings\local.py                                                                  2      2     0%   1-4
+config\settings\test.py                                                                  10      0   100%
+config\urls.py                                                                            5      0   100%
+metrics\__init__.py                                                                       0      0   100%
+metrics\apps.py                                                                           4      0   100%
+metrics\management\__init__.py                                                            0      0   100%
+metrics\management\commands\__init__.py                                                   0      0   100%
+metrics\management\commands\seed_demo_metrics.py                                         47      2    96%   25, 29
+metrics\management\commands\seed_environment.py                                           9      0   100%
+metrics\management\commands\sync_modules.py                                              31      2    94%   26, 30
+metrics\migrations\0001_initial.py                                                        6      6     0%   2-11
+metrics\migrations\0002_testcaseresult_casestatusaudit_modulerunhistory_and_more.py       5      5     0%   3-14
+metrics\migrations\__init__.py                                                            0      0   100%
+metrics\models.py                                                                       162      6    96%   39, 93, 118, 169, 201, 221
+metrics\serializers.py                                                                  100      0   100%
+metrics\views.py                                                                        205      7    97%   60, 69-70, 82, 106, 155, 265
+-------------------------------------------------------------------------------------------------------------------
+TOTAL                                                                                  1146     74    94%
+Coverage HTML written to dir tests/evidence/htmlcov
+=========================== short test summary info ===========================
+FAILED tests/test_metrics_api.py::test_module_snapshots_return_core_fields_actions_and_pagination
+1 failed, 90 passed, 5 warnings in 6.16s

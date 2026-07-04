@@ -1,0 +1,37 @@
+
+Running 1 test using 1 worker
+
+  x  1 [chromium] › e2e\stage4-p3-case-detail-trend.spec.ts:300:3 › Stage4 P3 用例详情、状态审计与趋势数据 RED › 重试和 Jenkins 入口保持禁用无副作用，移动端弹窗不横向溢出 (6.9s)
+
+
+  1) [chromium] › e2e\stage4-p3-case-detail-trend.spec.ts:300:3 › Stage4 P3 用例详情、状态审计与趋势数据 RED › 重试和 Jenkins 入口保持禁用无副作用，移动端弹窗不横向溢出
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: /用例详情/ }).getByLabel('移动端用例详情列表')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('dialog', { name: /用例详情/ }).getByLabel('移动端用例详情列表')
+
+
+      310 |     const dialog = page.getByRole('dialog', { name: /用例详情/ })
+      311 |     await expect(dialog).toBeVisible()
+    > 312 |     await expect(dialog.getByLabel('移动端用例详情列表')).toBeVisible()
+          |                                                  ^
+      313 |     await expect(dialog.getByRole('table')).toHaveCount(0)
+      314 |
+      315 |     const horizontalOverflow = await page.evaluate(() => {
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage4-p3-case-detail-trend.spec.ts:312:50
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage4-p3-case-detail-tren-cd697-nkins-入口保持禁用无副作用，移动端弹窗不横向溢出-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage4-p3-case-detail-tren-cd697-nkins-入口保持禁用无副作用，移动端弹窗不横向溢出-chromium\error-context.md
+
+  1 failed
+    [chromium] › e2e\stage4-p3-case-detail-trend.spec.ts:300:3 › Stage4 P3 用例详情、状态审计与趋势数据 RED › 重试和 Jenkins 入口保持禁用无副作用，移动端弹窗不横向溢出

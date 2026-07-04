@@ -203,7 +203,7 @@ test.describe('Stage3 P2 环境与模块通过率只读页面 RED', () => {
     await page.getByLabel('用例包名').fill('test_gbif_case')
     await page.getByLabel('模块测试').fill('李四')
     await page.getByLabel('通过率上限').fill('90')
-    await page.getByRole('button', { name: '查询' }).click()
+    await page.getByRole('button', { name: '查询', exact: true }).click()
 
     await expect.poll(() => new URL(page.url()).searchParams.get('module_name')).toBe('物种')
     await expect.poll(() => new URL(page.url()).searchParams.get('package_name')).toBe('test_gbif_case')
