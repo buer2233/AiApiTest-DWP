@@ -267,6 +267,8 @@ test.describe('P1 用户权限底座', () => {
     await expect(page).toHaveURL(/\/dashboard/)
     await expect(page.getByRole('heading', { name: '平台访问已解锁' })).toBeVisible()
     await expect(page.getByText('平台管理员', { exact: true })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: '平台导航' }).getByRole('link', { name: /概览/ })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: /AiApiTest-DWP/ })).toHaveAttribute('href', '/environments')
     await page.screenshot({ path: 'tests/evidence/screenshots/p1-dashboard-admin.png', fullPage: true })
   })
 

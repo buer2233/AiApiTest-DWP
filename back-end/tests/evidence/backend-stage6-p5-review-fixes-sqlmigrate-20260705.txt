@@ -1,0 +1,16 @@
+--
+-- Raw Python operation
+--
+-- THIS OPERATION CANNOT BE WRITTEN AS SQL
+--
+-- Raw Python operation
+--
+-- THIS OPERATION CANNOT BE WRITTEN AS SQL
+--
+-- Alter field current_node_key on testcaseresult
+--
+-- (no-op)
+--
+-- Alter field node_id on testcaseresult
+--
+-- (no-op)

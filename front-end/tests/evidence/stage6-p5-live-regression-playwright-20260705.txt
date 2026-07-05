@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ok 1 [chromium] › e2e\stage6-p5-live-regression.local.spec.ts:9:1 › 本地真实服务回归：模块页、实际用例详情、趋势和错误审计 (5.4s)
+
+  1 passed (7.2s)
