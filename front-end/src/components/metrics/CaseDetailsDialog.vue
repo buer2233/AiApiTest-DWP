@@ -2,12 +2,13 @@
 import { computed, reactive, shallowRef, watch } from 'vue'
 
 import { toApiError } from '@/api/client'
-import { fetchModuleSnapshotCases } from '@/api/metrics'
+import { createFailedCaseRetry, fetchModuleSnapshotCases } from '@/api/metrics'
 import CaseStatusUpdateDialog from '@/components/metrics/CaseStatusUpdateDialog.vue'
 import type {
   CaseDisplayStatus,
   CaseResult,
   CaseStatusUpdateResult,
+  JenkinsTask,
   ModuleSnapshot,
 } from '@/types/metrics'
 
@@ -21,6 +22,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   statusUpdated: [result: CaseStatusUpdateResult]
+  retryCreated: [task: JenkinsTask]
 }>()
 
 const cases = shallowRef<CaseResult[]>([])
@@ -31,6 +33,8 @@ const expandedCaseId = shallowRef<number | null>(null)
 const statusDialogOpen = shallowRef(false)
 const selectedCase = shallowRef<CaseResult | null>(null)
 const meta = shallowRef({ total: 0, page: 1, per_page: 20, total_pages: 0 })
+const selectedRetryCaseIds = shallowRef<number[]>([])
+const retrySubmitting = shallowRef<'selected' | 'all' | null>(null)
 
 const filters = reactive({
   status: 'failed' as CaseDisplayStatus,
@@ -57,6 +61,8 @@ const emptyText = computed(() => {
   return labelMap[filters.status]
 })
 
+const selectedRetryCount = computed(() => selectedRetryCaseIds.value.length)
+
 function closeDialog() {
   emit('update:modelValue', false)
 }
@@ -69,6 +75,8 @@ function resetLocalState() {
   expandedCaseId.value = null
   selectedCase.value = null
   statusDialogOpen.value = false
+  selectedRetryCaseIds.value = []
+  retrySubmitting.value = null
   meta.value = { total: 0, page: 1, per_page: 20, total_pages: 0 }
   filters.status = 'failed'
   filters.case_name = ''
@@ -94,12 +102,75 @@ async function loadCases(page = 1) {
     cases.value = response.data
     meta.value = response.meta
     expandedCaseId.value = null
+    selectedRetryCaseIds.value = []
   } catch (error) {
     const apiError = toApiError(error)
     cases.value = []
     errorMessage.value = apiError.message
   } finally {
     loading.value = false
+  }
+}
+
+function isCaseRetryable(row: CaseResult) {
+  return props.isAdmin && row.display_status === 'failed' && row.actions.can_retry
+}
+
+function isCaseSelected(row: CaseResult) {
+  return selectedRetryCaseIds.value.includes(row.id)
+}
+
+function toggleRetryCase(row: CaseResult, checked: boolean) {
+  if (!isCaseRetryable(row)) {
+    return
+  }
+  const nextIds = new Set(selectedRetryCaseIds.value)
+  if (checked) {
+    nextIds.add(row.id)
+  } else {
+    nextIds.delete(row.id)
+  }
+  selectedRetryCaseIds.value = Array.from(nextIds)
+}
+
+async function retrySelectedCases() {
+  if (!props.snapshot || selectedRetryCaseIds.value.length === 0 || retrySubmitting.value) {
+    return
+  }
+  retrySubmitting.value = 'selected'
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const task = await createFailedCaseRetry(props.snapshot.id, {
+      retry_scope: 'selected_failed',
+      case_result_ids: selectedRetryCaseIds.value,
+    })
+    successMessage.value = 'Jenkins 任务已创建：失败重试'
+    selectedRetryCaseIds.value = []
+    emit('retryCreated', task)
+  } catch (error) {
+    errorMessage.value = toApiError(error).message
+  } finally {
+    retrySubmitting.value = null
+  }
+}
+
+async function retryAllFailedCases() {
+  if (!props.snapshot || retrySubmitting.value) {
+    return
+  }
+  retrySubmitting.value = 'all'
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const task = await createFailedCaseRetry(props.snapshot.id, { retry_scope: 'all_failed' })
+    successMessage.value = 'Jenkins 任务已创建：失败重试'
+    selectedRetryCaseIds.value = []
+    emit('retryCreated', task)
+  } catch (error) {
+    errorMessage.value = toApiError(error).message
+  } finally {
+    retrySubmitting.value = null
   }
 }
 
@@ -217,6 +288,26 @@ watch(
           <button class="primary-button" type="submit">查询</button>
           <button class="secondary-button" type="button" @click="resetFilters">重置</button>
         </form>
+
+        <div class="case-dialog__retry-actions" aria-label="失败重试操作">
+          <span>已选 {{ selectedRetryCount }} 条</span>
+          <button
+            class="secondary-button"
+            type="button"
+            :disabled="selectedRetryCount === 0 || retrySubmitting !== null"
+            @click="retrySelectedCases"
+          >
+            {{ retrySubmitting === 'selected' ? '提交中' : '重试选中用例' }}
+          </button>
+          <button
+            class="primary-button"
+            type="button"
+            :disabled="!isAdmin || retrySubmitting !== null"
+            @click="retryAllFailedCases"
+          >
+            {{ retrySubmitting === 'all' ? '提交中' : '一键失败重试' }}
+          </button>
+        </div>
       </div>
 
       <p v-if="successMessage" class="case-dialog__success">{{ successMessage }}</p>
@@ -241,7 +332,15 @@ watch(
           </thead>
           <tbody>
             <tr v-for="row in cases" :key="row.id">
-              <td><input type="checkbox" :aria-label="`选择 ${row.case_name}`" disabled /></td>
+              <td>
+                <input
+                  type="checkbox"
+                  :aria-label="`选择 ${row.case_name}`"
+                  :checked="isCaseSelected(row)"
+                  :disabled="!isCaseRetryable(row)"
+                  @change="toggleRetryCase(row, ($event.target as HTMLInputElement).checked)"
+                />
+              </td>
               <td>{{ row.case_name }}</td>
               <td class="case-dialog__node">{{ row.node_id }}</td>
               <td>{{ row.case_summary || '-' }}</td>
@@ -286,7 +385,13 @@ watch(
               <span>{{ formatStatus(row.display_status) }}</span>
               <strong>{{ row.case_name }}</strong>
             </div>
-            <input type="checkbox" :aria-label="`选择 ${row.case_name}`" disabled />
+            <input
+              type="checkbox"
+              :aria-label="`选择 ${row.case_name}`"
+              :checked="isCaseSelected(row)"
+              :disabled="!isCaseRetryable(row)"
+              @change="toggleRetryCase(row, ($event.target as HTMLInputElement).checked)"
+            />
           </header>
 
           <p class="case-dialog__mobile-node">{{ row.node_id }}</p>
@@ -391,6 +496,16 @@ watch(
 .case-dialog__filters {
   display: grid;
   gap: 10px;
+}
+
+.case-dialog__retry-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .case-dialog__segments {
@@ -584,6 +699,11 @@ watch(
 @media (max-width: 700px) {
   .case-dialog__filters {
     grid-template-columns: 1fr;
+  }
+
+  .case-dialog__retry-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .case-dialog__table-frame {

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
-from django.db import transaction
+from django.db.models import Max, Sum
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
@@ -15,7 +16,25 @@ from accounts.models import UserAccount
 from common.exceptions import api_error_response
 from common.pagination import parse_pagination
 from common.serializers import ApiErrorResponseSerializer
-from metrics.models import CaseStatusAudit, EnvironmentSnapshot, ModuleRunHistory, ModuleSnapshot, TestCaseResult, TestEnvironment
+from metrics.jenkins_service import (
+    JenkinsServiceError,
+    cancel_jenkins_task,
+    discover_jenkins_builds as discover_jenkins_builds_from_jenkins,
+    fetch_jenkins_task_result,
+    trigger_jenkins_build,
+)
+from metrics.models import (
+    CaseStatusAudit,
+    EnvironmentSnapshot,
+    JenkinsJobBinding,
+    JenkinsTask,
+    ModuleExecutionLock,
+    ModuleRunHistory,
+    ModuleSnapshot,
+    TestCaseResult,
+    TestEnvironment,
+    TestRun,
+)
 from metrics.serializers import (
     CaseResultListResponseSerializer,
     CaseResultSerializer,
@@ -23,6 +42,9 @@ from metrics.serializers import (
     CaseStatusUpdateResponseSerializer,
     EnvironmentSummarySerializer,
     EnvironmentSummaryResponseSerializer,
+    JenkinsTaskListResponseSerializer,
+    JenkinsTaskResponseSerializer,
+    JenkinsTaskSerializer,
     ModuleRunHistorySerializer,
     ModuleTrendResponseSerializer,
     ModuleSnapshotListResponseSerializer,
@@ -130,6 +152,414 @@ def apply_snapshot_delta(snapshot, delta: dict[str, int]) -> None:
 
 def is_admin(user) -> bool:
     return getattr(user, "role", None) == UserAccount.Role.ADMIN
+
+
+LOCKED_MESSAGE = "已有用例重试，无法执行！"
+TERMINAL_TASK_STATUSES = {
+    TestRun.Status.SUCCESS,
+    TestRun.Status.TEST_FAILED,
+    TestRun.Status.FAILED,
+    TestRun.Status.CANCELED,
+}
+
+
+def get_active_snapshot(snapshot_id: int) -> ModuleSnapshot | None:
+    return (
+        ModuleSnapshot.objects.select_related("environment", "module")
+        .filter(id=snapshot_id, environment__is_active=True)
+        .first()
+    )
+
+
+def get_job_binding(snapshot: ModuleSnapshot, task_type: str) -> JenkinsJobBinding | None:
+    return JenkinsJobBinding.objects.filter(
+        environment=snapshot.environment,
+        module=snapshot.module,
+        task_type=task_type,
+        is_active=True,
+    ).first()
+
+
+def active_lock_exists(snapshot: ModuleSnapshot) -> bool:
+    return ModuleExecutionLock.objects.filter(
+        environment=snapshot.environment,
+        module=snapshot.module,
+        status=ModuleExecutionLock.Status.ACTIVE,
+    ).exists()
+
+
+def jenkins_task_response(task: JenkinsTask, request, response_status: int = status.HTTP_200_OK) -> Response:
+    return Response({"data": JenkinsTaskSerializer(task, context={"request": request}).data}, status=response_status)
+
+
+def create_queued_jenkins_task(
+    *,
+    snapshot: ModuleSnapshot,
+    task_type: str,
+    triggered_by,
+    binding: JenkinsJobBinding,
+    parameters: dict[str, str],
+    requested_nodeids: list[str] | None = None,
+) -> JenkinsTask | Response:
+    if active_lock_exists(snapshot):
+        return api_error_response("module_execution_locked", LOCKED_MESSAGE, status.HTTP_409_CONFLICT)
+
+    try:
+        with transaction.atomic():
+            run = TestRun.objects.create(
+                run_key=f"{task_type}-{snapshot.environment_id}-{snapshot.module_id}-{timezone.now().strftime('%Y%m%d%H%M%S%f')}",
+                run_type=task_type,
+                environment=snapshot.environment,
+                module=snapshot.module,
+                status=TestRun.Status.QUEUED,
+            )
+            task = JenkinsTask.objects.create(
+                run=run,
+                environment=snapshot.environment,
+                module=snapshot.module,
+                task_type=task_type,
+                trigger_source=JenkinsTask.TriggerSource.PLATFORM_USER,
+                triggered_by=triggered_by,
+                job_full_name=binding.job_full_name,
+                status=TestRun.Status.QUEUED,
+                requested_nodeids_json=requested_nodeids or [],
+            )
+            ModuleExecutionLock.objects.create(
+                environment=snapshot.environment,
+                module=snapshot.module,
+                task=task,
+                lock_type="module_execution",
+                status=ModuleExecutionLock.Status.ACTIVE,
+                locked_at=timezone.now(),
+            )
+            try:
+                build_parameters = {**parameters, "RUN_ID": run.run_key}
+                queued = trigger_jenkins_build(job_full_name=binding.job_full_name, parameters=build_parameters)
+            except JenkinsServiceError as exc:
+                raise RuntimeError(str(exc)) from exc
+            task.queue_id = queued.get("queue_id") or None
+            task.jenkins_queue_url = queued.get("queue_url", "")
+            task.save(update_fields=["queue_id", "jenkins_queue_url", "updated_at"])
+            return task
+    except IntegrityError:
+        return api_error_response("module_execution_locked", LOCKED_MESSAGE, status.HTTP_409_CONFLICT)
+    except RuntimeError as exc:
+        return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+def release_task_lock(task: JenkinsTask, reason: str) -> None:
+    locks = ModuleExecutionLock.objects.select_for_update().filter(
+        task=task,
+        status=ModuleExecutionLock.Status.ACTIVE,
+    )
+    for lock in locks:
+        lock.status = ModuleExecutionLock.Status.RELEASED
+        lock.released_at = timezone.now()
+        lock.release_reason = reason
+        lock.save(update_fields=["status", "active_lock_key", "released_at", "release_reason", "updated_at"])
+
+
+def apply_failed_rerun_summary(task: JenkinsTask, failed_nodeids: list[str]) -> None:
+    retried_nodeids = set(task.requested_nodeids_json or [])
+    still_failed = set(failed_nodeids or [])
+    passed_nodeids = retried_nodeids - still_failed
+    if not passed_nodeids:
+        return
+
+    cases = TestCaseResult.objects.select_for_update().filter(
+        environment=task.environment,
+        module=task.module,
+        is_current=True,
+        display_status=TestCaseResult.DisplayStatus.FAILED,
+        node_id__in=passed_nodeids,
+    )
+    changed = 0
+    for case in cases:
+        case.display_status = TestCaseResult.DisplayStatus.PASSED
+        case.execution_status = TestCaseResult.ExecutionStatus.PASSED
+        case.confirmation_result = "失败重试通过"
+        case.save(update_fields=["display_status", "execution_status", "confirmation_result", "updated_at"])
+        changed += 1
+    if changed == 0:
+        return
+
+    snapshot = ModuleSnapshot.objects.select_for_update().get(environment=task.environment, module=task.module)
+    snapshot.failed_count = max(snapshot.failed_count - changed, 0)
+    snapshot.passed_count += changed
+    snapshot.pass_rate = calculate_pass_rate(snapshot.total_count, snapshot.failed_count)
+    # 失败重试不更新 completed_at 和 duration_seconds。
+    snapshot.save(update_fields=["failed_count", "passed_count", "pass_rate", "updated_at"])
+    environment_snapshot = EnvironmentSnapshot.objects.select_for_update().filter(environment=task.environment).first()
+    if environment_snapshot:
+        environment_snapshot.failed_count = max(environment_snapshot.failed_count - changed, 0)
+        environment_snapshot.passed_count += changed
+        environment_snapshot.pass_rate = calculate_pass_rate(environment_snapshot.total_count, environment_snapshot.failed_count)
+        environment_snapshot.save(update_fields=["failed_count", "passed_count", "pass_rate", "updated_at"])
+
+
+def case_name_from_nodeid(node_id: str) -> str:
+    """从 pytest node id 中提取可读用例名，Jenkins summary 当前只提供 node id。"""
+    return node_id.rsplit("::", 1)[-1] if "::" in node_id else node_id.rsplit("/", 1)[-1]
+
+
+def refresh_environment_snapshot(environment) -> None:
+    """按所有模块快照重算环境汇总，避免单模块全量后环境统计滞后。"""
+    totals = ModuleSnapshot.objects.filter(environment=environment).aggregate(
+        total_count=Sum("total_count"),
+        failed_count=Sum("failed_count"),
+        passed_count=Sum("passed_count"),
+        skipped_count=Sum("skipped_count"),
+        finished_at=Max("completed_at"),
+    )
+    snapshot = EnvironmentSnapshot.objects.select_for_update().filter(environment=environment).first()
+    if snapshot is None:
+        return
+    snapshot.total_count = int(totals["total_count"] or 0)
+    snapshot.failed_count = int(totals["failed_count"] or 0)
+    snapshot.passed_count = int(totals["passed_count"] or 0)
+    snapshot.skipped_count = int(totals["skipped_count"] or 0)
+    snapshot.pass_rate = calculate_pass_rate(snapshot.total_count, snapshot.failed_count)
+    snapshot.finished_at = totals["finished_at"]
+    snapshot.save(
+        update_fields=[
+            "total_count",
+            "failed_count",
+            "passed_count",
+            "skipped_count",
+            "pass_rate",
+            "finished_at",
+            "updated_at",
+        ]
+    )
+
+
+def apply_module_summary(task: JenkinsTask, summary: dict) -> None:
+    if task.task_type not in {TestRun.RunType.MODULE_RERUN, TestRun.RunType.DAILY_FULL}:
+        return
+    total_count = summary.get("total_count")
+    failed_count = summary.get("failed_count")
+    if total_count is None or failed_count is None:
+        return
+    skipped_count = int(summary.get("skipped_count", 0) or 0)
+    passed_count = int(summary.get("passed_count", int(total_count) - int(failed_count) - skipped_count))
+    completed_at = timezone.now()
+    duration_seconds = summary.get("duration_seconds")
+    snapshot = ModuleSnapshot.objects.select_for_update().get(environment=task.environment, module=task.module)
+    snapshot.total_count = int(total_count)
+    snapshot.failed_count = int(failed_count)
+    snapshot.passed_count = passed_count
+    snapshot.skipped_count = skipped_count
+    snapshot.pass_rate = calculate_pass_rate(snapshot.total_count, snapshot.failed_count)
+    snapshot.completed_at = completed_at
+    snapshot.duration_seconds = Decimal(str(duration_seconds)) if duration_seconds is not None else snapshot.duration_seconds
+    snapshot.latest_run = task.run
+    snapshot.save(
+        update_fields=[
+            "total_count",
+            "failed_count",
+            "passed_count",
+            "skipped_count",
+            "pass_rate",
+            "completed_at",
+            "duration_seconds",
+            "latest_run",
+            "updated_at",
+        ]
+    )
+    TestCaseResult.objects.select_for_update().filter(
+        environment=task.environment,
+        module=task.module,
+        is_current=True,
+    ).update(
+        is_current=False,
+        current_node_key=None,
+        display_status=TestCaseResult.DisplayStatus.ARCHIVED,
+        confirmation_result="全量执行归档",
+        updated_at=timezone.now(),
+    )
+    failed_nodeids = sorted({node_id for node_id in (summary.get("failed_nodeids") or []) if node_id})
+    for node_id in failed_nodeids:
+        TestCaseResult.objects.create(
+            environment=task.environment,
+            module=task.module,
+            module_snapshot=snapshot,
+            source_run=task.run,
+            node_id=node_id,
+            case_name=case_name_from_nodeid(node_id),
+            case_summary="Jenkins 同步失败用例",
+            execution_status=TestCaseResult.ExecutionStatus.FAILED,
+            display_status=TestCaseResult.DisplayStatus.FAILED,
+            error_message_summary="Jenkins summary 标记失败",
+            occurred_at=completed_at,
+        )
+    history_completed_at = task.finished_at or completed_at
+    ModuleRunHistory.objects.update_or_create(
+        environment=task.environment,
+        module=task.module,
+        source_run=task.run,
+        run_date=timezone.localtime(history_completed_at).date(),
+        run_type=task.task_type,
+        defaults={
+            "completed_at": history_completed_at,
+            "duration_seconds": snapshot.duration_seconds,
+            "total_count": snapshot.total_count,
+            "failed_count": snapshot.failed_count,
+            "passed_count": snapshot.passed_count,
+            "skipped_count": snapshot.skipped_count,
+            "pass_rate": snapshot.pass_rate,
+        },
+    )
+    refresh_environment_snapshot(task.environment)
+
+
+def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
+    with transaction.atomic():
+        task = JenkinsTask.objects.select_for_update().select_related("run").get(id=task.id)
+        if task.status in TERMINAL_TASK_STATUSES:
+            task.last_synced_at = timezone.now()
+            task.save(update_fields=["last_synced_at", "updated_at"])
+            return task
+
+        if result.get("queue_pending"):
+            task.last_synced_at = timezone.now()
+            task.save(update_fields=["last_synced_at", "updated_at"])
+            return task
+
+        if result.get("building"):
+            update_fields = ["status", "last_synced_at", "updated_at"]
+            if result.get("build_number") and result["build_number"] != task.build_number:
+                task.build_number = result["build_number"]
+                update_fields.append("build_number")
+            if result.get("jenkins_build_url"):
+                task.jenkins_build_url = result["jenkins_build_url"]
+                update_fields.append("jenkins_build_url")
+            if result.get("started_at"):
+                task.started_at = result["started_at"]
+                update_fields.append("started_at")
+            task.status = TestRun.Status.RUNNING
+            task.last_synced_at = timezone.now()
+            if task.run:
+                task.run.status = TestRun.Status.RUNNING
+                task.run.started_at = task.started_at
+                task.run.save(update_fields=["status", "started_at", "updated_at"])
+            task.save(update_fields=sorted(set(update_fields)))
+            return task
+
+        if result.get("build_number") and not task.build_number:
+            task.build_number = result["build_number"]
+            task.jenkins_build_url = result.get("jenkins_build_url", task.jenkins_build_url)
+            task.status = TestRun.Status.RUNNING
+            if task.run:
+                task.run.status = TestRun.Status.RUNNING
+                task.run.save(update_fields=["status", "updated_at"])
+            task.last_synced_at = timezone.now()
+            task.save(update_fields=["build_number", "jenkins_build_url", "status", "last_synced_at", "updated_at"])
+            return task
+
+        summary = result.get("summary")
+        failed_nodeids = list(result.get("failed_nodeids") or (summary or {}).get("failed_nodeids") or [])
+        task.jenkins_result = result.get("jenkins_result") or task.jenkins_result
+        task.summary_json = summary
+        task.failed_nodeids_json = failed_nodeids
+        task.artifact_base_url = result.get("artifact_base_url", task.artifact_base_url)
+        task.summary_artifact_url = result.get("summary_artifact_url", task.summary_artifact_url)
+        task.failed_nodeids_artifact_url = result.get("failed_nodeids_artifact_url", task.failed_nodeids_artifact_url)
+        task.allure_report_url = result.get("allure_report_url", task.allure_report_url)
+        task.error_summary = result.get("error_summary", task.error_summary)
+        task.finished_at = result.get("finished_at") or timezone.now()
+        task.last_synced_at = timezone.now()
+
+        if result.get("canceled") or task.jenkins_result == "ABORTED":
+            task.status = TestRun.Status.CANCELED
+        elif not summary:
+            task.status = TestRun.Status.FAILED
+            if not task.error_summary:
+                task.error_summary = "Jenkins summary artifact is missing."
+        elif summary.get("allure_report_status") != "generated":
+            task.status = TestRun.Status.FAILED
+            allure_message = summary.get("allure_report_message") or summary.get("allure_report_status") or "unknown"
+            task.error_summary = f"Allure HTML report was not generated: {allure_message}"
+        elif summary.get("status") == "passed":
+            task.status = TestRun.Status.SUCCESS
+        elif summary.get("status") == "failed":
+            task.status = TestRun.Status.TEST_FAILED
+        else:
+            task.status = TestRun.Status.FAILED
+
+        if task.task_type == TestRun.RunType.FAILED_RERUN and task.status in {TestRun.Status.SUCCESS, TestRun.Status.TEST_FAILED}:
+            apply_failed_rerun_summary(task, failed_nodeids)
+        elif task.status in {TestRun.Status.SUCCESS, TestRun.Status.TEST_FAILED}:
+            apply_module_summary(task, summary or {})
+
+        if task.run:
+            task.run.status = task.status
+            task.run.summary_json = task.summary_json
+            task.run.finished_at = task.finished_at
+            task.run.save(update_fields=["status", "summary_json", "finished_at", "updated_at"])
+
+        task.save(
+            update_fields=[
+                "jenkins_result",
+                "summary_json",
+                "failed_nodeids_json",
+                "artifact_base_url",
+                "summary_artifact_url",
+                "failed_nodeids_artifact_url",
+                "allure_report_url",
+                "error_summary",
+                "finished_at",
+                "last_synced_at",
+                "status",
+                "updated_at",
+            ]
+        )
+        if task.status in TERMINAL_TASK_STATUSES:
+            release_task_lock(task, f"task {task.status}")
+        return task
+
+
+def discover_jenkins_builds(*, date: str | None = None) -> list[dict]:
+    """发现 Jenkins 定时构建，按当前 active daily Job binding 限定扫描范围。"""
+    job_full_names = list(
+        JenkinsJobBinding.objects.filter(task_type=TestRun.RunType.DAILY_FULL, is_active=True)
+        .order_by("job_full_name")
+        .values_list("job_full_name", flat=True)
+        .distinct()
+    )
+    if not job_full_names:
+        return []
+    return discover_jenkins_builds_from_jenkins(job_full_names=job_full_names, date=date)
+
+
+def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_result: dict) -> tuple[JenkinsTask, bool]:
+    build_number = build_result.get("build_number")
+    task = JenkinsTask.objects.select_related("run").filter(
+        job_full_name=binding.job_full_name,
+        build_number=build_number,
+    ).first()
+    if task is not None:
+        return task, False
+
+    run_key = build_result.get("run_id") or f"daily_full-{binding.environment_id}-{binding.module_id}-{build_number}"
+    run = TestRun.objects.create(
+        run_key=run_key,
+        run_type=TestRun.RunType.DAILY_FULL,
+        environment=binding.environment,
+        module=binding.module,
+        status=TestRun.Status.RUNNING,
+    )
+    task = JenkinsTask.objects.create(
+        run=run,
+        environment=binding.environment,
+        module=binding.module,
+        task_type=TestRun.RunType.DAILY_FULL,
+        trigger_source=JenkinsTask.TriggerSource.JENKINS_CRON,
+        job_full_name=binding.job_full_name,
+        build_number=build_number,
+        jenkins_build_url=build_result.get("jenkins_build_url", ""),
+        status=TestRun.Status.RUNNING,
+    )
+    return task, True
 
 
 class TestEnvironmentListView(APIView):
@@ -267,7 +697,7 @@ class ModuleSnapshotListView(APIView):
         if pass_rate_lte is not None:
             queryset = queryset.filter(pass_rate__lte=pass_rate_lte)
         queryset = queryset.order_by(*sort_fields)
-        return paginated_response_with_context(queryset, ModuleSnapshotSerializer, page, per_page, {})
+        return paginated_response_with_context(queryset, ModuleSnapshotSerializer, page, per_page, {"request": request})
 
 
 class ModuleSnapshotCasesView(APIView):
@@ -438,6 +868,268 @@ class CaseResultStatusUpdateView(APIView):
                 }
             }
         )
+
+
+class FailedCaseRetryCreateView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    @transaction.atomic
+    def post(self, request, snapshot_id: int):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+
+        snapshot = get_active_snapshot(snapshot_id)
+        if snapshot is None:
+            return api_error_response("module_snapshot_not_found", "模块快照不存在。", status.HTTP_404_NOT_FOUND)
+
+        binding = get_job_binding(snapshot, TestRun.RunType.FAILED_RERUN)
+        if binding is None:
+            return api_error_response("jenkins_job_not_configured", "Jenkins Job 未配置。", status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        retry_scope = request.data.get("retry_scope")
+        if retry_scope not in {"all_failed", "selected_failed"}:
+            return validation_error("retry_scope 必须为 all_failed 或 selected_failed。")
+
+        cases = TestCaseResult.objects.filter(
+            environment=snapshot.environment,
+            module=snapshot.module,
+            module_snapshot=snapshot,
+            is_current=True,
+            display_status=TestCaseResult.DisplayStatus.FAILED,
+        )
+        if retry_scope == "selected_failed":
+            raw_ids = request.data.get("case_result_ids") or []
+            if not isinstance(raw_ids, list) or not raw_ids:
+                return api_error_response("invalid_case_selection", "勾选用例不可重试。", status.HTTP_422_UNPROCESSABLE_ENTITY)
+            cases = cases.filter(id__in=raw_ids)
+            if cases.count() != len(set(raw_ids)):
+                return api_error_response("invalid_case_selection", "勾选用例不可重试。", status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        nodeids = sorted({case.node_id for case in cases})
+        if not nodeids:
+            return api_error_response("no_failed_cases", "通过率 100% 无需失败重试。", status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        parameters = {
+            "CASE_PATH": snapshot.module.case_path,
+            "PYTEST_NODE_IDS": "\n".join(nodeids),
+            "RETRY_MODE": "selected",
+            "RETRY_COUNT": str(binding.default_retry_count),
+            "CLEAN_ALLURE": "true",
+            "OPEN_REPORT": "false",
+        }
+        task = create_queued_jenkins_task(
+            snapshot=snapshot,
+            task_type=TestRun.RunType.FAILED_RERUN,
+            triggered_by=request.user,
+            binding=binding,
+            parameters=parameters,
+            requested_nodeids=nodeids,
+        )
+        if isinstance(task, Response):
+            return task
+        return jenkins_task_response(task, request, status.HTTP_202_ACCEPTED)
+
+
+class ModuleRerunCreateView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    def post(self, request, snapshot_id: int):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+
+        snapshot = get_active_snapshot(snapshot_id)
+        if snapshot is None:
+            return api_error_response("module_snapshot_not_found", "模块快照不存在。", status.HTTP_404_NOT_FOUND)
+        if not snapshot.module.case_path:
+            return api_error_response("module_case_path_missing", "模块用例路径缺失。", status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        binding = get_job_binding(snapshot, TestRun.RunType.MODULE_RERUN)
+        if binding is None:
+            return api_error_response("jenkins_job_not_configured", "Jenkins Job 未配置。", status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        parameters = {
+            "CASE_PATH": snapshot.module.case_path,
+            "MODULE_NAME": snapshot.module.module_name,
+            "RETRY_MODE": "module",
+            "RETRY_COUNT": str(binding.default_retry_count),
+            "CLEAN_ALLURE": "true",
+            "OPEN_REPORT": "false",
+        }
+        task = create_queued_jenkins_task(
+            snapshot=snapshot,
+            task_type=TestRun.RunType.MODULE_RERUN,
+            triggered_by=request.user,
+            binding=binding,
+            parameters=parameters,
+        )
+        if isinstance(task, Response):
+            return task
+        return jenkins_task_response(task, request, status.HTTP_202_ACCEPTED)
+
+
+class ModuleSnapshotJenkinsTasksView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    def get(self, request, snapshot_id: int):
+        snapshot = get_active_snapshot(snapshot_id)
+        if snapshot is None:
+            return api_error_response("module_snapshot_not_found", "模块快照不存在。", status.HTTP_404_NOT_FOUND)
+        pagination = parse_pagination(request)
+        if isinstance(pagination, Response):
+            return pagination
+        page, per_page = pagination
+
+        queryset = JenkinsTask.objects.select_related("environment", "module", "triggered_by").filter(
+            environment=snapshot.environment,
+            module=snapshot.module,
+        )
+        date_value = request.query_params.get("date", "today")
+        if date_value == "today":
+            queryset = queryset.filter(created_at__date=timezone.localdate())
+        elif date_value:
+            try:
+                parsed_date = timezone.datetime.strptime(date_value, "%Y-%m-%d").date()
+            except ValueError:
+                return validation_error("date 必须为 today 或 YYYY-MM-DD。")
+            queryset = queryset.filter(created_at__date=parsed_date)
+        status_value = request.query_params.get("status")
+        if status_value:
+            allowed_statuses = {choice[0] for choice in TestRun.Status.choices}
+            if status_value not in allowed_statuses:
+                return validation_error("任务状态筛选非法。")
+            queryset = queryset.filter(status=status_value)
+
+        total = queryset.count()
+        start = (page - 1) * per_page
+        end = start + per_page
+        total_pages = (total + per_page - 1) // per_page if total else 0
+        serializer = JenkinsTaskSerializer(queryset[start:end], many=True, context={"request": request})
+        return Response(
+            {
+                "data": serializer.data,
+                "meta": {"total": total, "page": page, "per_page": per_page, "total_pages": total_pages},
+            }
+        )
+
+
+class JenkinsTaskCancelView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    def post(self, request, task_id: int):
+        task = JenkinsTask.objects.select_related("triggered_by", "environment", "module").filter(id=task_id).first()
+        if task is None:
+            return api_error_response("jenkins_task_not_found", "Jenkins 任务不存在。", status.HTTP_404_NOT_FOUND)
+        if not (is_admin(request.user) or task.triggered_by_id == getattr(request.user, "id", None)):
+            return api_error_response("forbidden", "无取消权限。", status.HTTP_403_FORBIDDEN)
+        if task.status == TestRun.Status.CANCELING:
+            return jenkins_task_response(task, request, status.HTTP_202_ACCEPTED)
+        if task.status not in {TestRun.Status.QUEUED, TestRun.Status.RUNNING}:
+            return api_error_response("task_not_cancelable", "任务不可取消。", status.HTTP_409_CONFLICT)
+        try:
+            cancel_jenkins_task(task)
+        except JenkinsServiceError as exc:
+            return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
+        task.status = TestRun.Status.CANCELING
+        if task.run:
+            task.run.status = TestRun.Status.CANCELING
+            task.run.save(update_fields=["status", "updated_at"])
+        task.save(update_fields=["status", "updated_at"])
+        return jenkins_task_response(task, request, status.HTTP_202_ACCEPTED)
+
+
+class JenkinsTaskSyncView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    def post(self, request, task_id: int):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+        task = JenkinsTask.objects.filter(id=task_id).first()
+        if task is None:
+            return api_error_response("jenkins_task_not_found", "Jenkins 任务不存在。", status.HTTP_404_NOT_FOUND)
+        try:
+            result = fetch_jenkins_task_result(task)
+        except JenkinsServiceError as exc:
+            return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
+        synced = sync_task_with_result(task, result)
+        return jenkins_task_response(synced, request)
+
+
+class JenkinsTaskBulkSyncView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    def post(self, request):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+
+        discover_daily = bool(request.data.get("discover_daily"))
+        if not discover_daily:
+            return validation_error("discover_daily 必须为 true。")
+
+        created_count = 0
+        updated_count = 0
+        synced_count = 0
+        discovered = discover_jenkins_builds(date=request.data.get("date"))
+        for build_result in discovered:
+            job_full_name = build_result.get("job_full_name")
+            build_number = build_result.get("build_number")
+            if not job_full_name or build_number is None:
+                continue
+            binding = JenkinsJobBinding.objects.select_related("environment", "module").filter(
+                task_type=TestRun.RunType.DAILY_FULL,
+                job_full_name=job_full_name,
+                is_active=True,
+            ).first()
+            if binding is None:
+                continue
+            task, created = create_or_get_daily_task_from_discovery(binding, build_result)
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+            if "summary" in build_result or build_result.get("building") or build_result.get("canceled"):
+                sync_result = build_result
+            else:
+                sync_result = fetch_jenkins_task_result(task)
+            sync_task_with_result(task, sync_result)
+            synced_count += 1
+
+        return Response(
+            {
+                "data": {
+                    "created_count": created_count,
+                    "updated_count": updated_count,
+                    "synced_count": synced_count,
+                }
+            }
+        )
+
+
+class JenkinsTaskListView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    def get(self, request):
+        pagination = parse_pagination(request)
+        if isinstance(pagination, Response):
+            return pagination
+        page, per_page = pagination
+        queryset = JenkinsTask.objects.select_related("environment", "module", "triggered_by").all()
+        for param_name in ["environment_id", "module_id", "task_type", "status"]:
+            value = request.query_params.get(param_name)
+            if value:
+                queryset = queryset.filter(**{param_name: value})
+        total = queryset.count()
+        start = (page - 1) * per_page
+        end = start + per_page
+        total_pages = (total + per_page - 1) // per_page if total else 0
+        serializer = JenkinsTaskSerializer(queryset[start:end], many=True, context={"request": request})
+        return Response({"data": serializer.data, "meta": {"total": total, "page": page, "per_page": per_page, "total_pages": total_pages}})
 
 
 class ModuleSnapshotTrendView(APIView):

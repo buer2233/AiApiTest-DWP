@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ok 1 [chromium] › e2e\stage6-p5-screenshots.spec.ts:139:3 › Stage6 P5 Jenkins 前端截图证据 › 保存模块操作、用例重试和 Jenkins 任务弹窗截图 (3.7s)
+
+  1 passed (9.8s)

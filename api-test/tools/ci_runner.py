@@ -137,6 +137,49 @@ def _parse_retry_count(raw_value: str | None) -> int:
     return retry_count
 
 
+def parse_pytest_summary_counts(console_output: str) -> dict[str, int | float]:
+    """从 pytest 控制台最终摘要中解析统计字段。
+
+    pytest 的 Jenkins 返回码在本项目中不直接决定 Pipeline 成败，因此 summary 需要
+    携带可供平台同步快照使用的总数、失败数、通过数、跳过数和执行耗时。
+    """
+    summary_line = ""
+    for line in console_output.splitlines():
+        lowered = line.lower()
+        if " in " in lowered and any(word in lowered for word in ["passed", "failed", "error", "skipped"]):
+            summary_line = line
+    if not summary_line:
+        return {
+            "total_count": 0,
+            "failed_count": 0,
+            "passed_count": 0,
+            "skipped_count": 0,
+            "duration_seconds": 0.0,
+        }
+
+    counts = {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+    }
+    for raw_count, raw_status in re.findall(r"(\d+)\s+(passed|failed|errors?|skipped)", summary_line, re.IGNORECASE):
+        status_name = raw_status.lower()
+        normalized = "error" if status_name in {"error", "errors"} else status_name
+        counts[normalized] += int(raw_count)
+    duration_match = re.search(r"in\s+([0-9]+(?:\.[0-9]+)?)s", summary_line, re.IGNORECASE)
+    duration_seconds = float(duration_match.group(1)) if duration_match else 0.0
+    failed_count = counts["failed"] + counts["error"]
+    total_count = counts["passed"] + failed_count + counts["skipped"]
+    return {
+        "total_count": total_count,
+        "failed_count": failed_count,
+        "passed_count": counts["passed"],
+        "skipped_count": counts["skipped"],
+        "duration_seconds": duration_seconds,
+    }
+
+
 def build_run_request_from_jenkins_env(
     env: Mapping[str, str] | None = None,
     api_test_root: Path = API_TEST_ROOT,
@@ -196,6 +239,7 @@ def write_summary(
     allure_report_dir: Path,
     allure_report_status: str = "unknown",
     allure_report_message: str = "",
+    count_fields: dict[str, int | float] | None = None,
 ) -> dict:
     """写入并返回 CI 运行摘要（summary.json）。
     Args:
@@ -219,6 +263,8 @@ def write_summary(
         "allure_report_status": allure_report_status,
         "allure_report_message": allure_report_message,
     }
+    if count_fields:
+        summary.update(count_fields)
     output_path = Path(run_dir) / "summary.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -327,6 +373,7 @@ def run_ci_tests(request: RunRequest, python_executable: str | None = None) -> d
         text=True,
     )
     _write_console_log(request.run_dir, result)
+    count_fields = parse_pytest_summary_counts("\n".join(part for part in [result.stdout or "", result.stderr or ""] if part))
     allure_report = _generate_allure_report(request)
 
     failed_nodeids = load_lastfailed(request.api_test_root / ".pytest_cache")
@@ -339,6 +386,7 @@ def run_ci_tests(request: RunRequest, python_executable: str | None = None) -> d
         allure_report_dir=allure_report_dir,
         allure_report_status=allure_report["status"],
         allure_report_message=allure_report["message"],
+        count_fields=count_fields,
     )
 
 

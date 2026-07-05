@@ -32,6 +32,10 @@ export interface ModuleSnapshotActions {
   jenkins_tasks: boolean
 }
 
+export type ModuleSnapshotActionKey = keyof ModuleSnapshotActions
+
+export type ModuleSnapshotActionReasons = Partial<Record<ModuleSnapshotActionKey, string>>
+
 export interface ModuleSnapshot {
   id: number
   completed_at: string
@@ -45,6 +49,7 @@ export interface ModuleSnapshot {
   skipped_count: number
   duration_seconds: number | string | null
   actions: ModuleSnapshotActions
+  disabled_reasons?: ModuleSnapshotActionReasons
 }
 
 export type CaseDisplayStatus = 'failed' | 'passed' | 'skipped'
@@ -130,6 +135,56 @@ export interface ModuleTrend {
   }
   days: 7 | 30
   series: ModuleTrendPoint[]
+}
+
+export type FailedCaseRetryScope = 'all_failed' | 'selected_failed'
+
+export interface FailedCaseRetryPayload {
+  retry_scope: FailedCaseRetryScope
+  case_result_ids?: number[]
+}
+
+export type JenkinsTaskStatus =
+  | 'queued'
+  | 'running'
+  | 'success'
+  | 'test_failed'
+  | 'failed'
+  | 'canceling'
+  | 'canceled'
+
+export type JenkinsTaskType = 'daily_full' | 'failed_rerun' | 'module_rerun'
+
+export interface JenkinsTaskActions {
+  cancel: boolean
+  view_report: boolean
+  view_jenkins_task: boolean
+}
+
+export interface JenkinsTask {
+  id: number
+  task_type: JenkinsTaskType
+  job_name: string
+  environment_url: string
+  status: JenkinsTaskStatus
+  triggered_by: string | null
+  started_at: string | null
+  finished_at: string | null
+  jenkins_build_url: string | null
+  allure_report_url: string | null
+  actions: JenkinsTaskActions
+}
+
+export interface JenkinsTaskFilters {
+  date?: 'today' | string
+  status?: JenkinsTaskStatus
+  page?: number
+  per_page?: number
+}
+
+export interface PaginatedJenkinsTasks {
+  data: JenkinsTask[]
+  meta: PaginationMeta
 }
 
 export interface ModuleSnapshotFilters {

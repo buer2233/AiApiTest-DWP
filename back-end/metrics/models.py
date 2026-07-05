@@ -49,7 +49,9 @@ class TestRun(models.Model):
         QUEUED = "queued", "排队中"
         RUNNING = "running", "执行中"
         SUCCESS = "success", "成功"
+        TEST_FAILED = "test_failed", "用例失败"
         FAILED = "failed", "失败"
+        CANCELING = "canceling", "取消中"
         CANCELED = "canceled", "已取消"
 
     run_key = models.CharField(max_length=128, unique=True)
@@ -231,3 +233,114 @@ class CaseStatusAudit(models.Model):
 
     def __str__(self) -> str:
         return f"{self.case_result_id}:{self.from_status}->{self.to_status}"
+
+
+class JenkinsJobBinding(models.Model):
+    """测试环境、模块和任务类型到 Jenkins Job 的映射。"""
+
+    environment = models.ForeignKey(TestEnvironment, on_delete=models.CASCADE, db_index=True)
+    module = models.ForeignKey(TestModule, on_delete=models.CASCADE, db_index=True)
+    task_type = models.CharField(max_length=32, choices=TestRun.RunType.choices, db_index=True)
+    job_full_name = models.CharField(max_length=255, db_index=True)
+    default_retry_count = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "jenkins_job_binding"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["environment", "module", "task_type"],
+                name="uniq_jenkins_job_binding_env_module_type",
+            ),
+        ]
+        ordering = ["environment_id", "module_id", "task_type"]
+
+    def __str__(self) -> str:
+        return f"{self.environment_id}:{self.module_id}:{self.task_type}:{self.job_full_name}"
+
+
+class JenkinsTask(models.Model):
+    """平台侧 Jenkins 任务记录，用于触发、取消、同步和报告入口展示。"""
+
+    class TriggerSource(models.TextChoices):
+        PLATFORM_USER = "platform_user", "平台用户"
+        JENKINS_CRON = "jenkins_cron", "Jenkins 定时"
+        MANUAL_SYNC = "manual_sync", "手动同步"
+
+    run = models.ForeignKey(TestRun, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
+    environment = models.ForeignKey(TestEnvironment, on_delete=models.PROTECT, db_index=True)
+    module = models.ForeignKey(TestModule, on_delete=models.PROTECT, db_index=True)
+    task_type = models.CharField(max_length=32, choices=TestRun.RunType.choices, db_index=True)
+    trigger_source = models.CharField(max_length=32, choices=TriggerSource.choices, default=TriggerSource.PLATFORM_USER, db_index=True)
+    triggered_by = models.ForeignKey(UserAccount, null=True, blank=True, on_delete=models.SET_NULL, related_name="jenkins_tasks", db_index=True)
+    job_full_name = models.CharField(max_length=255, db_index=True)
+    queue_id = models.CharField(max_length=128, null=True, blank=True, unique=True)
+    build_number = models.IntegerField(null=True, blank=True)
+    jenkins_queue_url = models.CharField(max_length=1024, blank=True)
+    jenkins_build_url = models.CharField(max_length=1024, blank=True)
+    artifact_base_url = models.CharField(max_length=1024, blank=True)
+    summary_artifact_url = models.CharField(max_length=1024, blank=True)
+    failed_nodeids_artifact_url = models.CharField(max_length=1024, blank=True)
+    allure_report_url = models.CharField(max_length=1024, blank=True)
+    status = models.CharField(max_length=32, choices=TestRun.Status.choices, default=TestRun.Status.QUEUED, db_index=True)
+    jenkins_result = models.CharField(max_length=64, blank=True)
+    requested_nodeids_json = models.JSONField(default=list, blank=True)
+    summary_json = models.JSONField(null=True, blank=True)
+    failed_nodeids_json = models.JSONField(default=list, blank=True)
+    error_summary = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    finished_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "jenkins_task"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["job_full_name", "build_number"],
+                name="uniq_jenkins_task_job_build",
+            ),
+        ]
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        return f"{self.job_full_name}#{self.build_number or self.queue_id or self.id}"
+
+
+class ModuleExecutionLock(models.Model):
+    """同环境同模块的 Jenkins 执行互斥锁。"""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "生效中"
+        RELEASED = "released", "已释放"
+        EXPIRED = "expired", "已过期"
+
+    environment = models.ForeignKey(TestEnvironment, on_delete=models.CASCADE, db_index=True)
+    module = models.ForeignKey(TestModule, on_delete=models.CASCADE, db_index=True)
+    task = models.ForeignKey(JenkinsTask, on_delete=models.CASCADE, related_name="execution_locks", db_index=True)
+    lock_type = models.CharField(max_length=32, default="module_execution")
+    status = models.CharField(max_length=32, choices=Status.choices, default=Status.ACTIVE, db_index=True)
+    active_lock_key = models.CharField(max_length=128, null=True, blank=True)
+    locked_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    released_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    release_reason = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "module_execution_lock"
+        constraints = [
+            models.UniqueConstraint(fields=["active_lock_key"], name="uniq_active_module_execution_lock"),
+        ]
+        ordering = ["-locked_at", "-id"]
+
+    def save(self, *args, **kwargs):
+        # MySQL 无 partial unique，用可空 active_lock_key 保证只有 active 锁互斥。
+        if self.status == self.Status.ACTIVE:
+            self.active_lock_key = f"env:{self.environment_id}:module:{self.module_id}"
+        else:
+            self.active_lock_key = None
+        super().save(*args, **kwargs)

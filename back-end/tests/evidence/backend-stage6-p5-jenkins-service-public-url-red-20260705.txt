@@ -1,0 +1,115 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+____ test_trigger_build_uses_internal_api_url_but_returns_public_queue_url ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026D9B1A5E50>
+
+    def test_trigger_build_uses_internal_api_url_but_returns_public_queue_url(monkeypatch):
+        monkeypatch.setenv("JENKINS_API_BASE_URL", "http://jenkins:8080")
+        monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "https://ci.example.test")
+        requested_urls: list[str] = []
+    
+        def fake_urlopen(request, timeout):
+            requested_urls.append(request.full_url)
+            return FakeJenkinsResponse(headers={"Location": "http://jenkins:8080/queue/item/99/"})
+    
+        monkeypatch.setattr("metrics.jenkins_service.urllib.request.urlopen", fake_urlopen)
+    
+        result = trigger_jenkins_build(job_full_name="folder/AiApiTest-DWP-Failed-Rerun", parameters={"RETRY_MODE": "selected"})
+    
+        assert requested_urls == ["http://jenkins:8080/job/folder/job/AiApiTest-DWP-Failed-Rerun/buildWithParameters"]
+>       assert result["queue_url"] == "https://ci.example.test/queue/item/99/"
+E       AssertionError: assert 'http://jenki...ueue/item/99/' == 'https://ci.e...ueue/item/99/'
+E         - https://ci.example.test/queue/item/99/
+E         + http://jenkins:8080/queue/item/99/
+
+tests\test_metrics_jenkins_service.py:38: AssertionError
+_____________ test_fetch_task_result_returns_public_artifact_urls _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026D9B205160>
+
+    def test_fetch_task_result_returns_public_artifact_urls(monkeypatch):
+        monkeypatch.setenv("JENKINS_API_BASE_URL", "http://jenkins:8080")
+        monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "https://ci.example.test")
+    
+        def fake_urlopen(request, timeout):
+            if request.full_url.endswith("/api/json"):
+                return FakeJenkinsResponse({"building": False, "result": "SUCCESS"})
+            if request.full_url.endswith("/summary.json"):
+                return FakeJenkinsResponse({"status": "passed", "total_count": 1, "failed_count": 0})
+            if request.full_url.endswith("/failed_nodeids.json"):
+                return FakeJenkinsResponse([])
+            raise AssertionError(f"Unexpected Jenkins URL: {request.full_url}")
+    
+        monkeypatch.setattr("metrics.jenkins_service.urllib.request.urlopen", fake_urlopen)
+        task = SimpleNamespace(
+            job_full_name="AiApiTest-DWP-Module-Rerun",
+            build_number=12,
+            queue_id="",
+            run=SimpleNamespace(run_key="module-rerun-12"),
+        )
+    
+        result = fetch_jenkins_task_result(task)
+    
+>       assert result["artifact_base_url"] == (
+            "https://ci.example.test/job/AiApiTest-DWP-Module-Rerun/12/artifact/api-test/runtime/ci-runs/module-rerun-12"
+        )
+E       AssertionError: assert 'http://jenki...dule-rerun-12' == 'https://ci.e...dule-rerun-12'
+E         - https://ci.example.test/job/AiApiTest-DWP-Module-Rerun/12/artifact/api-test/runtime/ci-runs/module-rerun-12
+E         ?     -   ^ ^^^^^^^^^^^ ^
+E         + http://jenkins:8080/job/AiApiTest-DWP-Module-Rerun/12/artifact/api-test/runtime/ci-runs/module-rerun-12
+E         ?        ^^^^ ^ ^^^^^
+
+tests\test_metrics_jenkins_service.py:65: AssertionError
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.12.6-final-0 _______________
+
+Name                                                                                  Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------------------------------------------------------
+accounts\__init__.py                                                                      0      0   100%
+accounts\apps.py                                                                          7      0   100%
+accounts\authentication.py                                                               23     23     0%   1-49
+accounts\exceptions.py                                                                    2      2     0%   1-4
+accounts\management\__init__.py                                                           0      0   100%
+accounts\management\commands\__init__.py                                                  0      0   100%
+accounts\management\commands\init_admin.py                                               33     33     0%   1-48
+accounts\migrations\0001_initial.py                                                       6      6     0%   2-11
+accounts\migrations\__init__.py                                                           0      0   100%
+accounts\models.py                                                                      100     34    66%   23-32, 57, 61-68, 71, 74, 77-78, 81, 92-102, 105, 147, 151-153, 156, 159-162, 165-168, 171
+accounts\schema.py                                                                        8      1    88%   12
+accounts\serializers.py                                                                  86     86     0%   1-134
+accounts\tokens.py                                                                       10     10     0%   1-21
+accounts\views.py                                                                       174    174     0%   1-373
+common\__init__.py                                                                        0      0   100%
+common\apps.py                                                                            4      0   100%
+common\exceptions.py                                                                     22     22     0%   1-47
+common\pagination.py                                                                     20     20     0%   1-26
+common\serializers.py                                                                    12     12     0%   1-18
+config\__init__.py                                                                        2      0   100%
+config\settings\__init__.py                                                               0      0   100%
+config\settings\base.py                                                                  51      5    90%   16, 31, 40-43
+config\settings\local.py                                                                  2      2     0%   1-4
+config\settings\test.py                                                                  10      2    80%   18, 21
+config\urls.py                                                                            5      5     0%   1-29
+metrics\__init__.py                                                                       0      0   100%
+metrics\apps.py                                                                           4      0   100%
+metrics\jenkins_service.py                                                               77     21    73%   45-46, 58, 69-78, 88, 90-94, 104, 119-120
+metrics\management\__init__.py                                                            0      0   100%
+metrics\management\commands\__init__.py                                                   0      0   100%
+metrics\management\commands\seed_demo_metrics.py                                         47     47     0%   1-143
+metrics\management\commands\seed_environment.py                                           9      9     0%   1-21
+metrics\management\commands\sync_modules.py                                              31     31     0%   1-57
+metrics\migrations\0001_initial.py                                                        6      6     0%   2-11
+metrics\migrations\0002_testcaseresult_casestatusaudit_modulerunhistory_and_more.py       5      5     0%   3-14
+metrics\migrations\0003_p5_jenkins_execution_loop.py                                      5      5     0%   3-14
+metrics\migrations\__init__.py                                                            0      0   100%
+metrics\models.py                                                                       246     16    93%   21, 39, 74, 95, 120, 178, 182-183, 215, 235, 261, 310, 342-346
+metrics\serializers.py                                                                  131    131     0%   1-299
+metrics\views.py                                                                        483    483     0%   1-976
+-------------------------------------------------------------------------------------------------------------------
+TOTAL                                                                                  1621   1191    27%
+Coverage HTML written to dir tests/evidence/htmlcov
+=========================== short test summary info ===========================
+FAILED tests/test_metrics_jenkins_service.py::test_trigger_build_uses_internal_api_url_but_returns_public_queue_url
+FAILED tests/test_metrics_jenkins_service.py::test_fetch_task_result_returns_public_artifact_urls
+2 failed in 2.04s

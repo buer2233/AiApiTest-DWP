@@ -2,15 +2,19 @@
 import { computed, onMounted, reactive, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { fetchModuleSnapshots, fetchTestEnvironments } from '@/api/metrics'
+import { toApiError } from '@/api/client'
+import { createFailedCaseRetry, createModuleRerun, fetchModuleSnapshots, fetchTestEnvironments } from '@/api/metrics'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CaseDetailsDialog from '@/components/metrics/CaseDetailsDialog.vue'
+import JenkinsTasksDialog from '@/components/metrics/JenkinsTasksDialog.vue'
 import ModuleTrendDialog from '@/components/metrics/ModuleTrendDialog.vue'
 import RateBadge from '@/components/metrics/RateBadge.vue'
 import ReadOnlyActionButtons from '@/components/metrics/ReadOnlyActionButtons.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { PaginationMeta } from '@/types/api'
-import type { CaseStatusUpdateResult, ModuleSnapshot, TestEnvironment } from '@/types/metrics'
+import type { CaseStatusUpdateResult, JenkinsTask, ModuleSnapshot, ModuleSnapshotActionKey, TestEnvironment } from '@/types/metrics'
+
+type ExecutionAction = 'failed_rerun' | 'module_rerun'
 
 const route = useRoute()
 const router = useRouter()
@@ -26,6 +30,12 @@ const selectedSnapshot = shallowRef<ModuleSnapshot | null>(null)
 const caseDialogOpen = shallowRef(false)
 const trendDialogOpen = shallowRef(false)
 const trendDays = shallowRef<7 | 30>(7)
+const jenkinsTasksDialogOpen = shallowRef(false)
+const confirmDialogOpen = shallowRef(false)
+const pendingExecutionAction = shallowRef<ExecutionAction | null>(null)
+const submittingExecutionAction = shallowRef<ExecutionAction | null>(null)
+const operationMessage = shallowRef('')
+const operationError = shallowRef('')
 
 const filters = reactive({
   environment_id: '',
@@ -44,6 +54,30 @@ const selectedEnvironmentName = computed(() => {
 })
 
 const isAdmin = computed(() => authStore.isAdmin)
+
+const confirmTitle = computed(() => {
+  if (pendingExecutionAction.value === 'module_rerun') {
+    return '确认模块重试'
+  }
+  return '确认失败重试'
+})
+
+const confirmDescription = computed(() => {
+  if (!selectedSnapshot.value) {
+    return ''
+  }
+  if (pendingExecutionAction.value === 'module_rerun') {
+    return `将通过 Jenkins 执行 ${selectedSnapshot.value.module_name} 的全部用例，完成后会更新日期和执行时间。`
+  }
+  return `将通过 Jenkins 重试 ${selectedSnapshot.value.module_name} 当前全部失败用例，本次执行不会更新日期和执行时间。`
+})
+
+const confirmButtonLabel = computed(() => {
+  if (pendingExecutionAction.value === 'module_rerun') {
+    return submittingExecutionAction.value === 'module_rerun' ? '提交中' : '确认模块重试'
+  }
+  return submittingExecutionAction.value === 'failed_rerun' ? '提交中' : '确认失败重试'
+})
 
 function getQueryValue(value: unknown): string {
   if (Array.isArray(value)) {
@@ -144,6 +178,52 @@ async function loadModules() {
   }
 }
 
+function actionLoadingFor(row: ModuleSnapshot): Partial<Record<ModuleSnapshotActionKey, boolean>> {
+  return {
+    failed_rerun: submittingExecutionAction.value === 'failed_rerun' && selectedSnapshot.value?.id === row.id,
+    module_rerun: submittingExecutionAction.value === 'module_rerun' && selectedSnapshot.value?.id === row.id,
+  }
+}
+
+function openExecutionConfirm(snapshot: ModuleSnapshot, action: ExecutionAction) {
+  selectedSnapshot.value = snapshot
+  pendingExecutionAction.value = action
+  operationMessage.value = ''
+  operationError.value = ''
+  confirmDialogOpen.value = true
+}
+
+function closeExecutionConfirm() {
+  if (submittingExecutionAction.value) {
+    return
+  }
+  confirmDialogOpen.value = false
+  pendingExecutionAction.value = null
+}
+
+async function confirmExecutionAction() {
+  if (!selectedSnapshot.value || !pendingExecutionAction.value || submittingExecutionAction.value) {
+    return
+  }
+  submittingExecutionAction.value = pendingExecutionAction.value
+  operationMessage.value = ''
+  operationError.value = ''
+  try {
+    const task =
+      pendingExecutionAction.value === 'failed_rerun'
+        ? await createFailedCaseRetry(selectedSnapshot.value.id, { retry_scope: 'all_failed' })
+        : await createModuleRerun(selectedSnapshot.value.id)
+    operationMessage.value = `Jenkins 任务已创建：${task.job_name}`
+    confirmDialogOpen.value = false
+    pendingExecutionAction.value = null
+    await loadModules()
+  } catch (error) {
+    operationError.value = toApiError(error).message
+  } finally {
+    submittingExecutionAction.value = null
+  }
+}
+
 async function applyFilters() {
   await router.replace({ path: '/modules', query: buildQuery(1) })
 }
@@ -180,7 +260,24 @@ function openTrend(snapshot: ModuleSnapshot, days: 7 | 30) {
   trendDialogOpen.value = true
 }
 
+function openJenkinsTasks(snapshot: ModuleSnapshot) {
+  selectedSnapshot.value = snapshot
+  operationMessage.value = ''
+  operationError.value = ''
+  jenkinsTasksDialogOpen.value = true
+}
+
 function handleCaseStatusUpdated(_result: CaseStatusUpdateResult) {
+  void loadModules()
+}
+
+function handleRetryCreated(task: JenkinsTask) {
+  operationMessage.value = `Jenkins 任务已创建：${task.job_name}`
+  operationError.value = ''
+  void loadModules()
+}
+
+function handleTaskUpdated(_task: JenkinsTask) {
   void loadModules()
 }
 
@@ -237,6 +334,8 @@ onMounted(loadEnvironments)
       </form>
 
       <p v-if="errorMessage" class="status-line" role="alert">{{ errorMessage }}</p>
+      <p v-if="operationMessage" class="status-line status-line--success">{{ operationMessage }}</p>
+      <p v-if="operationError && !confirmDialogOpen" class="status-line" role="alert">{{ operationError }}</p>
 
       <div class="table-frame">
         <el-table v-loading="loading" :data="modules" border>
@@ -271,7 +370,15 @@ onMounted(loadEnvironments)
           <el-table-column prop="skipped_count" label="跳过" min-width="90" />
           <el-table-column label="后置能力" min-width="280">
             <template #default="{ row }">
-              <ReadOnlyActionButtons :actions="row.actions" @trend="openTrend(row, $event)" />
+              <ReadOnlyActionButtons
+                :actions="row.actions"
+                :disabled-reasons="row.disabled_reasons"
+                :loading-actions="actionLoadingFor(row)"
+                @failed-rerun="openExecutionConfirm(row, 'failed_rerun')"
+                @module-rerun="openExecutionConfirm(row, 'module_rerun')"
+                @jenkins-tasks="openJenkinsTasks(row)"
+                @trend="openTrend(row, $event)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -323,7 +430,15 @@ onMounted(loadEnvironments)
               <dd>跳过 {{ item.skipped_count }}</dd>
             </div>
           </dl>
-          <ReadOnlyActionButtons :actions="item.actions" @trend="openTrend(item, $event)" />
+          <ReadOnlyActionButtons
+            :actions="item.actions"
+            :disabled-reasons="item.disabled_reasons"
+            :loading-actions="actionLoadingFor(item)"
+            @failed-rerun="openExecutionConfirm(item, 'failed_rerun')"
+            @module-rerun="openExecutionConfirm(item, 'module_rerun')"
+            @jenkins-tasks="openJenkinsTasks(item)"
+            @trend="openTrend(item, $event)"
+          />
         </article>
       </div>
 
@@ -352,6 +467,7 @@ onMounted(loadEnvironments)
       :environment-name="selectedEnvironmentName"
       :is-admin="isAdmin"
       @status-updated="handleCaseStatusUpdated"
+      @retry-created="handleRetryCreated"
     />
     <ModuleTrendDialog
       v-model="trendDialogOpen"
@@ -359,6 +475,37 @@ onMounted(loadEnvironments)
       :environment-name="selectedEnvironmentName"
       :days="trendDays"
     />
+    <JenkinsTasksDialog
+      v-model="jenkinsTasksDialogOpen"
+      :snapshot="selectedSnapshot"
+      :environment-name="selectedEnvironmentName"
+      @task-updated="handleTaskUpdated"
+    />
+
+    <el-dialog
+      v-if="confirmDialogOpen && selectedSnapshot"
+      :model-value="confirmDialogOpen"
+      :title="confirmTitle"
+      width="min(520px, calc(100vw - 32px))"
+      destroy-on-close
+      @close="closeExecutionConfirm"
+      @update:model-value="confirmDialogOpen = $event"
+    >
+      <section class="execution-confirm" aria-label="Jenkins 执行确认">
+        <p>{{ confirmDescription }}</p>
+        <p v-if="operationError" class="status-line" role="alert">{{ operationError }}</p>
+      </section>
+      <template #footer>
+        <div class="execution-confirm__footer">
+          <button class="secondary-button" type="button" :disabled="submittingExecutionAction !== null" @click="closeExecutionConfirm">
+            取消
+          </button>
+          <button class="primary-button" type="button" :disabled="submittingExecutionAction !== null" @click="confirmExecutionAction">
+            {{ confirmButtonLabel }}
+          </button>
+        </div>
+      </template>
+    </el-dialog>
   </AppLayout>
 </template>
 
@@ -484,6 +631,21 @@ p {
 .status-line {
   color: var(--color-error);
   font-weight: 700;
+}
+
+.status-line--success {
+  color: var(--color-success);
+}
+
+.execution-confirm {
+  display: grid;
+  gap: 12px;
+}
+
+.execution-confirm__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .empty-state {

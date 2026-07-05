@@ -1,0 +1,11 @@
+
+Running 6 tests using 4 workers
+
+  ok 1 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:249:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发模块重试后调用 module_reruns，并刷新完整执行时间 (4.0s)
+  ok 4 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:232:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发失败重试时提交 all_failed，成功后刷新但保留执行时间 (4.1s)
+  ok 3 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:262:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在用例详情中勾选失败用例重试，且一键失败重试使用 all_failed 范围 (4.2s)
+  ok 2 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:284:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗展示任务、取消运行中任务，并通过新页打开报告和 Jenkins (4.5s)
+  ok 6 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:327:3 › Stage6 P5 Jenkins 执行闭环前端 RED › 锁冲突使用固定文案提示，member 只读可看任务但不能触发重试且移动端无横向溢出 (2.2s)
+  ok 5 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:311:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗打开时会轮询运行中任务，关闭后停止刷新 (12.6s)
+
+  6 passed (21.6s)

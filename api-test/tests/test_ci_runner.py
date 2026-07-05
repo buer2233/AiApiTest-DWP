@@ -191,6 +191,50 @@ def test_write_summary_creates_required_summary_json(tmp_path):
     assert json.loads((run_dir / "summary.json").read_text(encoding="utf-8")) == expected
 
 
+def test_parse_pytest_summary_counts_from_console_output():
+    console_output = """
+    ============================= test session starts =============================
+    =============== 1 failed, 2 passed, 1 skipped, 1 error in 12.34s ===============
+    """
+
+    assert ci_runner.parse_pytest_summary_counts(console_output) == {
+        "total_count": 5,
+        "failed_count": 2,
+        "passed_count": 2,
+        "skipped_count": 1,
+        "duration_seconds": 12.34,
+    }
+
+
+def test_run_ci_tests_writes_count_fields_into_summary(tmp_path, monkeypatch):
+    request = ci_runner.RunRequest(
+        api_test_root=tmp_path,
+        run_dir=tmp_path / "runtime" / "ci-runs" / "run-counts",
+        retry_mode="module",
+        case_path="test_case/test_gbif_case",
+        clean=True,
+    )
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout="================ 1 failed, 2 passed, 1 skipped in 12.34s ================\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
+
+    summary = ci_runner.run_ci_tests(request, python_executable="python")
+
+    assert summary["total_count"] == 4
+    assert summary["failed_count"] == 1
+    assert summary["passed_count"] == 2
+    assert summary["skipped_count"] == 1
+    assert summary["duration_seconds"] == 12.34
+
+
 def test_run_ci_tests_executes_pytest_and_writes_artifacts(tmp_path, monkeypatch):
     nodeid = "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword"
     write_lastfailed(tmp_path, {nodeid: True})

@@ -1,0 +1,15 @@
+
+=================================== ERRORS ====================================
+___________ ERROR collecting tests/test_metrics_jenkins_service.py ____________
+ImportError while importing test module 'D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\back-end\tests\test_metrics_jenkins_service.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+D:\Python3.12\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests\test_metrics_jenkins_service.py:6: in <module>
+    from metrics.jenkins_service import discover_jenkins_builds, fetch_jenkins_task_result, trigger_jenkins_build
+E   ImportError: cannot import name 'discover_jenkins_builds' from 'metrics.jenkins_service' (D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\back-end\metrics\jenkins_service.py)
+=========================== short test summary info ===========================
+ERROR tests/test_metrics_jenkins_service.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.60s

@@ -13,7 +13,14 @@ from accounts.views import (
 from metrics.views import (
     CaseResultStatusUpdateView,
     EnvironmentSummaryView,
+    FailedCaseRetryCreateView,
+    JenkinsTaskBulkSyncView,
+    JenkinsTaskCancelView,
+    JenkinsTaskListView,
+    JenkinsTaskSyncView,
+    ModuleRerunCreateView,
     ModuleSnapshotCasesView,
+    ModuleSnapshotJenkinsTasksView,
     ModuleSnapshotListView,
     ModuleSnapshotTrendView,
     TestEnvironmentListView,
@@ -47,9 +54,36 @@ urlpatterns = [
         name="module-snapshot-cases",
     ),
     path(
+        "api/v1/module-snapshots/<int:snapshot_id>/failed-case-retries",
+        FailedCaseRetryCreateView.as_view(),
+        name="module-snapshot-failed-case-retries",
+    ),
+    path(
+        "api/v1/module-snapshots/<int:snapshot_id>/module-reruns",
+        ModuleRerunCreateView.as_view(),
+        name="module-snapshot-module-reruns",
+    ),
+    path(
+        "api/v1/module-snapshots/<int:snapshot_id>/jenkins-tasks",
+        ModuleSnapshotJenkinsTasksView.as_view(),
+        name="module-snapshot-jenkins-tasks",
+    ),
+    path(
         "api/v1/case-results/<int:case_result_id>/status",
         CaseResultStatusUpdateView.as_view(),
         name="case-result-status",
+    ),
+    path("api/v1/jenkins-tasks", JenkinsTaskListView.as_view(), name="jenkins-task-list"),
+    path("api/v1/jenkins-tasks/sync", JenkinsTaskBulkSyncView.as_view(), name="jenkins-task-bulk-sync"),
+    path(
+        "api/v1/jenkins-tasks/<int:task_id>/cancel",
+        JenkinsTaskCancelView.as_view(),
+        name="jenkins-task-cancel",
+    ),
+    path(
+        "api/v1/jenkins-tasks/<int:task_id>/sync",
+        JenkinsTaskSyncView.as_view(),
+        name="jenkins-task-sync",
     ),
     path(
         "api/v1/module-snapshots/<int:snapshot_id>/trend",
