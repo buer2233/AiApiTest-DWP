@@ -16,7 +16,13 @@ def buildParameterDefinitions(Map config) {
     def includeNodeIds = config.containsKey('includeNodeIds') ? config.includeNodeIds : true
     def includeModuleName = config.get('includeModuleName', false)
     def casePathDefaultEnv = config.get('casePathDefaultEnv', null)
-    def casePathDefault = casePathDefaultEnv ? (env[casePathDefaultEnv] ?: '') : ''
+    def casePathDefault = ''
+    if (casePathDefaultEnv == 'JENKINS_MODULE_CASE_PATH') {
+        // Jenkins sandbox 不允许动态下标访问环境变量，业务 Job 默认路径只显式读取白名单变量。
+        casePathDefault = env.JENKINS_MODULE_CASE_PATH ?: ''
+    } else if (casePathDefaultEnv == 'JENKINS_DEFAULT_CASE_PATH') {
+        casePathDefault = env.JENKINS_DEFAULT_CASE_PATH ?: ''
+    }
     if (!casePathDefault) {
         casePathDefault = casePathDefaultEnv ? '' : (env.JENKINS_DEFAULT_CASE_PATH ?: 'test_case/test_gbif_case')
     }

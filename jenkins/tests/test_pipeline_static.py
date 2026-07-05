@@ -159,6 +159,18 @@ def test_pipeline_can_skip_checkout_for_local_mounted_repository_jobs():
     assert "checkout scm" in pipeline
 
 
+def test_pipeline_uses_sandbox_safe_environment_default_access():
+    """Jenkins sandbox 不允许 env[...] 动态下标，参数默认值必须显式读取环境变量。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    parameter_block = pipeline[
+        pipeline.index("def buildParameterDefinitions") : pipeline.index("// Jenkins job 参数必须")
+    ]
+
+    assert "env[" not in parameter_block
+    assert "env.JENKINS_MODULE_CASE_PATH" in parameter_block
+    assert "env.JENKINS_DEFAULT_CASE_PATH" in parameter_block
+
+
 def test_pipeline_uses_python_virtual_environment_for_dependencies():
     """Pipeline 应使用 api-test 目录下的 Python 虚拟环境安装依赖。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
