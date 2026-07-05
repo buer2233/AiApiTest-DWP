@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Gauge, Home, LogOut, Ticket, UsersRound } from '@lucide/vue'
+import { BarChart3, Gauge, LogOut, Ticket, UsersRound } from '@lucide/vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
@@ -18,12 +18,11 @@ async function logout() {
 <template>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="sidebar-brand" href="/dashboard">
+      <a class="sidebar-brand" href="/environments">
         <span>A</span>
         <strong>AiApiTest-DWP</strong>
       </a>
       <nav aria-label="平台导航">
-        <RouterLink class="nav-link" to="/dashboard"><Home :size="18" />概览</RouterLink>
         <RouterLink class="nav-link" to="/environments"><Gauge :size="18" />环境通过率</RouterLink>
         <RouterLink class="nav-link" to="/modules"><BarChart3 :size="18" />模块通过率</RouterLink>
         <RouterLink v-if="isAdmin" class="nav-link" to="/users"><UsersRound :size="18" />用户与权限</RouterLink>

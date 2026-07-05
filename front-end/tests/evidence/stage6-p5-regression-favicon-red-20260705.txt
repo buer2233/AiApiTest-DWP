@@ -1,0 +1,33 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90m<repo>/front-end[39m
+
+ [31m❯[39m tests/static-assets.test.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 10[2mms[22m[39m
+[31m   [31m×[31m static browser assets[2m > [22mdeclares an existing favicon to avoid browser favicon 404 noise[39m[32m 8[2mms[22m[39m
+[31m     → expected undefined to be '/favicon.svg' // Object.is equality[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/static-assets.test.ts > static browser assets > declares an existing favicon to avoid browser favicon 404 noise
+AssertionError: expected undefined to be '/favicon.svg' // Object.is equality
+
+- Expected:
+"/favicon.svg"
+
++ Received:
+undefined
+
+ ❯ tests/static-assets.test.ts:13:28
+     11|     const hrefMatch = indexHtml.match(/<link\s+rel="icon"\s+type="imag…
+     12|
+     13|     expect(hrefMatch?.[1]).toBe('/favicon.svg')
+       |                            ^
+     14|     expect(existsSync(resolve(frontendRoot, 'public/favicon.svg'))).to…
+     15|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 21:58:27
+[2m   Duration [22m 2.18s[2m (transform 50ms, setup 0ms, collect 45ms, tests 10ms, environment 1.45s, prepare 199ms)[22m

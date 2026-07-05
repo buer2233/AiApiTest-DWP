@@ -1,0 +1,9 @@
+Operations to perform:
+  Target specific migration: 0003_p5_jenkins_execution_loop, from metrics
+Running migrations:
+  Rendering model states... DONE
+  Unapplying metrics.0004_hash_case_result_current_node_key... OK
+Operations to perform:
+  Apply all migrations: accounts, auth, contenttypes, metrics
+Running migrations:
+  Applying metrics.0004_hash_case_result_current_node_key... OK

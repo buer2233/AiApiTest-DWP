@@ -216,6 +216,53 @@ def test_module_snapshots_filter_by_module_fields_and_pass_rate(
     assert response.data["meta"]["total"] == expected_total
 
 
+def test_module_snapshots_accept_comma_separated_sort_fields(admin_client, environment, modules):
+    older = timezone.datetime(2026, 7, 4, 9, 0, tzinfo=timezone.get_current_timezone())
+    newer = timezone.datetime(2026, 7, 4, 10, 0, tzinfo=timezone.get_current_timezone())
+    third_module = MetricModule.objects.create(
+        package_name="test_gbif_case_module3",
+        case_path="test_case/test_gbif_case_module3",
+        module_name="示例模块3",
+        module_dev="李四",
+        module_test="赵六",
+    )
+    low_old = ModuleSnapshot.objects.create(
+        environment=environment,
+        module=modules[0],
+        completed_at=older,
+        total_count=100,
+        failed_count=10,
+        passed_count=90,
+        pass_rate=Decimal("0.900000"),
+    )
+    low_new = ModuleSnapshot.objects.create(
+        environment=environment,
+        module=modules[1],
+        completed_at=newer,
+        total_count=100,
+        failed_count=10,
+        passed_count=90,
+        pass_rate=Decimal("0.900000"),
+    )
+    high = ModuleSnapshot.objects.create(
+        environment=environment,
+        module=third_module,
+        completed_at=newer,
+        total_count=100,
+        failed_count=4,
+        passed_count=96,
+        pass_rate=Decimal("0.960000"),
+    )
+
+    response = admin_client.get(
+        "/api/v1/module-snapshots",
+        {"environment_id": environment.id, "sort": "pass_rate,-completed_at"},
+    )
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.data["data"]] == [low_new.id, low_old.id, high.id]
+
+
 @pytest.mark.parametrize(
     "params",
     [

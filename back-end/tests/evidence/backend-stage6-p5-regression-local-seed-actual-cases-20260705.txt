@@ -1,0 +1,9 @@
+## python manage.py migrate
+Operations to perform:
+  Apply all migrations: accounts, auth, contenttypes, metrics
+Running migrations:
+  No migrations to apply.
+## python manage.py sync_modules
+sync_modules success=2 failed=0
+## python manage.py seed_demo_metrics
+seed_demo_metrics dev-only success case_results=26 module_run_history=60

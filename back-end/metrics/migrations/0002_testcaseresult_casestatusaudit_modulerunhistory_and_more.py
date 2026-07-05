@@ -16,8 +16,8 @@ class Migration(migrations.Migration):
             name='TestCaseResult',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('node_id', models.CharField(db_index=True, max_length=1024)),
-                ('current_node_key', models.CharField(blank=True, editable=False, max_length=1024, null=True)),
+                ('node_id', models.CharField(max_length=1024)),
+                ('current_node_key', models.CharField(blank=True, editable=False, max_length=64, null=True)),
                 ('case_name', models.CharField(db_index=True, max_length=256)),
                 ('case_summary', models.CharField(blank=True, max_length=512)),
                 ('assertion_text', models.TextField(blank=True)),

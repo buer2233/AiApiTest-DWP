@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import hashlib
+import importlib
+
 import pytest
 from django.db import IntegrityError, transaction
+from django.db import migrations
 
 from tests.p3_metrics_helpers import create_case_result, create_p3_metric_context
 from tests.p3_metrics_helpers import metric_model
@@ -132,7 +136,7 @@ def test_case_details_requires_login(api_client, p3_context):
 
 def test_current_case_result_is_unique_by_environment_module_and_node_id(p3_context):
     existing = create_case_result(p3_context, display_status="failed", node_suffix="unique_case")
-    assert existing.current_node_key == existing.node_id
+    assert existing.current_node_key == hashlib.sha256(existing.node_id.encode("utf-8")).hexdigest()
 
     with pytest.raises(IntegrityError):
         with transaction.atomic():
@@ -155,3 +159,81 @@ def test_current_case_result_unique_constraint_is_mysql_compatible():
     current_unique = constraints["uniq_current_case_result_env_module_node"]
     assert tuple(current_unique.fields) == ("environment", "module", "current_node_key")
     assert current_unique.condition is None
+    assert TestCaseResult._meta.get_field("current_node_key").max_length == 64
+    assert TestCaseResult._meta.get_field("node_id").db_index is False
+
+
+def test_case_result_key_followup_migration_rehashes_existing_rows_before_alter():
+    migration_module = importlib.import_module("metrics.migrations.0004_hash_case_result_current_node_key")
+    operation_types = [type(operation) for operation in migration_module.Migration.operations]
+
+    assert operation_types[:4] == [migrations.RunPython, migrations.RunPython, migrations.AlterField, migrations.AlterField]
+    assert migration_module.Migration.operations[0].code is migration_module.hash_existing_current_node_keys
+    assert migration_module.Migration.operations[1].code is migration_module.apply_legacy_mysql_schema_changes
+
+
+def test_case_result_key_followup_migration_repairs_legacy_mysql_schema():
+    migration_module = importlib.import_module("metrics.migrations.0004_hash_case_result_current_node_key")
+
+    class FakeCursor:
+        def __init__(self):
+            self.queries: list[tuple[str, list[str] | None]] = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def execute(self, sql, params=None):
+            self.queries.append((sql, params))
+
+        def fetchone(self):
+            return [1024]
+
+    class FakeIntrospection:
+        def get_constraints(self, cursor, table_name):
+            return {
+                "test_case_result_node_id_legacy_idx": {
+                    "columns": ["node_id"],
+                    "index": True,
+                    "unique": False,
+                    "primary_key": False,
+                    "foreign_key": None,
+                },
+                "uniq_current_case_result_env_module_node": {
+                    "columns": ["environment_id", "module_id", "current_node_key"],
+                    "index": True,
+                    "unique": True,
+                    "primary_key": False,
+                    "foreign_key": None,
+                },
+            }
+
+    class FakeConnection:
+        vendor = "mysql"
+        introspection = FakeIntrospection()
+
+        def __init__(self):
+            self.cursor_obj = FakeCursor()
+
+        def cursor(self):
+            return self.cursor_obj
+
+    class FakeSchemaEditor:
+        def __init__(self):
+            self.connection = FakeConnection()
+            self.executed_sql: list[str] = []
+
+        def quote_name(self, name):
+            return f"`{name}`"
+
+        def execute(self, sql):
+            self.executed_sql.append(sql)
+
+    schema_editor = FakeSchemaEditor()
+
+    migration_module.apply_legacy_mysql_schema_changes(None, schema_editor)
+
+    assert any("MODIFY `current_node_key` varchar(64) NULL" in sql for sql in schema_editor.executed_sql)
+    assert any("DROP INDEX `test_case_result_node_id_legacy_idx`" in sql for sql in schema_editor.executed_sql)

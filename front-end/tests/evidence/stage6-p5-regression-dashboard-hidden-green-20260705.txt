@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ok 1 [chromium] › e2e\p1-auth.spec.ts:259:3 › P1 用户权限底座 › 管理人员登录成功后进入受保护布局 (1.3s)
+
+  1 passed (4.7s)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 from django.db import models
 
 from accounts.models import UserAccount
@@ -139,8 +141,8 @@ class TestCaseResult(models.Model):
     module = models.ForeignKey(TestModule, on_delete=models.CASCADE, db_index=True)
     module_snapshot = models.ForeignKey(ModuleSnapshot, on_delete=models.CASCADE, related_name="case_results", db_index=True)
     source_run = models.ForeignKey(TestRun, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
-    node_id = models.CharField(max_length=1024, db_index=True)
-    current_node_key = models.CharField(max_length=1024, null=True, blank=True, editable=False)
+    node_id = models.CharField(max_length=1024)
+    current_node_key = models.CharField(max_length=64, null=True, blank=True, editable=False)
     case_name = models.CharField(max_length=256, db_index=True)
     case_summary = models.CharField(max_length=512, blank=True)
     assertion_text = models.TextField(blank=True)
@@ -178,8 +180,8 @@ class TestCaseResult(models.Model):
         return f"{self.module_id}:{self.case_name}:{self.display_status}"
 
     def save(self, *args, **kwargs):
-        # MySQL 不支持 partial unique index，用可空 current_node_key 达成“当前用例唯一、历史可重复”。
-        self.current_node_key = self.node_id if self.is_current else None
+        # MySQL 不支持 partial unique index；用定长哈希避免 utf8mb4 唯一索引超长。
+        self.current_node_key = hashlib.sha256(self.node_id.encode("utf-8")).hexdigest() if self.is_current else None
         super().save(*args, **kwargs)
 
 
