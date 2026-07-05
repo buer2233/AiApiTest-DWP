@@ -1,0 +1,77 @@
+
+Running 6 tests using 4 workers
+
+  ok 1 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:249:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发模块重试后调用 module_reruns，并刷新完整执行时间 (4.7s)
+  ok 2 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:262:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在用例详情中勾选失败用例重试，且一键失败重试使用 all_failed 范围 (4.8s)
+  ok 4 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:232:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发失败重试时提交 all_failed，成功后刷新但保留执行时间 (4.9s)
+  x  6 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:327:3 › Stage6 P5 Jenkins 执行闭环前端 RED › 锁冲突使用固定文案提示，member 只读可看任务但不能触发重试且移动端无横向溢出 (1.6s)
+  x  3 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:284:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗展示任务、取消运行中任务，并通过新页打开报告和 Jenkins (10.3s)
+  ok 5 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:311:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗打开时会轮询运行中任务，关闭后停止刷新 (12.5s)
+
+
+  1) [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:284:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗展示任务、取消运行中任务，并通过新页打开报告和 Jenkins 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /allure\.example\.test\/reports\/303/
+    Received string:  "chrome-error://chromewebdata/"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        13 × unexpected value "chrome-error://chromewebdata/"
+
+
+      299 |     await dialog.getByRole('link', { name: '查看报告' }).click()
+      300 |     const reportPopup = await reportPopupPromise
+    > 301 |     await expect(reportPopup).toHaveURL(/allure\.example\.test\/reports\/303/)
+          |                               ^
+      302 |     await reportPopup.close()
+      303 |
+      304 |     const jenkinsPopupPromise = page.waitForEvent('popup')
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage6-p5-jenkins-execution.spec.ts:301:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage6-p5-jenkins-executio-00418-、取消运行中任务，并通过新页打开报告和-Jenkins-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage6-p5-jenkins-executio-00418-、取消运行中任务，并通过新页打开报告和-Jenkins-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage6-p5-jenkins-executio-00418-、取消运行中任务，并通过新页打开报告和-Jenkins-chromium\error-context.md
+
+  2) [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:327:3 › Stage6 P5 Jenkins 执行闭环前端 RED › 锁冲突使用固定文案提示，member 只读可看任务但不能触发重试且移动端无横向溢出 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('已有用例重试，无法执行！')
+    Expected: visible
+    Error: strict mode violation: getByText('已有用例重试，无法执行！') resolved to 2 elements:
+        1) <p role="alert" data-v-8189e953="" class="status-line">已有用例重试，无法执行！</p> aka locator('section').filter({ hasText: '模块通过率模拟测试环境 的模块快照只读查询，筛选与分页状态会同步到地址栏。环境汇总测试环境模拟测试环境名称筛选包名筛选测试人筛选上限筛选查询重置已有用例重试，无' }).getByRole('alert')
+        2) <p role="alert" data-v-8189e953="" class="status-line">已有用例重试，无法执行！</p> aka getByLabel('确认失败重试').getByText('已有用例重试，无法执行！')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('已有用例重试，无法执行！')
+
+
+      330 |     await page.getByRole('button', { name: '失败重试' }).click()
+      331 |     await page.getByRole('dialog', { name: /确认失败重试/ }).getByRole('button', { name: '确认失败重试' }).click()
+    > 332 |     await expect(page.getByText('已有用例重试，无法执行！')).toBeVisible()
+          |                                                  ^
+      333 |
+      334 |     await page.setViewportSize({ width: 390, height: 844 })
+      335 |     await mockStage6P5Api(page, { role: 'member' })
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage6-p5-jenkins-execution.spec.ts:332:50
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage6-p5-jenkins-executio-abcfc-mber-只读可看任务但不能触发重试且移动端无横向溢出-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage6-p5-jenkins-executio-abcfc-mber-只读可看任务但不能触发重试且移动端无横向溢出-chromium\error-context.md
+
+  2 failed
+    [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:284:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗展示任务、取消运行中任务，并通过新页打开报告和 Jenkins 
+    [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:327:3 › Stage6 P5 Jenkins 执行闭环前端 RED › 锁冲突使用固定文案提示，member 只读可看任务但不能触发重试且移动端无横向溢出 
+  4 passed (21.9s)

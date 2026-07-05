@@ -1,0 +1,55 @@
+.........FF....                                                          [100%]
+================================== FAILURES ===================================
+____________ test_parse_pytest_summary_counts_from_console_output _____________
+
+    def test_parse_pytest_summary_counts_from_console_output():
+        console_output = """
+        ============================= test session starts =============================
+        =============== 1 failed, 2 passed, 1 skipped, 1 error in 12.34s ===============
+        """
+    
+        assert ci_runner.parse_pytest_summary_counts(console_output) == {
+            "total_count": 5,
+            "failed_count": 2,
+            "passed_count": 2,
+            "skipped_count": 1,
+            "duration_seconds": 12.34,
+>       }
+E       AttributeError: module 'tools.ci_runner' has no attribute 'parse_pytest_summary_counts'
+
+tests\test_ci_runner.py:206: AttributeError
+_____________ test_run_ci_tests_writes_count_fields_into_summary ______________
+
+tmp_path = WindowsPath('C:/Users/admin/AppData/Local/Temp/claude-agent-tmp/pytest-of-admin/pytest-127/test_run_ci_tests_writes_count0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002989538F500>
+
+    def test_run_ci_tests_writes_count_fields_into_summary(tmp_path, monkeypatch):
+        request = ci_runner.RunRequest(
+            api_test_root=tmp_path,
+            run_dir=tmp_path / "runtime" / "ci-runs" / "run-counts",
+            retry_mode="module",
+            case_path="test_case/test_gbif_case",
+            clean=True,
+        )
+    
+        def fake_run(command, **kwargs):
+            return subprocess.CompletedProcess(
+                command,
+                1,
+                stdout="================ 1 failed, 2 passed, 1 skipped in 12.34s ================\n",
+                stderr="",
+            )
+    
+        monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+        monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
+    
+        summary = ci_runner.run_ci_tests(request, python_executable="python")
+    
+>       assert summary["total_count"] == 4
+E       KeyError: 'total_count'
+
+tests\test_ci_runner.py:231: KeyError
+=========================== short test summary info ===========================
+FAILED tests/test_ci_runner.py::test_parse_pytest_summary_counts_from_console_output
+FAILED tests/test_ci_runner.py::test_run_ci_tests_writes_count_fields_into_summary
+2 failed, 13 passed in 0.67s

@@ -33,6 +33,11 @@ def buildParameterDefinitions(Map config) {
             name: 'CASE_PATH',
             defaultValue: casePathDefault,
             description: 'pytest module or case path relative to api-test'
+        ),
+        string(
+            name: 'RUN_ID',
+            defaultValue: '',
+            description: 'Platform run key used as runtime artifact directory; empty falls back to Jenkins build tag'
         )
     ]
 
@@ -101,7 +106,7 @@ def call(Map config = [:]) {
     def pythonVenvDir = env.JENKINS_PYTHON_VENV_DIR ?: '.venv'
     def unixPython = "${pythonVenvDir}/bin/python"
     def windowsPython = "${pythonVenvDir}\\Scripts\\python"
-    def runId = env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"
+    def runId = params.RUN_ID?.trim() ?: env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"
     def runDir = "${apiTestDir}/runtime/ci-runs/${runId}"
     def retryMode = config.get('mode', null) ?: params.RETRY_MODE
     def includeNodeIds = config.containsKey('includeNodeIds') ? config.includeNodeIds : true
@@ -155,29 +160,31 @@ def call(Map config = [:]) {
             )
         }
 
-        stage('Run API Tests') {
-            // 用例断言失败是测试结果，不是 Jenkins 基础设施失败；ci_runner 会把失败明细写入 summary 和 Allure。
-            runCommand(
-                "cd ${apiTestDir} && ${unixPython} -m tools.ci_runner --from-jenkins-env",
-                "cd ${apiTestDir} && ${windowsPython} -m tools.ci_runner --from-jenkins-env"
-            )
-        }
+        try {
+            stage('Run API Tests') {
+                // 用例断言失败是测试结果，不是 Jenkins 基础设施失败；ci_runner 会把失败明细写入 summary 和 Allure。
+                runCommand(
+                    "cd ${apiTestDir} && ${unixPython} -m tools.ci_runner --from-jenkins-env",
+                    "cd ${apiTestDir} && ${windowsPython} -m tools.ci_runner --from-jenkins-env"
+                )
+            }
 
-        stage('Generate Allure Report') {
-            // 读取 ci_runner 写出的 summary.json，显式校验 Allure HTML 是否生成成功。
-            runCommand(
-                "cd ${apiTestDir} && ${unixPython} - <<'PY'\nimport json\nimport sys\nfrom pathlib import Path\nsummary_path = Path('runtime/ci-runs') / '${runId}' / 'summary.json'\nsummary = json.loads(summary_path.read_text(encoding='utf-8'))\nprint(json.dumps(summary, ensure_ascii=False, indent=2))\nif summary.get('allure_report_status') != 'generated':\n    print('Allure HTML report was not generated: ' + summary.get('allure_report_message', ''), file=sys.stderr)\n    raise SystemExit(1)\nPY",
-                "cd ${apiTestDir} && ${windowsPython} -c \"import json, sys; from pathlib import Path; p=Path('runtime/ci-runs')/'${runId}'/'summary.json'; s=json.loads(p.read_text(encoding='utf-8')); print(json.dumps(s, ensure_ascii=False, indent=2)); status=s.get('allure_report_status'); msg=s.get('allure_report_message', ''); sys.exit(0 if status == 'generated' else (print('Allure HTML report was not generated: ' + msg, file=sys.stderr) or 1))\""
-            )
-        }
-
-        stage('Archive Runtime Artifacts') {
-            // 归档完整运行目录，便于后端或人工追踪 summary、Allure 原始结果和 HTML 报告。
-            archiveArtifacts(
-                artifacts: "${runDir}/**",
-                allowEmptyArchive: true,
-                fingerprint: true
-            )
+            stage('Generate Allure Report') {
+                // 读取 ci_runner 写出的 summary.json，显式校验 Allure HTML 是否生成成功。
+                runCommand(
+                    "cd ${apiTestDir} && ${unixPython} - <<'PY'\nimport json\nimport sys\nfrom pathlib import Path\nsummary_path = Path('runtime/ci-runs') / '${runId}' / 'summary.json'\nsummary = json.loads(summary_path.read_text(encoding='utf-8'))\nprint(json.dumps(summary, ensure_ascii=False, indent=2))\nif summary.get('allure_report_status') != 'generated':\n    print('Allure HTML report was not generated: ' + summary.get('allure_report_message', ''), file=sys.stderr)\n    raise SystemExit(1)\nPY",
+                    "cd ${apiTestDir} && ${windowsPython} -c \"import json, sys; from pathlib import Path; p=Path('runtime/ci-runs')/'${runId}'/'summary.json'; s=json.loads(p.read_text(encoding='utf-8')); print(json.dumps(s, ensure_ascii=False, indent=2)); status=s.get('allure_report_status'); msg=s.get('allure_report_message', ''); sys.exit(0 if status == 'generated' else (print('Allure HTML report was not generated: ' + msg, file=sys.stderr) or 1))\""
+                )
+            }
+        } finally {
+            stage('Archive Runtime Artifacts') {
+                // 归档完整运行目录，便于后端或人工追踪 summary、Allure 原始结果和 HTML 报告。
+                archiveArtifacts(
+                    artifacts: "${runDir}/**",
+                    allowEmptyArchive: true,
+                    fingerprint: true
+                )
+            }
         }
 
         stage('Publish Allure') {

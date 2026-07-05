@@ -4,9 +4,13 @@ import type {
   CaseStatusUpdatePayload,
   CaseStatusUpdateResult,
   EnvironmentSummary,
+  FailedCaseRetryPayload,
+  JenkinsTask,
+  JenkinsTaskFilters,
   ModuleTrend,
   ModuleSnapshotFilters,
   PaginatedCaseResults,
+  PaginatedJenkinsTasks,
   PaginatedModuleSnapshots,
   TestEnvironment,
 } from '@/types/metrics'
@@ -44,5 +48,31 @@ export async function updateCaseResultStatus(
 
 export async function fetchModuleSnapshotTrend(snapshotId: number, days: 7 | 30): Promise<ModuleTrend> {
   const response = await http.get<{ data: ModuleTrend }>(`/module-snapshots/${snapshotId}/trend`, { params: { days } })
+  return response.data.data
+}
+
+export async function createFailedCaseRetry(
+  snapshotId: number,
+  payload: FailedCaseRetryPayload,
+): Promise<JenkinsTask> {
+  const response = await http.post<{ data: JenkinsTask }>(`/module-snapshots/${snapshotId}/failed-case-retries`, payload)
+  return response.data.data
+}
+
+export async function createModuleRerun(snapshotId: number): Promise<JenkinsTask> {
+  const response = await http.post<{ data: JenkinsTask }>(`/module-snapshots/${snapshotId}/module-reruns`, {})
+  return response.data.data
+}
+
+export async function fetchModuleSnapshotJenkinsTasks(
+  snapshotId: number,
+  params: JenkinsTaskFilters = {},
+): Promise<PaginatedJenkinsTasks> {
+  const response = await http.get<PaginatedJenkinsTasks>(`/module-snapshots/${snapshotId}/jenkins-tasks`, { params })
+  return response.data
+}
+
+export async function cancelJenkinsTask(taskId: number): Promise<JenkinsTask> {
+  const response = await http.post<{ data: JenkinsTask }>(`/jenkins-tasks/${taskId}/cancel`, {})
   return response.data.data
 }

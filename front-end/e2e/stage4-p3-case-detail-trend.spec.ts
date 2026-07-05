@@ -140,7 +140,8 @@ async function mockStage4P3Api(page: Page, options: MockOptions = {}) {
 
   page.on('request', (request) => {
     const url = request.url()
-    if (/(jenkins|retry|rerun|report|reports|allure|tasks)/i.test(url)) {
+    const isSourceAsset = /\/src\//.test(url)
+    if (/(jenkins|retry|rerun|report|reports|allure|tasks)/i.test(url) && !isSourceAsset) {
       forbiddenSideEffects.push(`${request.method()} ${url}`)
     }
   })

@@ -85,8 +85,9 @@ async function mockStage3P2Api(page: Page, options: Stage3P2ApiOptions = {}) {
     const url = request.url()
     const method = request.method()
     const isApiWrite = /\/api\/v1\//.test(url) && method !== 'GET'
+    const isSourceAsset = /\/src\//.test(url)
     const isForbiddenWorkflow = /(jenkins|retry|rerun|report|reports|allure|tasks)/i.test(url)
-    if (isApiWrite || isForbiddenWorkflow) {
+    if (isApiWrite || (isForbiddenWorkflow && !isSourceAsset)) {
       sideEffectRequests.push(`${method} ${url}`)
     }
   })

@@ -1,0 +1,191 @@
+
+Running 6 tests using 4 workers
+
+  x  1 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:284:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗展示任务、取消运行中任务，并通过新页打开报告和 Jenkins (10.0s)
+  x  2 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:232:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发失败重试时提交 all_failed，成功后刷新但保留执行时间 (10.1s)
+  x  5 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:311:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗打开时会轮询运行中任务，关闭后停止刷新 (7.6s)
+  x  3 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:249:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发模块重试后调用 module_reruns，并刷新完整执行时间 (30.1s)
+  x  4 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:262:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在用例详情中勾选失败用例重试，且一键失败重试使用 all_failed 范围 (30.2s)
+  x  6 [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:327:3 › Stage6 P5 Jenkins 执行闭环前端 RED › 锁冲突使用固定文案提示，member 只读可看任务但不能触发重试且移动端无横向溢出 (30.1s)
+
+
+  1) [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:232:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发失败重试时提交 all_failed，成功后刷新但保留执行时间 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: /确认失败重试/ })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('dialog', { name: /确认失败重试/ })
+
+
+      239 |     await page.getByRole('button', { name: '失败重试' }).click()
+      240 |     const confirmDialog = page.getByRole('dialog', { name: /确认失败重试/ })
+    > 241 |     await expect(confirmDialog).toBeVisible()
+          |                                 ^
+      242 |     await confirmDialog.getByRole('button', { name: '确认失败重试' }).click()
+      243 |
+      244 |     await expect.poll(() => api.failedRetryPayloads).toEqual([{ retry_scope: 'all_failed' }])
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage6-p5-jenkins-execution.spec.ts:241:33
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage6-p5-jenkins-executio-2c2c7-时提交-all-failed，成功后刷新但保留执行时间-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage6-p5-jenkins-executio-2c2c7-时提交-all-failed，成功后刷新但保留执行时间-chromium\error-context.md
+
+  2) [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:249:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发模块重试后调用 module_reruns，并刷新完整执行时间 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('dialog', { name: /确认模块重试/ }).getByRole('button', { name: '确认模块重试' })
+
+
+      253 |     await page.getByRole('button', { name: '模块重试' }).click()
+      254 |     const confirmDialog = page.getByRole('dialog', { name: /确认模块重试/ })
+    > 255 |     await confirmDialog.getByRole('button', { name: '确认模块重试' }).click()
+          |                                                                 ^
+      256 |
+      257 |     await expect.poll(() => api.moduleRerunPayloads).toEqual([{}])
+      258 |     await expect(page.getByText('Jenkins 任务已创建：模块重试')).toBeVisible()
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage6-p5-jenkins-execution.spec.ts:255:65
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage6-p5-jenkins-executio-054ec-后调用-module-reruns，并刷新完整执行时间-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage6-p5-jenkins-executio-054ec-后调用-module-reruns，并刷新完整执行时间-chromium\error-context.md
+
+  3) [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:262:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在用例详情中勾选失败用例重试，且一键失败重试使用 all_failed 范围 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.check: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('dialog', { name: /用例详情/ }).getByRole('checkbox', { name: '选择 test_search_species' })
+        - locator resolved to <input disabled type="checkbox" data-v-3346d76c="" aria-label="选择 test_search_species"/>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      48 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+      268 |     await expect(dialog).toBeVisible()
+      269 |
+    > 270 |     await dialog.getByRole('checkbox', { name: '选择 test_search_species' }).check()
+          |                                                                            ^
+      271 |     await dialog.getByRole('button', { name: '重试选中用例' }).click()
+      272 |     await expect.poll(() => api.failedRetryPayloads.at(0)).toEqual({
+      273 |       retry_scope: 'selected_failed',
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage6-p5-jenkins-execution.spec.ts:270:76
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage6-p5-jenkins-executio-13a98-例重试，且一键失败重试使用-all-failed-范围-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage6-p5-jenkins-executio-13a98-例重试，且一键失败重试使用-all-failed-范围-chromium\error-context.md
+
+  4) [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:284:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗展示任务、取消运行中任务，并通过新页打开报告和 Jenkins 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: /物种查询模块.*Jenkins 任务/ })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('dialog', { name: /物种查询模块.*Jenkins 任务/ })
+
+
+      288 |     await page.getByRole('button', { name: 'Jenkins 任务' }).click()
+      289 |     const dialog = page.getByRole('dialog', { name: /物种查询模块.*Jenkins 任务/ })
+    > 290 |     await expect(dialog).toBeVisible()
+          |                          ^
+      291 |     await expect(dialog.getByRole('cell', { name: '运行中' })).toBeVisible()
+      292 |     await expect(dialog.getByRole('cell', { name: '测试失败' })).toBeVisible()
+      293 |
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage6-p5-jenkins-execution.spec.ts:290:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage6-p5-jenkins-executio-00418-、取消运行中任务，并通过新页打开报告和-Jenkins-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage6-p5-jenkins-executio-00418-、取消运行中任务，并通过新页打开报告和-Jenkins-chromium\error-context.md
+
+  5) [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:311:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗打开时会轮询运行中任务，关闭后停止刷新 
+
+    Error: expect(received).toBeGreaterThan(expected)
+
+    Expected: > 1
+    Received:   0
+
+    Call Log:
+    - Timeout 6500ms exceeded while waiting on the predicate
+
+      316 |     const dialog = page.getByRole('dialog', { name: /Jenkins 任务/ })
+      317 |
+    > 318 |     await expect.poll(() => api.taskListRequests.length, { timeout: 6500 }).toBeGreaterThan(1)
+          |                                                                             ^
+      319 |     await expect(dialog.getByRole('cell', { name: '成功' })).toBeVisible()
+      320 |
+      321 |     await dialog.getByRole('button', { name: '关闭' }).click()
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage6-p5-jenkins-execution.spec.ts:318:77
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage6-p5-jenkins-executio-03864-ins-任务弹窗打开时会轮询运行中任务，关闭后停止刷新-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage6-p5-jenkins-executio-03864-ins-任务弹窗打开时会轮询运行中任务，关闭后停止刷新-chromium\error-context.md
+
+  6) [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:327:3 › Stage6 P5 Jenkins 执行闭环前端 RED › 锁冲突使用固定文案提示，member 只读可看任务但不能触发重试且移动端无横向溢出 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('dialog', { name: /确认失败重试/ }).getByRole('button', { name: '确认失败重试' })
+
+
+      329 |     await page.goto('/modules?environment_id=1')
+      330 |     await page.getByRole('button', { name: '失败重试' }).click()
+    > 331 |     await page.getByRole('dialog', { name: /确认失败重试/ }).getByRole('button', { name: '确认失败重试' }).click()
+          |                                                                                                ^
+      332 |     await expect(page.getByText('已有用例重试，无法执行！')).toBeVisible()
+      333 |
+      334 |     await page.setViewportSize({ width: 390, height: 844 })
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\stage6-p5-jenkins-execution.spec.ts:331:96
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\stage6-p5-jenkins-executio-abcfc-mber-只读可看任务但不能触发重试且移动端无横向溢出-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\stage6-p5-jenkins-executio-abcfc-mber-只读可看任务但不能触发重试且移动端无横向溢出-chromium\error-context.md
+
+  6 failed
+    [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:232:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发失败重试时提交 all_failed，成功后刷新但保留执行时间 
+    [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:249:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在模块行触发模块重试后调用 module_reruns，并刷新完整执行时间 
+    [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:262:3 › Stage6 P5 Jenkins 执行闭环前端 RED › admin 在用例详情中勾选失败用例重试，且一键失败重试使用 all_failed 范围 
+    [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:284:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗展示任务、取消运行中任务，并通过新页打开报告和 Jenkins 
+    [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:311:3 › Stage6 P5 Jenkins 执行闭环前端 RED › Jenkins 任务弹窗打开时会轮询运行中任务，关闭后停止刷新 
+    [chromium] › e2e\stage6-p5-jenkins-execution.spec.ts:327:3 › Stage6 P5 Jenkins 执行闭环前端 RED › 锁冲突使用固定文案提示，member 只读可看任务但不能触发重试且移动端无横向溢出 

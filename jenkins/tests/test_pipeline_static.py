@@ -192,6 +192,33 @@ def test_pipeline_fails_when_allure_html_report_is_not_generated():
     assert "SystemExit(1)" in pipeline or "sys.exit" in pipeline
 
 
+def test_pipeline_archives_runtime_even_when_allure_validation_fails():
+    """Allure 校验失败时也要归档 runtime，后端才能读取 summary 诊断。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    run_stage_start = pipeline.index("stage('Run API Tests')")
+    generate_stage_start = pipeline.index("stage('Generate Allure Report')")
+    archive_stage_start = pipeline.index("stage('Archive Runtime Artifacts')")
+    publish_stage_start = pipeline.index("stage('Publish Allure')")
+    try_start = pipeline.rindex("try {", 0, run_stage_start)
+    guarded_block = pipeline[try_start:publish_stage_start]
+
+    assert run_stage_start < generate_stage_start < archive_stage_start < publish_stage_start
+    assert "try {" in guarded_block
+    assert "} finally {" in guarded_block
+    assert guarded_block.index("} finally {") < guarded_block.index("stage('Archive Runtime Artifacts')")
+    assert "archiveArtifacts" in guarded_block
+
+
+def test_pipeline_accepts_platform_run_id_for_artifact_lookup():
+    """平台触发 Jenkins 时必须能指定 RUN_ID，后端才能按同一目录同步 artifact。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+
+    assert "name: 'RUN_ID'" in pipeline
+    assert "params.RUN_ID" in pipeline
+    assert "env.BUILD_TAG" in pipeline
+    assert "RUN_ID=${runId}" in pipeline
+
+
 def test_business_pipeline_files_exist_and_jenkinsfiles_load_expected_scripts():
     """三类 Jenkins 任务必须有独立 Jenkinsfile，并加载各自业务脚本。"""
     for name, config in BUSINESS_PIPELINES.items():
