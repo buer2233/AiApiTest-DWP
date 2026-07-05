@@ -1,0 +1,12 @@
+// 每日全量模块执行 Jenkins Pipeline 入口。
+// Jenkins Job 使用本文件时，应为每个模块配置独立 Job 和 CASE_PATH。
+node {
+    if (env.LOCAL_WORKSPACE_REPO == 'true') {
+        echo "Using local mounted repository at ${pwd()}"
+    } else {
+        checkout scm
+    }
+
+    def pipelineScript = load 'jenkins/scripts/daily-full-module-pipeline.groovy'
+    pipelineScript.call()
+}

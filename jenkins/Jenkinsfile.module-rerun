@@ -1,0 +1,12 @@
+// 模块重试 Jenkins Pipeline 入口。
+// 后续平台点击模块重试时触发本 Job，按 CASE_PATH 执行当前模块全部用例。
+node {
+    if (env.LOCAL_WORKSPACE_REPO == 'true') {
+        echo "Using local mounted repository at ${pwd()}"
+    } else {
+        checkout scm
+    }
+
+    def pipelineScript = load 'jenkins/scripts/module-rerun-pipeline.groovy'
+    pipelineScript.call()
+}

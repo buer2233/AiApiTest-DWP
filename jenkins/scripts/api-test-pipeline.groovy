@@ -11,42 +11,85 @@ def runCommand(String unixCommand, String windowsCommand) {
     }
 }
 
-def call() {
+def buildParameterDefinitions(Map config) {
+    def fixedRetryMode = config.get('mode', null)
+    def includeNodeIds = config.containsKey('includeNodeIds') ? config.includeNodeIds : true
+    def includeModuleName = config.get('includeModuleName', false)
+    def casePathDefaultEnv = config.get('casePathDefaultEnv', null)
+    def casePathDefault = casePathDefaultEnv ? (env[casePathDefaultEnv] ?: '') : ''
+    if (!casePathDefault) {
+        casePathDefault = casePathDefaultEnv ? '' : (env.JENKINS_DEFAULT_CASE_PATH ?: 'test_case/test_gbif_case')
+    }
+
     // Jenkins job 参数必须和 api-test/tools/ci_runner.py 的 --from-jenkins-env 契约保持一致。
-    properties([
-        parameters([
+    def definitions = [
+        string(
+            name: 'CASE_PATH',
+            defaultValue: casePathDefault,
+            description: 'pytest module or case path relative to api-test'
+        )
+    ]
+
+    if (includeModuleName) {
+        definitions.add(
             string(
-                name: 'CASE_PATH',
-                defaultValue: env.JENKINS_DEFAULT_CASE_PATH ?: 'test_case/test_gbif_case',
-                description: 'pytest module or case path relative to api-test'
-            ),
+                name: 'MODULE_NAME',
+                defaultValue: '',
+                description: 'Display module name; does not change pytest selection'
+            )
+        )
+    }
+
+    if (includeNodeIds) {
+        definitions.add(
             text(
                 name: 'PYTEST_NODE_IDS',
                 defaultValue: '',
                 description: 'pytest node ids separated by newlines or commas'
-            ),
+            )
+        )
+    }
+
+    if (fixedRetryMode == null) {
+        definitions.add(
             choice(
                 name: 'RETRY_MODE',
                 choices: ['none', 'selected', 'all-failed', 'module'].join('\n'),
                 description: 'Retry mode passed to api-test/tools/ci_runner.py'
-            ),
-            string(
-                name: 'RETRY_COUNT',
-                defaultValue: '0',
-                description: 'pytest-rerunfailures retry count'
-            ),
-            booleanParam(
-                name: 'CLEAN_ALLURE',
-                defaultValue: true,
-                description: 'Clean Allure results before pytest run'
-            ),
-            booleanParam(
-                name: 'OPEN_REPORT',
-                defaultValue: false,
-                description: 'Open Allure report after generation; keep false in CI'
             )
-        ])
+        )
+    }
+
+    definitions.addAll([
+        string(
+            name: 'RETRY_COUNT',
+            defaultValue: '0',
+            description: 'pytest-rerunfailures retry count'
+        ),
+        booleanParam(
+            name: 'CLEAN_ALLURE',
+            defaultValue: true,
+            description: 'Clean Allure results before pytest run'
+        ),
+        booleanParam(
+            name: 'OPEN_REPORT',
+            defaultValue: false,
+            description: 'Open Allure report after generation; keep false in CI'
+        )
     ])
+
+    return definitions
+}
+
+def call(Map config = [:]) {
+    def jobProperties = [
+        parameters(buildParameterDefinitions(config))
+    ]
+    def jobTriggers = config.get('jobTriggers', [])
+    if (jobTriggers) {
+        jobProperties.add(pipelineTriggers(jobTriggers))
+    }
+    properties(jobProperties)
 
     def apiTestDir = env.JENKINS_API_TEST_DIR ?: 'api-test'
     def pythonVenvDir = env.JENKINS_PYTHON_VENV_DIR ?: '.venv'
@@ -54,16 +97,31 @@ def call() {
     def windowsPython = "${pythonVenvDir}\\Scripts\\python"
     def runId = env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"
     def runDir = "${apiTestDir}/runtime/ci-runs/${runId}"
+    def retryMode = config.get('mode', null) ?: params.RETRY_MODE
+    def includeNodeIds = config.containsKey('includeNodeIds') ? config.includeNodeIds : true
+    def pytestNodeIds = includeNodeIds ? (params.PYTEST_NODE_IDS ?: '') : ''
+    def emptyNodeIdsMessage = config.get('emptyNodeIdsMessage', 'PYTEST_NODE_IDS is required for failed rerun')
+    def emptyCasePathMessage = config.get('emptyCasePathMessage', 'CASE_PATH is required for this Jenkins job')
+
+    if (config.get('requireNodeIds', false) && !pytestNodeIds.trim()) {
+        // 失败重试必须显式传入平台选中的失败用例，避免误跑整个模块。
+        error(emptyNodeIdsMessage)
+    }
+    if (config.get('requireCasePath', false) && !params.CASE_PATH?.trim()) {
+        // 每日全量和模块重试必须显式绑定模块路径，避免 cron 跑到示例默认模块。
+        error(emptyCasePathMessage)
+    }
 
     // 通过环境变量向 ci_runner 传递参数，避免 Groovy 复制 pytest 和失败重试规则。
     withEnv([
         "CASE_PATH=${params.CASE_PATH}",
-        "PYTEST_NODE_IDS=${params.PYTEST_NODE_IDS ?: ''}",
-        "RETRY_MODE=${params.RETRY_MODE}",
+        "PYTEST_NODE_IDS=${pytestNodeIds}",
+        "RETRY_MODE=${retryMode}",
         "RETRY_COUNT=${params.RETRY_COUNT}",
         "CLEAN_ALLURE=${params.CLEAN_ALLURE}",
         "OPEN_REPORT=${params.OPEN_REPORT}",
         "RUN_ID=${runId}",
+        "MODULE_NAME=${params.MODULE_NAME ?: ''}",
         'CI_RUNNER_ENV=jenkins'
     ]) {
         stage('Checkout') {
