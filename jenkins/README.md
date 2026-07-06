@@ -7,7 +7,7 @@ Stage 5 P4 已在通用 Pipeline 基础上拆出三条业务流水线：每日�
 ## 目标职责
 
 - 提供通用 Jenkinsfile、三条业务 Jenkinsfile 和可复用 Groovy 脚本。
-- 暴露 Jenkins 参数：模块路径、模块展示名、node id、重试次数、清理开关和报告开关。
+- 暴露 Jenkins 参数：模块路径、模块展示名、node id、重试次数、清理开关和报告兼容开关。
 - 调用 `api-test/tools/ci_runner.py` 执行 pytest 和失败重试。
 - 归档 `api-test/runtime/ci-runs/<run_id>/` 下的运行产物。
 - 发布或归档 Allure 报告。
@@ -53,7 +53,7 @@ jenkins/
 | `MODULE_NAME` | Jenkins 展示用模块名，不影响 pytest 选择 |
 | `RETRY_COUNT` | pytest-rerunfailures 重试次数 |
 | `CLEAN_ALLURE` | 是否清理 Allure 结果 |
-| `OPEN_REPORT` | 是否打开报告，CI 中默认 false |
+| `OPEN_REPORT` | 兼容参数；Jenkins 非交互环境强制按 false 执行，避免启动 Allure Web server 卡住构建 |
 
 ### 失败重试
 
@@ -63,7 +63,7 @@ jenkins/
 | `PYTEST_NODE_IDS` | 必填，多个 pytest node id 支持换行或英文逗号分隔 |
 | `RETRY_COUNT` | pytest-rerunfailures 重试次数 |
 | `CLEAN_ALLURE` | 是否清理 Allure 结果 |
-| `OPEN_REPORT` | 是否打开报告，CI 中默认 false |
+| `OPEN_REPORT` | 兼容参数；Jenkins 非交互环境强制按 false 执行，避免启动 Allure Web server 卡住构建 |
 
 `PYTEST_NODE_IDS` 为空时构建会明确失败，避免误跑整个模块。
 
@@ -75,7 +75,7 @@ jenkins/
 | `MODULE_NAME` | Jenkins 展示用模块名，不影响 pytest 选择 |
 | `RETRY_COUNT` | pytest-rerunfailures 重试次数 |
 | `CLEAN_ALLURE` | 是否清理 Allure 结果 |
-| `OPEN_REPORT` | 是否打开报告，CI 中默认 false |
+| `OPEN_REPORT` | 兼容参数；Jenkins 非交互环境强制按 false 执行，避免启动 Allure Web server 卡住构建 |
 
 ## 通用 Pipeline 兼容入口
 
@@ -93,6 +93,8 @@ Archive Runtime Artifacts
 Publish Allure
 ```
 
+`Run API Tests` 阶段由 Jenkins `timeout(time: 60, unit: 'MINUTES')` 包裹，避免 pytest、Allure 或外部依赖异常挂起时长期占用执行器。`ci_runner` 内部也对 pytest 子进程设置 45 分钟超时，对 Allure HTML 生成设置 10 分钟超时，给 summary、failed node ids 和 console 诊断留出落盘缓冲；pytest 或 Allure 超时会写入 `summary.json` 和 `console.log`，便于平台同步诊断。
+
 ## 运行产物
 
 每次构建都会把 `api-test/runtime/ci-runs/<run_id>/` 作为归档根目录。该目录至少应包含：
@@ -104,6 +106,8 @@ Publish Allure
 - `allure-report/`
 
 如果 Jenkins 安装了 Allure 插件，流水线会发布 `allure-results`。如果插件不存在，构建不会因为缺少插件中断，用户仍可通过归档产物查看报告。若 `summary.json` 标记 Allure HTML 未生成，构建会明确失败。
+
+Jenkins 构建中不要使用 `allure open`。即使手工构建时勾选 `OPEN_REPORT`，共享 Pipeline 也会强制传入 `OPEN_REPORT=false`，报告查看统一通过 Jenkins Allure 插件入口或归档的 `allure-report/index.html`。
 
 ## 人工验收步骤
 

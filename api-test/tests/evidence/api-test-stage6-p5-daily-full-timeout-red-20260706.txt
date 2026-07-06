@@ -1,0 +1,28 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_______ test_run_ci_tests_writes_failure_summary_when_pytest_times_out ________
+
+Failure reason:
+- fake pytest subprocess raised subprocess.TimeoutExpired.
+- run_ci_tests did not catch it.
+- summary.json, console.log and failed_nodeids.json were not written by the old implementation.
+
+E       subprocess.TimeoutExpired: Command '['python', '-m', 'pytest', 'test_case/test_gbif_case', '--alluredir=<TMP>/runtime/ci-runs/run-timeout/allure-results', '--clean-alluredir']' timed out after None seconds
+
+tests/test_ci_runner.py:270: TimeoutExpired
+__ test_run_ci_tests_records_failed_allure_report_when_generation_times_out ___
+
+Failure reason:
+- fake Allure generate subprocess raised subprocess.TimeoutExpired.
+- _generate_allure_report did not catch it.
+- run_ci_tests bubbled the exception instead of writing an Allure failure diagnostic.
+
+E       subprocess.TimeoutExpired: Command '['allure', 'generate', '<TMP>/runtime/ci-runs/run-allure-timeout/allure-results', '-o', '<TMP>/runtime/ci-runs/run-allure-timeout/allure-report', '--clean']' timed out after None seconds
+
+tests/test_ci_runner.py:308: TimeoutExpired
+=========================== short test summary info ===========================
+FAILED tests/test_ci_runner.py::test_run_ci_tests_writes_failure_summary_when_pytest_times_out
+FAILED tests/test_ci_runner.py::test_run_ci_tests_records_failed_allure_report_when_generation_times_out
+2 failed in 0.42s
+
+Note: pytest temporary filesystem paths were redacted from this evidence file.
