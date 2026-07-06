@@ -1,0 +1,36 @@
+
+Running 1 test using 1 worker
+
+  x  1 [chromium] › e2e\p1-auth.spec.ts:313:3 › P1 用户权限底座 › 未登录用户进入平台根路径时登录目标指向环境管理页 (6.8s)
+
+
+  1) [chromium] › e2e\p1-auth.spec.ts:313:3 › P1 用户权限底座 › 未登录用户进入平台根路径时登录目标指向环境管理页 ─────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/login\?redirect=.*(?:%2Fenvironments|\/environments)/
+    Received string:  "http://127.0.0.1:4173/login?redirect=/dashboard"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        13 × unexpected value "http://127.0.0.1:4173/login?redirect=/dashboard"
+
+
+      316 |     await page.goto('/')
+      317 |
+    > 318 |     await expect(page).toHaveURL(/\/login\?redirect=.*(?:%2Fenvironments|\/environments)/)
+          |                        ^
+      319 |     await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+      320 |   })
+      321 |
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\p1-auth.spec.ts:318:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\p1-auth-P1-用户权限底座-未登录用户进入平台根路径时登录目标指向环境管理页-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\p1-auth-P1-用户权限底座-未登录用户进入平台根路径时登录目标指向环境管理页-chromium\error-context.md
+
+  1 failed
+    [chromium] › e2e\p1-auth.spec.ts:313:3 › P1 用户权限底座 › 未登录用户进入平台根路径时登录目标指向环境管理页 ──────────────────

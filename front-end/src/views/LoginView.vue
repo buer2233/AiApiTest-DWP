@@ -12,7 +12,9 @@ const route = useRoute()
 const router = useRouter()
 
 const loginError = shallowRef('')
-const redirectTarget = computed(() => (typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'))
+// 默认进入当前平台主入口；显式 redirect 仍优先用于受保护 URL 的登录回跳。
+const defaultAuthenticatedRoute = '/environments'
+const redirectTarget = computed(() => (typeof route.query.redirect === 'string' ? route.query.redirect : defaultAuthenticatedRoute))
 
 async function login(payload: { username: string; password: string }) {
   loginError.value = ''

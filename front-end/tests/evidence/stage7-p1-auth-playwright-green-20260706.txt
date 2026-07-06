@@ -1,0 +1,26 @@
+
+Running 21 tests using 4 workers
+
+  ok  2 [chromium] › e2e\p1-auth.spec.ts:304:3 › P1 用户权限底座 › 已登录用户进入平台根路径时默认进入环境管理页 (2.0s)
+  ok  4 [chromium] › e2e\p1-auth.spec.ts:253:3 › P1 用户权限底座 › 未登录用户直达受保护 URL 会回到纯登录页且不展示复合原型其他区域 (1.8s)
+  ok  3 [chromium] › e2e\p1-auth.spec.ts:287:3 › P1 用户权限底座 › 管理人员登录成功后默认进入环境管理页 (2.2s)
+  ok  1 [chromium] › e2e\p1-auth.spec.ts:268:3 › P1 用户权限底座 › 登录页点击邀请码注册链接后进入独立注册页 (2.5s)
+  ok  5 [chromium] › e2e\p1-auth.spec.ts:313:3 › P1 用户权限底座 › 未登录用户进入平台根路径时登录目标指向环境管理页 (1.4s)
+  ok  6 [chromium] › e2e\p1-auth.spec.ts:322:3 › P1 用户权限底座 › 带受保护 URL 的登录重定向仍优先回到原目标 (1.7s)
+  ok  8 [chromium] › e2e\p1-auth.spec.ts:350:3 › P1 用户权限底座 › 登录密码错误时展示统一账户错误 (2.3s)
+  ok  7 [chromium] › e2e\p1-auth.spec.ts:336:3 › P1 用户权限底座 › 退出登录后返回登录页并阻止继续访问受保护 URL (2.6s)
+  ok  9 [chromium] › e2e\p1-auth.spec.ts:362:3 › P1 用户权限底座 › 登录短密码错误时仍展示统一账户错误 (3.2s)
+  ok 10 [chromium] › e2e\p1-auth.spec.ts:374:3 › P1 用户权限底座 › 邀请码注册成功后不自动登录并引导返回登录 (3.0s)
+  ok 11 [chromium] › e2e\p1-auth.spec.ts:394:3 › P1 用户权限底座 › 邀请码注册弱密码时展示缺失项提示 (2.3s)
+  ok 12 [chromium] › e2e\p1-auth.spec.ts:408:3 › P1 用户权限底座 › 邀请码注册中文账号时优先提示账号格式且不提交接口 (2.2s)
+  ok 13 [chromium] › e2e\p1-auth.spec.ts:422:3 › P1 用户权限底座 › 邀请码注册使用已使用邀请码时展示明确状态 (2.0s)
+  ok 14 [chromium] › e2e\p1-auth.spec.ts:435:3 › P1 用户权限底座 › 邀请码注册密码不一致时优先提示不一致且不提交接口 (2.0s)
+  ok 16 [chromium] › e2e\p1-auth.spec.ts:466:3 › P1 用户权限底座 › 普通成员直达用户管理页会看到 403 权限反馈 (2.0s)
+  ok 15 [chromium] › e2e\p1-auth.spec.ts:450:3 › P1 用户权限底座 › 邀请码注册修改输入后清除上一轮服务端错误 (2.3s)
+  ok 17 [chromium] › e2e\p1-auth.spec.ts:476:3 › P1 用户权限底座 › 管理人员可以查看用户列表且列表不泄露敏感字段 (2.0s)
+  ok 18 [chromium] › e2e\p1-auth.spec.ts:490:3 › P1 用户权限底座 › 管理人员可以按角色筛选用户并翻页 (2.3s)
+  ok 20 [chromium] › e2e\p1-auth.spec.ts:533:3 › P1 用户权限底座 › 管理人员可以作废未使用邀请码 (2.7s)
+  ok 19 [chromium] › e2e\p1-auth.spec.ts:504:3 › P1 用户权限底座 › 管理人员可以查看并生成邀请码，列表不展示历史明文且可复制本次明文 (3.0s)
+  ok 21 [chromium] › e2e\p1-auth.spec.ts:545:3 › P1 用户权限底座 › 管理人员可以按状态和角色筛选邀请码并翻页 (2.0s)
+
+  21 passed (16.5s)

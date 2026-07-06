@@ -1,0 +1,36 @@
+
+Running 1 test using 1 worker
+
+  x  1 [chromium] › e2e\p1-auth.spec.ts:287:3 › P1 用户权限底座 › 管理人员登录成功后默认进入环境管理页 (6.4s)
+
+
+  1) [chromium] › e2e\p1-auth.spec.ts:287:3 › P1 用户权限底座 › 管理人员登录成功后默认进入环境管理页 ───────────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/environments/
+    Received string:  "http://127.0.0.1:4173/dashboard"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × unexpected value "http://127.0.0.1:4173/dashboard"
+
+
+      293 |     await page.getByRole('button', { name: '进入平台' }).click()
+      294 |
+    > 295 |     await expect(page).toHaveURL(/\/environments/)
+          |                        ^
+      296 |     await expect(page.getByRole('heading', { name: '环境通过率' })).toBeVisible()
+      297 |     await expect(page.locator('#environment-select')).toHaveValue('1')
+      298 |     await expect(page.getByText('平台管理员', { exact: true })).toBeVisible()
+        at D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\front-end\e2e\p1-auth.spec.ts:295:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\p1-auth-P1-用户权限底座-管理人员登录成功后默认进入环境管理页-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\p1-auth-P1-用户权限底座-管理人员登录成功后默认进入环境管理页-chromium\error-context.md
+
+  1 failed
+    [chromium] › e2e\p1-auth.spec.ts:287:3 › P1 用户权限底座 › 管理人员登录成功后默认进入环境管理页 ────────────────────────

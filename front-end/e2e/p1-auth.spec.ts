@@ -18,6 +18,26 @@ const memberUser = {
   permissions: ['profile:read'],
 }
 
+const testEnvironment = {
+  id: 1,
+  env_key: 'stage7-default',
+  env_name: '默认测试环境',
+  base_url: 'https://example.test/api',
+}
+
+const environmentSummary = {
+  environment: testEnvironment,
+  started_at: '2026-07-06T09:00:00+08:00',
+  finished_at: '2026-07-06T09:08:00+08:00',
+  duration_seconds: 480,
+  total_count: 120,
+  failed_count: 6,
+  passed_count: 112,
+  skipped_count: 2,
+  pass_rate: 0.9333,
+  actions: { generate_report: true },
+}
+
 async function mockApi(page: Page, options: { user?: typeof adminUser | typeof memberUser | null } = {}) {
   let currentUser = options.user ?? null
   let invitationStatus: 'unused' | 'revoked' = 'unused'
@@ -54,6 +74,14 @@ async function mockApi(page: Page, options: { user?: typeof adminUser | typeof m
   await page.route('**/api/v1/auth/logout', async (route) => {
     currentUser = null
     await route.fulfill({ status: 204, headers: { 'set-cookie': 'authToken=; Max-Age=0; Path=/' } })
+  })
+
+  await page.route(/\/api\/v1\/test-environments(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ status: 200, json: { data: [testEnvironment] } })
+  })
+
+  await page.route(/\/api\/v1\/test-environments\/\d+\/summary(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ status: 200, json: { data: environmentSummary } })
   })
 
   await page.route('**/api/v1/auth/register', async (route) => {
@@ -256,7 +284,7 @@ test.describe('P1 用户权限底座', () => {
     await page.screenshot({ path: 'tests/evidence/screenshots/p1-register-route.png', fullPage: true })
   })
 
-  test('管理人员登录成功后进入受保护布局', async ({ page }) => {
+  test('管理人员登录成功后默认进入环境管理页', async ({ page }) => {
     await mockApi(page)
     await page.goto('/login')
 
@@ -264,12 +292,45 @@ test.describe('P1 用户权限底座', () => {
     await page.getByLabel('密码', { exact: true }).fill('TestPass123')
     await page.getByRole('button', { name: '进入平台' }).click()
 
-    await expect(page).toHaveURL(/\/dashboard/)
-    await expect(page.getByRole('heading', { name: '平台访问已解锁' })).toBeVisible()
+    await expect(page).toHaveURL(/\/environments/)
+    await expect(page.getByRole('heading', { name: '环境通过率' })).toBeVisible()
+    await expect(page.locator('#environment-select')).toHaveValue('1')
     await expect(page.getByText('平台管理员', { exact: true })).toBeVisible()
     await expect(page.getByRole('navigation', { name: '平台导航' }).getByRole('link', { name: /概览/ })).toHaveCount(0)
     await expect(page.getByRole('link', { name: /AiApiTest-DWP/ })).toHaveAttribute('href', '/environments')
-    await page.screenshot({ path: 'tests/evidence/screenshots/p1-dashboard-admin.png', fullPage: true })
+    await page.screenshot({ path: 'tests/evidence/screenshots/stage7-login-default-environments.png', fullPage: true })
+  })
+
+  test('已登录用户进入平台根路径时默认进入环境管理页', async ({ page }) => {
+    await mockApi(page, { user: adminUser })
+
+    await page.goto('/')
+
+    await expect(page).toHaveURL(/\/environments/)
+    await expect(page.getByRole('heading', { name: '环境通过率' })).toBeVisible()
+  })
+
+  test('未登录用户进入平台根路径时登录目标指向环境管理页', async ({ page }) => {
+    await mockApi(page)
+
+    await page.goto('/')
+
+    await expect(page).toHaveURL(/\/login\?redirect=.*(?:%2Fenvironments|\/environments)/)
+    await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+  })
+
+  test('带受保护 URL 的登录重定向仍优先回到原目标', async ({ page }) => {
+    await mockApi(page)
+
+    await page.goto('/dashboard')
+    await expect(page).toHaveURL(/\/login\?redirect=.*\/dashboard/)
+
+    await page.getByLabel('账号', { exact: true }).fill('admin_user')
+    await page.getByLabel('密码', { exact: true }).fill('TestPass123')
+    await page.getByRole('button', { name: '进入平台' }).click()
+
+    await expect(page).toHaveURL(/\/dashboard/)
+    await expect(page.getByRole('heading', { name: '平台访问已解锁' })).toBeVisible()
   })
 
   test('退出登录后返回登录页并阻止继续访问受保护 URL', async ({ page }) => {
