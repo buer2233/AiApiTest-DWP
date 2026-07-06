@@ -76,8 +76,8 @@ jobConfigs.each { config ->
         }
 
         def envList = config.envVars.collect { "'${it}'" }.join(', ')
-        def pipelineScript = """node {
-    ws('${mountedWorkspace}') {
+def pipelineScript = """node {
+    dir('${mountedWorkspace}') {
         withEnv([${envList}]) {
             def pipelineScript = load '${config.scriptPath}'
             pipelineScript.call()

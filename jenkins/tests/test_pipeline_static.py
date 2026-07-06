@@ -316,7 +316,9 @@ def test_local_mounted_job_config_script_uses_workspace_without_git_checkout():
     assert "AiApiTest-DWP-Module-Rerun" in script
     assert "test_case/test_gbif_case_module2" in script
     assert "CpsFlowDefinition" in script
-    assert script.index("ws('${mountedWorkspace}')") < script.index("load '${config.scriptPath}'")
+    assert "dir('${mountedWorkspace}')" in script
+    assert "ws('${mountedWorkspace}')" not in script
+    assert script.index("dir('${mountedWorkspace}')") < script.index("load '${config.scriptPath}'")
     assert "git branch:" not in script
     assert "github.com" not in script
 
@@ -416,11 +418,52 @@ def test_business_pipelines_reuse_cross_platform_artifact_and_allure_contract():
         "JENKINS_API_TEST_DIR",
         "JENKINS_PYTHON_VENV_DIR",
         "archiveArtifacts",
-        "allure",
+        "stage('Publish Allure')",
+        "allure([",
         "Allure HTML report was not generated",
         "error(emptyNodeIdsMessage)",
     ]:
         assert required in combined
+
+
+def test_failed_and_module_rerun_pipelines_reuse_shared_allure_publish_contract():
+    """失败重试和模块重试必须逐条复用共享 Allure 插件发布链路。"""
+    shared = read_pipeline_files()["api-test-pipeline.groovy"]
+
+    for name in ["failed-rerun", "module-rerun"]:
+        script = read_required_text(JENKINS_ROOT / "scripts" / BUSINESS_PIPELINES[name]["script"])
+
+        assert "load 'jenkins/scripts/api-test-pipeline.groovy'" in script
+        assert "sharedPipeline.call([" in script
+        assert f"mode: '{BUSINESS_PIPELINES[name]['retry_mode']}'" in script
+
+    for required in [
+        "stage('Archive Runtime Artifacts')",
+        "archiveArtifacts",
+        "stage('Publish Allure')",
+        "allure([",
+        "commandline: 'Allure Commandline'",
+        "resultPolicy: 'LEAVE_AS_IS'",
+        "CI_RUN_RETENTION_DAYS",
+        "buildDiscarder(logRotator(",
+    ]:
+        assert required in shared
+
+
+def test_allure_commandline_toolchain_name_matches_publish_stage():
+    """工具链镜像注册的 Allure 工具名必须和 Pipeline 发布阶段一致。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    dockerfile = read_required_text(REPO_ROOT / "docker" / "jenkins" / "Dockerfile")
+    init_script = read_required_text(
+        JENKINS_ROOT / "scripts" / "configure-allure-commandline.groovy"
+    )
+
+    assert "jenkins-plugin-cli --plugins allure-jenkins-plugin" in dockerfile
+    assert "COPY jenkins/scripts/configure-allure-commandline.groovy" in dockerfile
+    assert 'ENV ALLURE_COMMANDLINE_HOME="/opt/allure-${ALLURE_COMMANDLINE_VERSION}"' in dockerfile
+    assert "def toolName = 'Allure Commandline'" in init_script
+    assert "ALLURE_COMMANDLINE_HOME" in init_script
+    assert "commandline: 'Allure Commandline'" in pipeline
 
 
 def test_publish_allure_stage_falls_back_when_plugin_is_misconfigured():
