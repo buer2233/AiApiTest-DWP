@@ -13,7 +13,8 @@ class TestGbifAPI:
     公开的可用于接口测试的网站：https://api.gbif.org
     """
     # Module Name: 物种数据1
-    # Auth Name: 张三
+    # module_dev: 张三
+    # module_test: 王五
 
     def setup_class(self):
         self.gbif_api = GbifAPI()
