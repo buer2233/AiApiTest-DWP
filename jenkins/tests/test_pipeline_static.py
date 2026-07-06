@@ -192,6 +192,29 @@ def test_pipeline_uses_python_virtual_environment_for_dependencies():
     assert "\\\\Scripts\\\\python" in pipeline
 
 
+def test_pipeline_installs_only_missing_api_test_requirements():
+    """Pipeline 应通过脚本只安装缺失依赖，避免每次全量 pip install。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    install_stage_start = pipeline.index("stage('Install API Test Requirements')")
+    run_stage_start = pipeline.index("stage('Run API Tests')")
+    install_stage = pipeline[install_stage_start:run_stage_start]
+
+    unix_install_command = (
+        "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && "
+        "${unixPython} -m tools.install_missing_requirements requirements.txt"
+    )
+    windows_install_command = (
+        "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && "
+        "${windowsPython} -m tools.install_missing_requirements requirements.txt"
+    )
+
+    assert unix_install_command in install_stage
+    assert windows_install_command in install_stage
+    assert install_stage.count("-m tools.install_missing_requirements requirements.txt") == 2
+    assert "-m pip install" not in install_stage
+    assert "pip install -r" not in install_stage
+
+
 def test_pipeline_fails_when_allure_html_report_is_not_generated():
     """Allure HTML 没有生成时 Pipeline 必须显式失败，不能只归档空结果。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]

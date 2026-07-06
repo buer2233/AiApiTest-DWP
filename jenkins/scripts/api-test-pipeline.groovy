@@ -157,10 +157,10 @@ def call(Map config = [:]) {
         }
 
         stage('Install API Test Requirements') {
-            // 每次构建在 api-test 目录创建隔离虚拟环境，避免污染 Jenkins agent 全局 Python。
+            // 复用 api-test 目录下的虚拟环境；脚本只安装缺失或版本不一致的依赖，避免每次全量安装。
             runCommand(
-                "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && ${unixPython} -m pip install -r requirements.txt",
-                "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && ${windowsPython} -m pip install -r requirements.txt"
+                "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && ${unixPython} -m tools.install_missing_requirements requirements.txt",
+                "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && ${windowsPython} -m tools.install_missing_requirements requirements.txt"
             )
         }
 
