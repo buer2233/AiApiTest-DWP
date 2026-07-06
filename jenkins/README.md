@@ -111,14 +111,27 @@ Jenkins 构建中不要使用 `allure open`。即使手工构建时勾选 `OPEN_
 
 ## 人工验收步骤
 
-1. 创建每日全量模块 Job，Pipeline script path 使用 `jenkins/Jenkinsfile.daily-full-module`。
-2. 在该 Job 环境变量中设置 `JENKINS_MODULE_CASE_PATH=<当前模块 pytest 路径>`，先手工 Build 一次，确认参数和 `0 2 * * *` 定时触发生效。
-3. 检查 console log、artifact 和 Allure 报告入口。
-4. 创建失败重试 Job，Pipeline script path 使用 `jenkins/Jenkinsfile.failed-rerun`。
-5. 空提交 `PYTEST_NODE_IDS`，确认构建明确失败。
-6. 传入一条或多条 node id，确认只运行目标用例并生成完整产物。
-7. 创建模块重试 Job，Pipeline script path 使用 `jenkins/Jenkinsfile.module-rerun`。
-8. 设置 `CASE_PATH` 后手工 Build，确认运行当前模块全部用例并生成完整产物。
+本地 Docker Compose Jenkins 已将 `PROJECT_WORKSPACE` 指向的仓库挂载到 `AIAPITEST_LOCAL_WORKSPACE`，默认容器内路径为 `/workspace/AiApiTest-DWP`。`PROJECT_WORKSPACE` 必须是当前正在开发和验收的仓库根目录；如果它指向旧工作区，Jenkins 会加载旧代码，即使当前仓库已经提交和推送也不会生效。
+
+### 本地 Compose Jenkins
+
+本地验收不要使用远端 Git checkout 作为 Job 的第一步。应运行 `jenkins/scripts/configure-local-mounted-jobs.groovy` 配置本地挂载 Job，或在 Job 内联脚本中直接 `ws('/workspace/AiApiTest-DWP')` 后加载业务脚本。
+
+`configure-local-mounted-jobs.groovy` 只有在显式 `LOCAL_WORKSPACE_REPO=true` 时才会执行；脚本会创建本地 Job，或修复早期“先 GitHub checkout、再设置 LOCAL_WORKSPACE_REPO”的旧本地 Job。已有非本地 Job 默认不会被覆盖，如确需强制替换，可在 Jenkins 环境中显式设置 `AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS=true` 后再执行脚本。
+
+### 远端 Jenkins
+
+远端 Jenkins 可以继续使用 SCM / Pipeline script path 加载 `jenkins/Jenkinsfile.*`，但远端网络、凭据和仓库地址必须由 Jenkins 自身配置维护，不写入本仓库。远端环境不要执行本地挂载 Job 配置脚本，除非同时配置了可用的 `AIAPITEST_LOCAL_WORKSPACE`。
+
+1. 本地 Compose 环境优先运行 `jenkins/scripts/configure-local-mounted-jobs.groovy`，生成或修正每日全量、失败重试、模块重试三条本地 Job。
+2. 如需手工创建本地内联 Pipeline，必须直接使用 `/workspace/AiApiTest-DWP`，不得先访问远端 Git。
+3. 在该 Job 环境变量中设置 `JENKINS_MODULE_CASE_PATH=<当前模块 pytest 路径>`，先手工 Build 一次，确认参数和 `0 2 * * *` 定时触发生效。
+4. 检查 console log、artifact 和 Allure 报告入口。
+5. 创建失败重试 Job，Pipeline script path 使用 `jenkins/Jenkinsfile.failed-rerun`。
+6. 空提交 `PYTEST_NODE_IDS`，确认构建明确失败。
+7. 传入一条或多条 node id，确认只运行目标用例并生成完整产物。
+8. 创建模块重试 Job，Pipeline script path 使用 `jenkins/Jenkinsfile.module-rerun`。
+9. 设置 `CASE_PATH` 后手工 Build，确认运行当前模块全部用例并生成完整产物。
 
 ## 安全原则
 
