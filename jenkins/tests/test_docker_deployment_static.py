@@ -46,6 +46,8 @@ def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
         "JENKINS_DEFAULT_CASE_PATH: ${JENKINS_DEFAULT_CASE_PATH:-test_case/test_gbif_case}",
         "JENKINS_API_TEST_DIR: ${JENKINS_API_TEST_DIR:-api-test}",
         "JENKINS_PYTHON_VENV_DIR: ${JENKINS_PYTHON_VENV_DIR:-.venv}",
+        "LOCAL_WORKSPACE_REPO: ${LOCAL_WORKSPACE_REPO:-true}",
+        "AIAPITEST_LOCAL_WORKSPACE: ${AIAPITEST_LOCAL_WORKSPACE:-/workspace/AiApiTest-DWP}",
     ]:
         assert variable in content
 
@@ -64,6 +66,8 @@ def test_env_example_documents_required_values_without_real_secrets():
         "JENKINS_HTTP_PORT=8080",
         "JENKINS_AGENT_PORT=50001",
         "JENKINS_PUBLIC_BASE_URL=http://localhost:8080",
+        "LOCAL_WORKSPACE_REPO=true",
+        "AIAPITEST_LOCAL_WORKSPACE=/workspace/AiApiTest-DWP",
         "PROJECT_WORKSPACE=.",
         "BACKEND_SERVICE_URL=http://127.0.0.1:8000",
         "BACKEND_API_BASE_URL=http://127.0.0.1:8000/api/v1",

@@ -151,6 +151,15 @@ def test_jenkinsfile_loads_pipeline_script_inside_node_context():
     assert jenkinsfile.index("node") < jenkinsfile.index("load 'jenkins/scripts/api-test-pipeline.groovy'")
 
 
+def test_jenkinsfile_can_skip_checkout_for_local_workspace():
+    """通用 Jenkinsfile 在本地挂载仓库模式下也不能无条件 checkout scm。"""
+    jenkinsfile = read_pipeline_files()["Jenkinsfile"]
+
+    assert "LOCAL_WORKSPACE_REPO" in jenkinsfile
+    assert "checkout scm" in jenkinsfile
+    assert jenkinsfile.index("LOCAL_WORKSPACE_REPO") < jenkinsfile.index("checkout scm")
+
+
 def test_pipeline_can_skip_checkout_for_local_mounted_repository_jobs():
     """本地挂载仓库的 Jenkins 容器应支持跳过 scm checkout。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
@@ -274,6 +283,28 @@ def test_business_jenkinsfiles_can_skip_initial_checkout_for_local_workspace():
         assert "LOCAL_WORKSPACE_REPO" in jenkinsfile
         assert "checkout scm" in jenkinsfile
         assert jenkinsfile.index("LOCAL_WORKSPACE_REPO") < jenkinsfile.index("checkout scm")
+
+
+def test_local_mounted_job_config_script_uses_workspace_without_git_checkout():
+    """本地 Compose Jenkins Job 应直接使用挂载仓库，不得先访问 GitHub checkout。"""
+    script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
+
+    assert "/workspace/AiApiTest-DWP" in script
+    assert "AIAPITEST_LOCAL_WORKSPACE" in script
+    assert "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS" in script
+    assert "?: 'false'" in script
+    assert "shouldReplaceExistingJob" in script
+    assert "managedMarker" in script
+    assert "skip existing non-local Jenkins Job" in script
+    assert "LOCAL_WORKSPACE_REPO=true" in script
+    assert "AiApiTest-DWP-Daily-Full-Module" in script
+    assert "AiApiTest-DWP-Failed-Rerun" in script
+    assert "AiApiTest-DWP-Module-Rerun" in script
+    assert "test_case/test_gbif_case_module2" in script
+    assert "CpsFlowDefinition" in script
+    assert script.index("ws('${mountedWorkspace}')") < script.index("load '${config.scriptPath}'")
+    assert "git branch:" not in script
+    assert "github.com" not in script
 
 
 def test_daily_full_module_pipeline_is_scheduled_and_fixed_to_none_mode():
