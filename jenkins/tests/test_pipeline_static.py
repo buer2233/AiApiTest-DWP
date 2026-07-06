@@ -239,6 +239,20 @@ def test_pipeline_forces_open_report_off_in_ci_environment():
     assert '"OPEN_REPORT=${params.OPEN_REPORT}"' not in env_block
 
 
+def test_pipeline_keeps_local_runtime_reports_for_30_days():
+    """Jenkins 和 api-test 本地 runtime 报告默认保留 30 天。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    env_start = pipeline.index("withEnv([")
+    env_end = pipeline.index("]) {", env_start)
+    env_block = pipeline[env_start:env_end]
+
+    assert "buildDiscarder(logRotator(" in pipeline
+    assert "def ciRunRetentionDays = env.CI_RUN_RETENTION_DAYS ?: '30'" in pipeline
+    assert "daysToKeepStr: ciRunRetentionDays" in pipeline
+    assert "artifactDaysToKeepStr: ciRunRetentionDays" in pipeline
+    assert '"CI_RUN_RETENTION_DAYS=${ciRunRetentionDays}"' in env_block
+
+
 def test_run_api_tests_stage_has_timeout_guard():
     """Run API Tests 必须有 Jenkins 级超时，避免 pytest 或 Allure 子进程无限挂起。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
@@ -407,3 +421,23 @@ def test_business_pipelines_reuse_cross_platform_artifact_and_allure_contract():
         "error(emptyNodeIdsMessage)",
     ]:
         assert required in combined
+
+
+def test_publish_allure_stage_falls_back_when_plugin_is_misconfigured():
+    """Allure 插件存在但工具未配置时，不能让已生成的报告构建失败。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    publish_start = pipeline.index("stage('Publish Allure')")
+    publish_stage = pipeline[publish_start:]
+
+    assert "catch (Throwable ignored)" in publish_stage
+    assert "Allure Jenkins plugin publish failed" in publish_stage
+
+
+def test_publish_allure_stage_does_not_mark_test_failures_as_jenkins_unstable():
+    """pytest 失败是业务测试结果，不应由 Allure 插件改写 Jenkins 构建状态。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    publish_start = pipeline.index("stage('Publish Allure')")
+    publish_stage = pipeline[publish_start:]
+
+    assert "commandline: 'Allure Commandline'" in publish_stage
+    assert "resultPolicy: 'LEAVE_AS_IS'" in publish_stage

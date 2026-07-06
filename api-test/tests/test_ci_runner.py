@@ -1,6 +1,8 @@
 import json
+import os
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -177,6 +179,67 @@ def test_build_run_request_from_jenkins_env_ignores_open_report_to_prevent_ci_ha
     request = ci_runner.build_run_request_from_jenkins_env(env, api_test_root=tmp_path)
 
     assert request.open_report is False
+
+
+def test_build_run_request_from_jenkins_env_uses_default_report_retention_days(tmp_path):
+    """Jenkins 默认仅清理超过 30 天的本地 runtime 历史报告。"""
+    env = {
+        "CI_RUNNER_ENV": "jenkins",
+        "CASE_PATH": "test_case/test_gbif_case",
+        "RETRY_MODE": "none",
+        "RUN_ID": "jenkins-demo-retention-default",
+    }
+
+    request = ci_runner.build_run_request_from_jenkins_env(env, api_test_root=tmp_path)
+
+    assert request.retention_days == 30
+
+
+def test_build_run_request_from_jenkins_env_uses_configured_report_retention_days(tmp_path):
+    """Jenkins 可通过 CI_RUN_RETENTION_DAYS 调整 runtime 历史报告保留天数。"""
+    env = {
+        "CI_RUNNER_ENV": "jenkins",
+        "CASE_PATH": "test_case/test_gbif_case",
+        "RETRY_MODE": "none",
+        "RUN_ID": "jenkins-demo-retention-configured",
+        "CI_RUN_RETENTION_DAYS": "45",
+    }
+
+    request = ci_runner.build_run_request_from_jenkins_env(env, api_test_root=tmp_path)
+
+    assert request.retention_days == 45
+
+
+def test_cleanup_old_ci_runs_removes_only_runs_older_than_retention(tmp_path):
+    ci_runs_dir = tmp_path / "runtime" / "ci-runs"
+    current_run = ci_runs_dir / "current"
+    old_run = ci_runs_dir / "old"
+    boundary_run = ci_runs_dir / "boundary"
+    recent_run = ci_runs_dir / "recent"
+    non_run_file = ci_runs_dir / "README.txt"
+    for path in [current_run, old_run, boundary_run, recent_run]:
+        path.mkdir(parents=True)
+        (path / "summary.json").write_text("{}", encoding="utf-8")
+    non_run_file.write_text("keep", encoding="utf-8")
+    now = time.time()
+    os.utime(old_run, (now - 31 * 24 * 60 * 60, now - 31 * 24 * 60 * 60))
+    os.utime(boundary_run, (now - 30 * 24 * 60 * 60, now - 30 * 24 * 60 * 60))
+    os.utime(recent_run, (now - 5 * 24 * 60 * 60, now - 5 * 24 * 60 * 60))
+    os.utime(current_run, (now - 90 * 24 * 60 * 60, now - 90 * 24 * 60 * 60))
+
+    removed = ci_runner.cleanup_old_ci_runs(
+        api_test_root=tmp_path,
+        current_run_dir=current_run,
+        retention_days=30,
+        now=now,
+    )
+
+    assert removed == [old_run]
+    assert not old_run.exists()
+    assert boundary_run.exists()
+    assert recent_run.exists()
+    assert current_run.exists()
+    assert non_run_file.exists()
 
 
 def test_parse_args_preserves_local_open_report_option():

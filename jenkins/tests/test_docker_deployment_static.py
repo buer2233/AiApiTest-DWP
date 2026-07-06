@@ -48,6 +48,8 @@ def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
         "JENKINS_PYTHON_VENV_DIR: ${JENKINS_PYTHON_VENV_DIR:-.venv}",
         "LOCAL_WORKSPACE_REPO: ${LOCAL_WORKSPACE_REPO:-true}",
         "AIAPITEST_LOCAL_WORKSPACE: ${AIAPITEST_LOCAL_WORKSPACE:-/workspace/AiApiTest-DWP}",
+        "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS: ${AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS:-false}",
+        "CI_RUN_RETENTION_DAYS: ${CI_RUN_RETENTION_DAYS:-30}",
     ]:
         assert variable in content
 
@@ -68,7 +70,9 @@ def test_env_example_documents_required_values_without_real_secrets():
         "JENKINS_PUBLIC_BASE_URL=http://localhost:8080",
         "LOCAL_WORKSPACE_REPO=true",
         "AIAPITEST_LOCAL_WORKSPACE=/workspace/AiApiTest-DWP",
+        "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS=false",
         "PROJECT_WORKSPACE=.",
+        "CI_RUN_RETENTION_DAYS=30",
         "BACKEND_SERVICE_URL=http://127.0.0.1:8000",
         "BACKEND_API_BASE_URL=http://127.0.0.1:8000/api/v1",
         "FRONTEND_SERVICE_URL=http://127.0.0.1:5173",
@@ -165,5 +169,41 @@ def test_jenkins_image_installs_pipeline_runtime_tools():
     assert "FROM jenkins/jenkins:lts-jdk17" in content
     assert "python3" in content
     assert "python3-venv" in content
+    assert "python-is-python3" in content
     assert "git" in content
     assert "allure-commandline" in content
+
+
+def test_jenkins_tools_image_installs_allure_jenkins_plugin():
+    """Jenkins 工具链镜像必须预装 Allure 插件，才能在 Jenkins 内展示报告。"""
+    dockerfile = ROOT_DIR / "docker" / "jenkins" / "Dockerfile"
+
+    content = dockerfile.read_text(encoding="utf-8")
+
+    assert "jenkins-plugin-cli" in content
+    assert "allure-jenkins-plugin" in content
+    assert "ALLURE_COMMANDLINE_HOME" in content
+    assert "configure-allure-commandline.groovy" in content
+
+
+def test_jenkins_tools_image_allows_workspace_tmp_directory_creation():
+    """Jenkins 用户必须能在 /workspace 下创建 @tmp 控制目录。"""
+    dockerfile = ROOT_DIR / "docker" / "jenkins" / "Dockerfile"
+
+    content = dockerfile.read_text(encoding="utf-8")
+
+    assert "mkdir -p /workspace" in content
+    assert "chown jenkins:jenkins /workspace" in content
+
+
+def test_allure_commandline_init_script_registers_installed_cli():
+    """工具链镜像的 init 脚本必须注册本机已安装的 Allure CLI。"""
+    script = ROOT_DIR / "jenkins" / "scripts" / "configure-allure-commandline.groovy"
+
+    assert script.exists()
+
+    content = script.read_text(encoding="utf-8")
+    assert "AllureCommandlineInstallation" in content
+    assert "ALLURE_COMMANDLINE_HOME" in content
+    assert "Allure Commandline" in content
+    assert "setInstallations" in content

@@ -15,16 +15,25 @@ RUN apt-get update \
         curl \
         git \
         python3 \
+        python-is-python3 \
         python3-pip \
         python3-venv \
         unzip \
     && curl -fsSL https://github.com/allure-framework/allure2/releases/download/${ALLURE_COMMANDLINE_VERSION}/allure-${ALLURE_COMMANDLINE_VERSION}.zip -o /tmp/allure-commandline.zip \
     && unzip /tmp/allure-commandline.zip -d /opt \
     && ln -s /opt/allure-${ALLURE_COMMANDLINE_VERSION}/bin/allure /usr/local/bin/allure \
+    && mkdir -p /workspace \
+    && chown jenkins:jenkins /workspace \
     && rm -rf /tmp/allure-commandline.zip /var/lib/apt/lists/*
 
+# 预装 Jenkins Allure 插件，使 Pipeline 中的 allure(...) 步骤能在 Jenkins 内展示报告。
+RUN jenkins-plugin-cli --plugins allure-jenkins-plugin
+
+COPY jenkins/scripts/configure-allure-commandline.groovy /usr/share/jenkins/ref/init.groovy.d/configure-allure-commandline.groovy
+
 # 把 Allure CLI 放入 PATH，确保 Jenkins Pipeline 可以直接调用 allure 命令。
-ENV PATH="/opt/allure-${ALLURE_COMMANDLINE_VERSION}/bin:${PATH}"
+ENV ALLURE_COMMANDLINE_HOME="/opt/allure-${ALLURE_COMMANDLINE_VERSION}" \
+    PATH="/opt/allure-${ALLURE_COMMANDLINE_VERSION}/bin:${PATH}"
 
 # 恢复 Jenkins 官方镜像默认用户，避免运行时以 root 身份启动 Jenkins。
 USER jenkins

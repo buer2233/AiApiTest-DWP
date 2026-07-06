@@ -73,6 +73,8 @@ MYSQL_HOST_PORT=3307
 JENKINS_PUBLIC_BASE_URL=http://localhost:8080
 JENKINS_HTTP_PORT=8080
 JENKINS_AGENT_PORT=50001
+PROJECT_WORKSPACE=$PROJECT_ROOT
+CI_RUN_RETENTION_DAYS=30
 ```
 
 同时在 `.env` 中维护私有配置，例如 `MYSQL_ROOT_PASSWORD`、`DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET`、`INITIAL_ADMIN_USERNAME` 和 `INITIAL_ADMIN_PASSWORD`。默认 root 连接优先使用 `MYSQL_ROOT_PASSWORD`；只有启用非 root 用户时才使用 `MYSQL_PASSWORD`。
@@ -139,10 +141,16 @@ docker compose -f docker-compose.yml -f docker-compose.jenkins-tools.yml up -d m
 - `python3`
 - `python3-pip`
 - `python3-venv`
+- `python-is-python3`
 - `git`
 - Allure CLI
+- Jenkins Allure 插件
 
-注意：该构建需要访问 Debian 软件源和 Allure 下载地址，网络较慢时可能耗时较长。默认快速部署不依赖该构建。
+工具链镜像还会初始化 `/workspace` 目录权限，保证 Jenkins 用户能创建 `@tmp` 控制目录，并通过 init 脚本把镜像内 Allure CLI 注册为 Jenkins 全局工具 `Allure Commandline`。
+
+注意：该构建需要访问 Debian 软件源、Allure 下载地址和 Jenkins 插件更新中心，网络较慢时可能耗时较长。默认快速部署不依赖该构建。
+
+Jenkins Pipeline 的本地报告会生成在挂载仓库的 `api-test/runtime/ci-runs/<run_id>/`。`PROJECT_WORKSPACE` 必须指向当前正在验收的仓库根目录；如果它指向旧工作区，Jenkins 会把报告写到旧工作区或容器临时目录，当前仓库下不会出现报告。`CI_RUN_RETENTION_DAYS` 默认 30，只清理超过保留期的历史 run 目录。
 
 ## 常用命令
 

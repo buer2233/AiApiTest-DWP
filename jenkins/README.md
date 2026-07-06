@@ -109,9 +109,17 @@ Publish Allure
 
 Jenkins 构建中不要使用 `allure open`。即使手工构建时勾选 `OPEN_REPORT`，共享 Pipeline 也会强制传入 `OPEN_REPORT=false`，报告查看统一通过 Jenkins Allure 插件入口或归档的 `allure-report/index.html`。
 
+本地报告默认保留 30 天。共享 Pipeline 会配置 Jenkins 构建和 artifact 保留 30 天，并把 `CI_RUN_RETENTION_DAYS` 传给 `ci_runner`；`ci_runner` 只会删除 `api-test/runtime/ci-runs/` 下超过保留期的历史 run 目录，当前 run 和 30 天内报告不会被删除。需要调整保留天数时，在本地 `.env` 或 Jenkins 私有环境变量中覆盖 `CI_RUN_RETENTION_DAYS`。
+
+Jenkins 内展示 Allure 报告依赖 Allure Jenkins 插件。默认官方 Jenkins 镜像不包含该插件；本地需要 Jenkins 内报告页时，应使用 `docker-compose.jenkins-tools.yml` 构建工具链镜像，该镜像同时安装 Allure CLI 和 `allure-jenkins-plugin`。已有 Jenkins 容器如果仍显示 `Allure Jenkins plugin is not installed`，需要用工具链镜像重建 Jenkins 容器，但不要删除 `aiapitest-jenkins-home` 数据卷。
+
+工具链镜像会把 Allure CLI 注册为 Jenkins 全局工具 `Allure Commandline`，Pipeline 的 `Publish Allure` 阶段显式使用该工具，并设置 `resultPolicy: 'LEAVE_AS_IS'`。因此 pytest 失败用例只体现在 `summary.json` 和 Allure 报告中，不会把 Jenkins 基础设施构建改写为失败或不稳定。
+
 ## 人工验收步骤
 
 本地 Docker Compose Jenkins 已将 `PROJECT_WORKSPACE` 指向的仓库挂载到 `AIAPITEST_LOCAL_WORKSPACE`，默认容器内路径为 `/workspace/AiApiTest-DWP`。`PROJECT_WORKSPACE` 必须是当前正在开发和验收的仓库根目录；如果它指向旧工作区，Jenkins 会加载旧代码，即使当前仓库已经提交和推送也不会生效。
+
+若 Jenkins 控制台里的 `summary.json` 显示报告路径位于 `/tmp/...`、`/var/jenkins_home/workspace/...` 或旧工作区，而当前宿主机仓库 `api-test/runtime/ci-runs/` 没有报告，说明 Job 没有在当前挂载仓库执行。应修正 `.env` 的 `PROJECT_WORKSPACE` 指向当前仓库根目录，重新 `docker compose up -d jenkins` 刷新挂载，再运行 `configure-local-mounted-jobs.groovy` 修正本地 Job。
 
 ### 本地 Compose Jenkins
 
