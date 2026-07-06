@@ -13,7 +13,8 @@ import UsersView from '@/views/UsersView.vue'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', redirect: '/dashboard' },
+    // 根路径默认进入当前平台主入口，避免落到已隐藏的 dashboard。
+    { path: '/', redirect: '/environments' },
     { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
     { path: '/register', name: 'register', component: RegisterView, meta: { public: true } },
     { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
