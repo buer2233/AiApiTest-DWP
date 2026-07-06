@@ -123,7 +123,7 @@ Jenkins 内展示 Allure 报告依赖 Allure Jenkins 插件。默认官方 Jenki
 
 ### 本地 Compose Jenkins
 
-本地验收不要使用远端 Git checkout 作为 Job 的第一步。应运行 `jenkins/scripts/configure-local-mounted-jobs.groovy` 配置本地挂载 Job，或在 Job 内联脚本中直接 `ws('/workspace/AiApiTest-DWP')` 后加载业务脚本。
+本地验收不要使用远端 Git checkout 作为 Job 的第一步。应运行 `jenkins/scripts/configure-local-mounted-jobs.groovy` 配置本地挂载 Job，或在 Job 内联脚本中直接 `dir('/workspace/AiApiTest-DWP')` 后加载业务脚本。不要使用 `ws('/workspace/AiApiTest-DWP')` 作为本地挂载入口，否则多个 Job 同时运行时 Jenkins 可能分配到未挂载源码的 `@2` 目录。
 
 `configure-local-mounted-jobs.groovy` 只有在显式 `LOCAL_WORKSPACE_REPO=true` 时才会执行；脚本会创建本地 Job，或修复早期“先 GitHub checkout、再设置 LOCAL_WORKSPACE_REPO”的旧本地 Job。已有非本地 Job 默认不会被覆盖，如确需强制替换，可在 Jenkins 环境中显式设置 `AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS=true` 后再执行脚本。
 
