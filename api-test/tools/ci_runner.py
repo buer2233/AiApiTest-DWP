@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -39,6 +40,7 @@ API_TEST_ROOT = Path(__file__).resolve().parents[1]
 # Jenkins CI 中单个模块不应无限运行；超时后仍写 summary 供平台诊断。
 DEFAULT_PYTEST_TIMEOUT_SECONDS = 45 * 60
 DEFAULT_ALLURE_TIMEOUT_SECONDS = 10 * 60
+DEFAULT_CI_RUN_RETENTION_DAYS = 30
 
 # 支持的重试模式
 VALID_RETRY_MODES = {"none", "selected", "all-failed", "module"}
@@ -58,6 +60,7 @@ class RunRequest:
     open_report: bool = False
     pytest_timeout_seconds: int = DEFAULT_PYTEST_TIMEOUT_SECONDS
     allure_timeout_seconds: int = DEFAULT_ALLURE_TIMEOUT_SECONDS
+    retention_days: int = DEFAULT_CI_RUN_RETENTION_DAYS
 
 
 def build_pytest_command(
@@ -143,6 +146,19 @@ def _parse_retry_count(raw_value: str | None) -> int:
     return retry_count
 
 
+def _parse_retention_days(raw_value: str | None) -> int:
+    """解析 CI 运行目录保留天数；非法值回退到默认 30 天。"""
+    if raw_value is None or str(raw_value).strip() == "":
+        return DEFAULT_CI_RUN_RETENTION_DAYS
+    try:
+        retention_days = int(str(raw_value).strip())
+    except ValueError:
+        return DEFAULT_CI_RUN_RETENTION_DAYS
+    if retention_days < 0:
+        return DEFAULT_CI_RUN_RETENTION_DAYS
+    return retention_days
+
+
 def parse_pytest_summary_counts(console_output: str) -> dict[str, int | float]:
     """从 pytest 控制台最终摘要中解析统计字段。
 
@@ -218,6 +234,7 @@ def build_run_request_from_jenkins_env(
         clean=_parse_bool(source.get("CLEAN_ALLURE"), True),
         # Jenkins 非交互环境不能执行 allure open，否则 Allure Web server 会常驻并卡住 Pipeline。
         open_report=False,
+        retention_days=_parse_retention_days(source.get("CI_RUN_RETENTION_DAYS")),
     )
 
 
@@ -236,6 +253,36 @@ def clear_lastfailed_cache(api_test_root: Path) -> None:
     cache_file = Path(api_test_root) / ".pytest_cache" / "v" / "cache" / "lastfailed"
     if cache_file.exists():
         cache_file.unlink()
+
+
+def cleanup_old_ci_runs(
+    api_test_root: Path,
+    current_run_dir: Path,
+    retention_days: int = DEFAULT_CI_RUN_RETENTION_DAYS,
+    now: float | None = None,
+) -> list[Path]:
+    """清理超过保留期的历史 CI 运行目录。
+
+    仅处理 `api-test/runtime/ci-runs` 的直接子目录，且永远跳过当前运行目录，
+    避免 Jenkins 执行中误删本次 Allure 结果或其它非运行产物。
+    """
+    ci_runs_dir = Path(api_test_root) / "runtime" / "ci-runs"
+    if not ci_runs_dir.exists():
+        return []
+
+    cutoff = (now if now is not None else time.time()) - retention_days * 24 * 60 * 60
+    current_resolved = Path(current_run_dir).resolve()
+    removed: list[Path] = []
+    for entry in ci_runs_dir.iterdir():
+        # 只删除 run 目录；普通文件和符号链接保留，避免越界清理。
+        if entry.is_symlink() or not entry.is_dir():
+            continue
+        if entry.resolve() == current_resolved:
+            continue
+        if entry.stat().st_mtime < cutoff:
+            shutil.rmtree(entry)
+            removed.append(entry)
+    return removed
 
 
 def write_summary(
@@ -379,6 +426,11 @@ def run_ci_tests(request: RunRequest, python_executable: str | None = None) -> d
     request.api_test_root = Path(request.api_test_root)
     request.run_dir = Path(request.run_dir)
     ensure_run_dirs(request.run_dir)
+    cleanup_old_ci_runs(
+        api_test_root=request.api_test_root,
+        current_run_dir=request.run_dir,
+        retention_days=request.retention_days,
+    )
 
     targets = resolve_pytest_targets(request)
     allure_results_dir = request.run_dir / "allure-results"

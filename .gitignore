@@ -6,6 +6,7 @@ __pycache__/
 
 report/allure-results/
 report/allure-report/
+/allure-report/
 logs/
 runtime/
 api-test/report/allure-results/

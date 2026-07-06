@@ -93,7 +93,9 @@ def buildParameterDefinitions(Map config) {
 }
 
 def call(Map config = [:]) {
+    def ciRunRetentionDays = env.CI_RUN_RETENTION_DAYS ?: '30'
     def jobProperties = [
+        buildDiscarder(logRotator(daysToKeepStr: ciRunRetentionDays, artifactDaysToKeepStr: ciRunRetentionDays)),
         parameters(buildParameterDefinitions(config))
     ]
     def jobTriggers = config.get('jobTriggers', [])
@@ -134,6 +136,7 @@ def call(Map config = [:]) {
         "OPEN_REPORT=false",
         "RUN_ID=${runId}",
         "MODULE_NAME=${params.MODULE_NAME ?: ''}",
+        "CI_RUN_RETENTION_DAYS=${ciRunRetentionDays}",
         'CI_RUNNER_ENV=jenkins'
     ]) {
         stage('Checkout') {
@@ -194,13 +197,15 @@ def call(Map config = [:]) {
             try {
                 // 如果 Jenkins 已安装 Allure 插件，则直接发布 allure-results。
                 allure([
+                    commandline: 'Allure Commandline',
                     includeProperties: false,
                     jdk: '',
+                    resultPolicy: 'LEAVE_AS_IS',
                     results: [[path: "${runDir}/allure-results"]]
                 ])
-            } catch (NoSuchMethodError ignored) {
-                // 没有插件时不中断归档链路，用户仍可下载 runtime 产物查看报告。
-                echo 'Allure Jenkins plugin is not installed; runtime artifacts were archived instead.'
+            } catch (Throwable ignored) {
+                // 插件缺失或 Allure Commandline 未配置时不中断归档链路，用户仍可下载 runtime 产物查看报告。
+                echo "Allure Jenkins plugin publish failed; runtime artifacts were archived instead: ${ignored.getMessage()}"
             }
         }
     }

@@ -96,6 +96,10 @@ api-test/runtime/ci-runs/<run_id>/
 └── allure-report/
 ```
 
+Jenkins 环境变量模式默认读取 `CI_RUN_RETENTION_DAYS`，未配置时保留 30 天。
+每次 CI 执行只会删除 `runtime/ci-runs/` 下超过保留期的历史 run 目录，
+不会删除本次运行目录，也不会清理 30 天内的报告。
+
 `summary.json` 包含：
 
 - `status`
@@ -103,6 +107,13 @@ api-test/runtime/ci-runs/<run_id>/
 - `failed_nodeids`
 - `allure_results_dir`
 - `allure_report_dir`
+- `allure_report_status`
+- `allure_report_message`
+- `total_count`
+- `failed_count`
+- `passed_count`
+- `skipped_count`
+- `duration_seconds`
 
 后续 Jenkins Pipeline 和 DRF 后端都应调用 `tools.ci_runner`，不要在 Groovy 或后端中重复实现 pytest 命令拼接和失败重试逻辑。
 
