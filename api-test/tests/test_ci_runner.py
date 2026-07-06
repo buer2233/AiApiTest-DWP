@@ -161,7 +161,29 @@ def test_build_run_request_from_jenkins_env_uses_pipeline_parameters(tmp_path):
     assert request.retry_mode == "all-failed"
     assert request.retry_count == 1
     assert request.clean is False
-    assert request.open_report is True
+    assert request.open_report is False
+
+
+def test_build_run_request_from_jenkins_env_ignores_open_report_to_prevent_ci_hang(tmp_path):
+    """Jenkins 环境即使传入 OPEN_REPORT=true，也不能启动 allure open 常驻服务。"""
+    env = {
+        "CI_RUNNER_ENV": "jenkins",
+        "CASE_PATH": "test_case/test_gbif_case",
+        "RETRY_MODE": "none",
+        "OPEN_REPORT": "true",
+        "RUN_ID": "jenkins-demo-open-report",
+    }
+
+    request = ci_runner.build_run_request_from_jenkins_env(env, api_test_root=tmp_path)
+
+    assert request.open_report is False
+
+
+def test_parse_args_preserves_local_open_report_option():
+    """本地命令行显式 --open-report 仍保留，限制只作用于 Jenkins env 模式。"""
+    args = ci_runner.parse_args(["--open-report"])
+
+    assert args.open_report is True
 
 
 def test_write_summary_creates_required_summary_json(tmp_path):
@@ -233,6 +255,70 @@ def test_run_ci_tests_writes_count_fields_into_summary(tmp_path, monkeypatch):
     assert summary["passed_count"] == 2
     assert summary["skipped_count"] == 1
     assert summary["duration_seconds"] == 12.34
+
+
+def test_run_ci_tests_writes_failure_summary_when_pytest_times_out(tmp_path, monkeypatch):
+    request = ci_runner.RunRequest(
+        api_test_root=tmp_path,
+        run_dir=tmp_path / "runtime" / "ci-runs" / "run-timeout",
+        retry_mode="module",
+        case_path="test_case/test_gbif_case",
+        clean=True,
+    )
+
+    def fake_run(command, **kwargs):
+        raise subprocess.TimeoutExpired(
+            command,
+            timeout=kwargs.get("timeout"),
+            output="pytest partial stdout",
+            stderr="pytest partial stderr",
+        )
+
+    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
+
+    summary = ci_runner.run_ci_tests(request, python_executable="python")
+
+    assert summary["status"] == "failed"
+    assert summary["return_code"] == 124
+    assert summary["failed_nodeids"] == []
+    assert summary["allure_report_status"] == "skipped"
+    assert "timed out" in summary["allure_report_message"]
+    assert json.loads((request.run_dir / "failed_nodeids.json").read_text(encoding="utf-8")) == []
+    console_log = (request.run_dir / "console.log").read_text(encoding="utf-8")
+    assert "pytest partial stdout" in console_log
+    assert "pytest partial stderr" in console_log
+    assert "timed out" in console_log
+
+
+def test_run_ci_tests_records_failed_allure_report_when_generation_times_out(tmp_path, monkeypatch):
+    request = ci_runner.RunRequest(
+        api_test_root=tmp_path,
+        run_dir=tmp_path / "runtime" / "ci-runs" / "run-allure-timeout",
+        retry_mode="module",
+        case_path="test_case/test_gbif_case",
+        clean=True,
+    )
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        if command[0] == "python":
+            return subprocess.CompletedProcess(command, 0, stdout="1 passed in 0.01s", stderr="")
+        raise subprocess.TimeoutExpired(command, timeout=kwargs.get("timeout"), output="", stderr="")
+
+    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner.shutil, "which", lambda name: "allure")
+
+    summary = ci_runner.run_ci_tests(request, python_executable="python")
+
+    assert calls[0][1]["timeout"] == ci_runner.DEFAULT_PYTEST_TIMEOUT_SECONDS
+    assert calls[1][1]["timeout"] == ci_runner.DEFAULT_ALLURE_TIMEOUT_SECONDS
+    assert summary["status"] == "passed"
+    assert summary["allure_report_status"] == "failed"
+    assert "timed out" in summary["allure_report_message"]
+    console_log = (request.run_dir / "console.log").read_text(encoding="utf-8")
+    assert "Allure HTML report generation timed out" in console_log
 
 
 def test_run_ci_tests_executes_pytest_and_writes_artifacts(tmp_path, monkeypatch):

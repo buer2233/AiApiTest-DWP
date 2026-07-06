@@ -219,6 +219,40 @@ def test_pipeline_accepts_platform_run_id_for_artifact_lookup():
     assert "RUN_ID=${runId}" in pipeline
 
 
+def test_pipeline_forces_open_report_off_in_ci_environment():
+    """Jenkins 非交互环境不能把 OPEN_REPORT=true 传给 ci_runner，避免 allure open 常驻卡死。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    env_start = pipeline.index("withEnv([")
+    env_end = pipeline.index("]) {", env_start)
+    env_block = pipeline[env_start:env_end]
+
+    assert '"OPEN_REPORT=false"' in env_block
+    assert '"OPEN_REPORT=${params.OPEN_REPORT}"' not in env_block
+
+
+def test_run_api_tests_stage_has_timeout_guard():
+    """Run API Tests 必须有 Jenkins 级超时，避免 pytest 或 Allure 子进程无限挂起。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    run_stage_start = pipeline.index("stage('Run API Tests')")
+    generate_stage_start = pipeline.index("stage('Generate Allure Report')")
+    run_stage = pipeline[run_stage_start:generate_stage_start]
+
+    assert "timeout(" in run_stage
+    assert "time: 60" in run_stage
+    assert "unit: 'MINUTES'" in run_stage
+    assert run_stage.index("timeout(") < run_stage.index("-m tools.ci_runner --from-jenkins-env")
+
+
+def test_run_api_tests_stage_timeout_leaves_ci_runner_diagnostic_buffer():
+    """Jenkins 外层超时必须大于 ci_runner 内部 pytest 与 Allure 超时总和。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    ci_runner = (REPO_ROOT / "api-test" / "tools" / "ci_runner.py").read_text(encoding="utf-8")
+
+    assert "time: 60" in pipeline
+    assert "DEFAULT_PYTEST_TIMEOUT_SECONDS = 45 * 60" in ci_runner
+    assert "DEFAULT_ALLURE_TIMEOUT_SECONDS = 10 * 60" in ci_runner
+
+
 def test_business_pipeline_files_exist_and_jenkinsfiles_load_expected_scripts():
     """三类 Jenkins 任务必须有独立 Jenkinsfile，并加载各自业务脚本。"""
     for name, config in BUSINESS_PIPELINES.items():

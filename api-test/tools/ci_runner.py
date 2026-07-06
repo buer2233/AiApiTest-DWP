@@ -36,6 +36,10 @@ from tools.pytest_nodeids import load_lastfailed, normalize_nodeids, write_nodei
 # api-test 根目录路径
 API_TEST_ROOT = Path(__file__).resolve().parents[1]
 
+# Jenkins CI 中单个模块不应无限运行；超时后仍写 summary 供平台诊断。
+DEFAULT_PYTEST_TIMEOUT_SECONDS = 45 * 60
+DEFAULT_ALLURE_TIMEOUT_SECONDS = 10 * 60
+
 # 支持的重试模式
 VALID_RETRY_MODES = {"none", "selected", "all-failed", "module"}
 
@@ -52,6 +56,8 @@ class RunRequest:
     retry_count: int = 0
     clean: bool = True
     open_report: bool = False
+    pytest_timeout_seconds: int = DEFAULT_PYTEST_TIMEOUT_SECONDS
+    allure_timeout_seconds: int = DEFAULT_ALLURE_TIMEOUT_SECONDS
 
 
 def build_pytest_command(
@@ -210,7 +216,8 @@ def build_run_request_from_jenkins_env(
         node_ids=parse_jenkins_node_ids(source.get("PYTEST_NODE_IDS")),
         retry_count=_parse_retry_count(source.get("RETRY_COUNT")),
         clean=_parse_bool(source.get("CLEAN_ALLURE"), True),
-        open_report=_parse_bool(source.get("OPEN_REPORT"), False),
+        # Jenkins 非交互环境不能执行 allure open，否则 Allure Web server 会常驻并卡住 Pipeline。
+        open_report=False,
     )
 
 
@@ -279,6 +286,31 @@ def _write_console_log(run_dir: Path, result: subprocess.CompletedProcess) -> No
     (Path(run_dir) / "console.log").write_text(content, encoding="utf-8")
 
 
+def _decode_timeout_output(value: str | bytes | None) -> str:
+    """将 TimeoutExpired 中可能的 bytes 输出统一转成文本，便于写入诊断日志。"""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
+def _write_timeout_console_log(run_dir: Path, exc: subprocess.TimeoutExpired) -> None:
+    """pytest 超时时仍保留已捕获输出和明确诊断，避免 Jenkins 只有卡死现场。"""
+    stdout = _decode_timeout_output(exc.output)
+    stderr = _decode_timeout_output(exc.stderr)
+    timeout_message = f"pytest execution timed out after {exc.timeout} seconds."
+    content = "\n".join(part for part in [stdout, stderr, timeout_message] if part)
+    (Path(run_dir) / "console.log").write_text(content + "\n", encoding="utf-8")
+
+
+def _append_console_log(run_dir: Path, message: str) -> None:
+    """向 runtime console.log 追加非 pytest 阶段诊断，供 Jenkins artifact 和平台同步查看。"""
+    console_path = Path(run_dir) / "console.log"
+    with console_path.open("a", encoding="utf-8") as file:
+        file.write(("\n" if console_path.stat().st_size else "") + message.rstrip() + "\n")
+
+
 def _generate_allure_report(request: RunRequest) -> dict:
     """生成 Allure HTML 报告。
 
@@ -300,13 +332,22 @@ def _generate_allure_report(request: RunRequest) -> dict:
         str(Path(request.run_dir) / "allure-report"),
         "--clean",
     ]
-    result = subprocess.run(
-        command,
-        cwd=str(request.api_test_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            cwd=str(request.api_test_root),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=request.allure_timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        message = f"Allure HTML report generation timed out after {exc.timeout} seconds."
+        _append_console_log(request.run_dir, message)
+        return {
+            "status": "failed",
+            "message": message,
+        }
     if result.returncode != 0:
         message = "\n".join(part for part in [result.stdout, result.stderr] if part).strip()
         return {
@@ -365,13 +406,34 @@ def run_ci_tests(request: RunRequest, python_executable: str | None = None) -> d
         retry_count=request.retry_count,
         python_executable=python_executable or sys.executable,
     )
-    result = subprocess.run(
-        command,
-        cwd=str(request.api_test_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            cwd=str(request.api_test_root),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=request.pytest_timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        _write_timeout_console_log(request.run_dir, exc)
+        write_nodeids([], request.run_dir / "failed_nodeids.json")
+        return write_summary(
+            run_dir=request.run_dir,
+            return_code=124,
+            failed_nodeids=[],
+            allure_results_dir=allure_results_dir,
+            allure_report_dir=allure_report_dir,
+            allure_report_status="skipped",
+            allure_report_message=f"pytest execution timed out after {exc.timeout} seconds; Allure HTML report was not generated.",
+            count_fields={
+                "total_count": 0,
+                "failed_count": 0,
+                "passed_count": 0,
+                "skipped_count": 0,
+                "duration_seconds": 0.0,
+            },
+        )
     _write_console_log(request.run_dir, result)
     count_fields = parse_pytest_summary_counts("\n".join(part for part in [result.stdout or "", result.stderr or ""] if part))
     allure_report = _generate_allure_report(request)

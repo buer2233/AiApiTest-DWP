@@ -85,7 +85,7 @@ def buildParameterDefinitions(Map config) {
         booleanParam(
             name: 'OPEN_REPORT',
             defaultValue: false,
-            description: 'Open Allure report after generation; keep false in CI'
+            description: 'Compatibility parameter only; Jenkins CI forces false to avoid starting a blocking Allure web server'
         )
     ])
 
@@ -130,7 +130,8 @@ def call(Map config = [:]) {
         "RETRY_MODE=${retryMode}",
         "RETRY_COUNT=${params.RETRY_COUNT}",
         "CLEAN_ALLURE=${params.CLEAN_ALLURE}",
-        "OPEN_REPORT=${params.OPEN_REPORT}",
+        // Jenkins 是非交互环境，必须强制关闭 allure open，避免 Web server 常驻导致 stage 卡死。
+        "OPEN_REPORT=false",
         "RUN_ID=${runId}",
         "MODULE_NAME=${params.MODULE_NAME ?: ''}",
         'CI_RUNNER_ENV=jenkins'
@@ -163,10 +164,12 @@ def call(Map config = [:]) {
         try {
             stage('Run API Tests') {
                 // 用例断言失败是测试结果，不是 Jenkins 基础设施失败；ci_runner 会把失败明细写入 summary 和 Allure。
-                runCommand(
-                    "cd ${apiTestDir} && ${unixPython} -m tools.ci_runner --from-jenkins-env",
-                    "cd ${apiTestDir} && ${windowsPython} -m tools.ci_runner --from-jenkins-env"
-                )
+                timeout(time: 60, unit: 'MINUTES') {
+                    runCommand(
+                        "cd ${apiTestDir} && ${unixPython} -m tools.ci_runner --from-jenkins-env",
+                        "cd ${apiTestDir} && ${windowsPython} -m tools.ci_runner --from-jenkins-env"
+                    )
+                }
             }
 
             stage('Generate Allure Report') {

@@ -1,0 +1,18 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_run_api_tests_stage_has_timeout_guard __________________
+
+    def test_run_api_tests_stage_has_timeout_guard():
+        """Run API Tests ������ Jenkins ����ʱ������ pytest �� Allure �ӽ������޹���"""
+        pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+        run_stage_start = pipeline.index("stage('Run API Tests')")
+        generate_stage_start = pipeline.index("stage('Generate Allure Report')")
+        run_stage = pipeline[run_stage_start:generate_stage_start]
+
+>       assert "timeout(" in run_stage
+E       assert 'timeout(' in 'stage(\'Run API Tests\') {\n                // ��������ʧ���ǲ��Խ�������� Jenkins ������ʩʧ�ܣ�ci_runner ���ʧ����ϸд�� summary �� Allure��\n  ...iTestDir} && ${windowsPython} -m tools.ci_runner --from-jenkins-env"\n                )\n            }\n\n            '
+
+jenkins\tests\test_pipeline_static.py:240: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_pipeline_static.py::test_run_api_tests_stage_has_timeout_guard
+1 failed in 0.37s
