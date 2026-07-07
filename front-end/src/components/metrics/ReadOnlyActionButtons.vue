@@ -28,8 +28,15 @@ function isLoading(key: ModuleSnapshotActionKey) {
   return Boolean(props.loadingActions?.[key])
 }
 
+function shouldDeferToBackend(key: ModuleSnapshotActionKey) {
+  if (key !== 'failed_rerun' && key !== 'module_rerun') {
+    return false
+  }
+  return props.disabledReasons?.[key] === '已有执行中任务'
+}
+
 function isDisabled(key: ModuleSnapshotActionKey, enabled: boolean) {
-  return !enabled || isLoading(key)
+  return (!enabled && !shouldDeferToBackend(key)) || isLoading(key)
 }
 
 function getButtonLabel(key: ModuleSnapshotActionKey, label: string) {

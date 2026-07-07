@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import os
 import re
+import urllib.parse
 
 from rest_framework import serializers
 
 from common.serializers import PaginationMetaSerializer
 from metrics.models import JenkinsJobBinding, JenkinsTask, ModuleExecutionLock, ModuleRunHistory, ModuleSnapshot, TestCaseResult, TestEnvironment
+
+
+ACTIVE_TASK_STATUSES = {"queued", "running", "canceling"}
+RERUN_TASK_TYPES = {"failed_rerun", "module_rerun"}
 
 
 SENSITIVE_PATTERNS = [
@@ -107,12 +113,19 @@ class ModuleSnapshotSerializer(serializers.ModelSerializer):
             module=obj.module,
             status=ModuleExecutionLock.Status.ACTIVE,
         ).exists()
+        has_active_rerun_task = JenkinsTask.objects.filter(
+            environment=obj.environment,
+            module=obj.module,
+            task_type__in=RERUN_TASK_TYPES,
+            status__in=ACTIVE_TASK_STATUSES,
+        ).exists()
         has_tasks = JenkinsTask.objects.filter(environment=obj.environment, module=obj.module).exists()
         return {
             "is_admin_user": is_admin_user,
             "has_failed_binding": has_failed_binding,
             "has_module_binding": has_module_binding,
             "has_active_lock": has_active_lock,
+            "has_active_rerun_task": has_active_rerun_task,
             "has_tasks": has_tasks,
         }
 
@@ -123,9 +136,8 @@ class ModuleSnapshotSerializer(serializers.ModelSerializer):
                 state["is_admin_user"]
                 and state["has_failed_binding"]
                 and obj.failed_count > 0
-                and not state["has_active_lock"]
             ),
-            "module_rerun": state["is_admin_user"] and state["has_module_binding"] and not state["has_active_lock"],
+            "module_rerun": state["is_admin_user"] and state["has_module_binding"],
             "trend_7d": True,
             "trend_30d": True,
             "jenkins_tasks": state["has_tasks"] or state["has_failed_binding"] or state["has_module_binding"],
@@ -142,11 +154,11 @@ class ModuleSnapshotSerializer(serializers.ModelSerializer):
             reasons["failed_rerun"] = "Jenkins Job 未配置"
         elif obj.failed_count <= 0:
             reasons["failed_rerun"] = "无失败用例"
-        elif state["has_active_lock"]:
+        elif state["has_active_lock"] or state["has_active_rerun_task"]:
             reasons["failed_rerun"] = "已有执行中任务"
         if not state["has_module_binding"]:
             reasons["module_rerun"] = "Jenkins Job 未配置"
-        elif state["has_active_lock"]:
+        elif state["has_active_lock"] or state["has_active_rerun_task"]:
             reasons["module_rerun"] = "已有执行中任务"
         return reasons
 
@@ -200,11 +212,6 @@ class CaseResultSerializer(serializers.ModelSerializer):
         return redact_sensitive_text(obj.error_message)
 
     def get_actions(self, obj: TestCaseResult) -> dict[str, bool]:
-        has_active_lock = ModuleExecutionLock.objects.filter(
-            environment=obj.environment,
-            module=obj.module,
-            status=ModuleExecutionLock.Status.ACTIVE,
-        ).exists()
         has_retry_binding = JenkinsJobBinding.objects.filter(
             environment=obj.environment,
             module=obj.module,
@@ -218,7 +225,6 @@ class CaseResultSerializer(serializers.ModelSerializer):
                 and obj.is_current
                 and obj.display_status == TestCaseResult.DisplayStatus.FAILED
                 and has_retry_binding
-                and not has_active_lock
             ),
         }
 
@@ -227,6 +233,8 @@ class JenkinsTaskSerializer(serializers.ModelSerializer):
     job_name = serializers.SerializerMethodField()
     environment_url = serializers.CharField(source="environment.base_url")
     triggered_by = serializers.SerializerMethodField()
+    jenkins_build_url = serializers.SerializerMethodField()
+    allure_report_url = serializers.SerializerMethodField()
     actions = serializers.SerializerMethodField()
 
     class Meta:
@@ -251,6 +259,32 @@ class JenkinsTaskSerializer(serializers.ModelSerializer):
     def get_triggered_by(self, obj: JenkinsTask) -> str | None:
         return obj.triggered_by.display_name if obj.triggered_by else None
 
+    def _job_path(self, job_full_name: str) -> str:
+        return "/".join(f"job/{urllib.parse.quote(part)}" for part in job_full_name.split("/") if part)
+
+    def _public_base_url(self) -> str:
+        return os.environ.get("JENKINS_PUBLIC_BASE_URL", os.environ.get("JENKINS_API_BASE_URL", "")).rstrip("/")
+
+    def get_jenkins_build_url(self, obj: JenkinsTask) -> str:
+        if obj.jenkins_build_url:
+            return obj.jenkins_build_url
+        if not obj.build_number:
+            return ""
+        public_base_url = self._public_base_url()
+        if not public_base_url:
+            return ""
+        return f"{public_base_url}/{self._job_path(obj.job_full_name)}/{obj.build_number}/"
+
+    def get_allure_report_url(self, obj: JenkinsTask) -> str:
+        if obj.allure_report_url:
+            return obj.allure_report_url
+        if not obj.build_number:
+            return ""
+        public_base_url = self._public_base_url()
+        if not public_base_url:
+            return ""
+        return f"{public_base_url}/{self._job_path(obj.job_full_name)}/allure/"
+
     def get_actions(self, obj: JenkinsTask) -> dict[str, bool]:
         request = self.context.get("request")
         user = getattr(request, "user", None)
@@ -259,8 +293,8 @@ class JenkinsTaskSerializer(serializers.ModelSerializer):
         )
         return {
             "cancel": bool(can_cancel),
-            "view_report": bool(obj.allure_report_url),
-            "view_jenkins_task": bool(obj.jenkins_build_url),
+            "view_report": bool(self.get_allure_report_url(obj)),
+            "view_jenkins_task": bool(self.get_jenkins_build_url(obj)),
         }
 
 

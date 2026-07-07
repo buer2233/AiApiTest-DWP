@@ -192,7 +192,7 @@ async function mockStage6P5Api(page: Page, options: MockOptions = {}) {
     if (options.lockedRetry) {
       await route.fulfill({
         status: 409,
-        json: { error: { code: 'module_execution_locked', message: '已有用例重试，无法执行！' } },
+        json: { error: { code: 'module_execution_locked', message: '已经有正在的本模块用例' } },
       })
       return
     }
@@ -326,7 +326,7 @@ test.describe('Stage6 P5 Jenkins 执行闭环前端 RED', () => {
     await mockStage6P5Api(page, { lockedRetry: true })
     await page.goto('/modules?environment_id=1')
     await page.getByRole('button', { name: '一键失败重试' }).click()
-    await expect(page.getByText('已有用例重试，无法执行！')).toBeVisible()
+    await expect(page.getByText('已经有正在的本模块用例')).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })
     await mockStage6P5Api(page, { role: 'member' })

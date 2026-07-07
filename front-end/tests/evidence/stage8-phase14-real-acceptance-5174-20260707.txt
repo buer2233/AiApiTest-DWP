@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ok 1 [chromium] › e2e\stage8-real-acceptance.spec.ts:50:1 › AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽屉 (5.6s)
+
+  1 passed (11.9s)

@@ -155,7 +155,47 @@ def test_active_lock_blocks_module_rerun(admin_client, p5_context):
 
     assert response.status_code == 409
     assert response.data["error"]["code"] == "module_execution_locked"
-    assert response.data["error"]["message"] == "已有用例重试，无法执行！"
+    assert response.data["error"]["message"] == "已经有正在的本模块用例"
+
+
+@pytest.mark.parametrize(
+    ("existing_status", "existing_task_type"),
+    [
+        ("queued", "failed_rerun"),
+        ("running", "failed_rerun"),
+        ("canceling", "failed_rerun"),
+        ("queued", "module_rerun"),
+        ("running", "module_rerun"),
+        ("canceling", "module_rerun"),
+    ],
+)
+def test_active_jenkins_task_without_lock_blocks_new_retry_tasks(
+    admin_client,
+    p5_context,
+    existing_status,
+    existing_task_type,
+):
+    snapshot = p5_context["module_snapshot"]
+    create_task(p5_context, status=existing_status, task_type=existing_task_type)
+    create_job_binding(p5_context, "failed_rerun")
+    create_job_binding(p5_context, "module_rerun", "AiApiTest-DWP-Module-Rerun")
+
+    with patch("metrics.views.trigger_jenkins_build") as trigger_build:
+        failed_response = admin_client.post(
+            f"/api/v1/module-snapshots/{snapshot.id}/failed-case-retries",
+            {"retry_scope": "all_failed"},
+            format="json",
+        )
+        module_response = admin_client.post(f"/api/v1/module-snapshots/{snapshot.id}/module-reruns", {}, format="json")
+
+    assert failed_response.status_code == 409
+    assert failed_response.data["error"]["code"] == "module_execution_locked"
+    assert failed_response.data["error"]["message"] == "已经有正在的本模块用例"
+    assert module_response.status_code == 409
+    assert module_response.data["error"]["code"] == "module_execution_locked"
+    assert module_response.data["error"]["message"] == "已经有正在的本模块用例"
+    assert metric_model("JenkinsTask").objects.count() == 1
+    trigger_build.assert_not_called()
 
 
 def test_admin_triggers_module_rerun_with_case_path(admin_client, p5_context):
@@ -211,7 +251,53 @@ def test_module_jenkins_tasks_list_returns_actions(admin_client, p5_context):
     row = response.data["data"][0]
     assert row["id"] == task.id
     assert row["status"] == "running"
-    assert row["actions"] == {"cancel": True, "view_report": False, "view_jenkins_task": True}
+    assert row["actions"] == {"cancel": True, "view_report": True, "view_jenkins_task": True}
+
+
+def test_module_jenkins_tasks_list_derives_jenkins_and_allure_links(admin_client, p5_context, monkeypatch):
+    snapshot = p5_context["module_snapshot"]
+    task = create_task(
+        p5_context,
+        status="running",
+        build_number=9,
+        job_full_name="AiApiTest-DWP-Failed-Rerun",
+    )
+    task.jenkins_build_url = ""
+    task.allure_report_url = ""
+    task.save(update_fields=["jenkins_build_url", "allure_report_url", "updated_at"])
+    monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "http://localhost:8080")
+
+    response = admin_client.get(f"/api/v1/module-snapshots/{snapshot.id}/jenkins-tasks", {"date": "today"})
+
+    assert response.status_code == 200
+    row = response.data["data"][0]
+    assert row["jenkins_build_url"] == "http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/9/"
+    assert row["allure_report_url"] == "http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/allure/"
+    assert row["actions"]["view_report"] is True
+    assert row["actions"]["view_jenkins_task"] is True
+
+
+def test_module_jenkins_tasks_list_does_not_derive_report_link_before_build(admin_client, p5_context, monkeypatch):
+    snapshot = p5_context["module_snapshot"]
+    task = create_task(
+        p5_context,
+        status="queued",
+        build_number=None,
+        job_full_name="AiApiTest-DWP-Failed-Rerun",
+    )
+    task.jenkins_build_url = ""
+    task.allure_report_url = ""
+    task.save(update_fields=["jenkins_build_url", "allure_report_url", "updated_at"])
+    monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "http://localhost:8080")
+
+    response = admin_client.get(f"/api/v1/module-snapshots/{snapshot.id}/jenkins-tasks", {"date": "today"})
+
+    assert response.status_code == 200
+    row = response.data["data"][0]
+    assert row["jenkins_build_url"] == ""
+    assert row["allure_report_url"] == ""
+    assert row["actions"]["view_report"] is False
+    assert row["actions"]["view_jenkins_task"] is False
 
 
 def test_module_jenkins_tasks_list_filters_by_task_type(admin_client, p5_context):
@@ -322,6 +408,20 @@ def test_repeated_canceling_task_cancel_is_idempotent(admin_client, p5_context):
     cancel_task.assert_not_called()
 
 
+def test_cancel_task_jenkins_not_found_returns_conflict(admin_client, p5_context):
+    task = create_task(p5_context, status="queued")
+
+    with patch("metrics.views.cancel_jenkins_task") as cancel_task:
+        cancel_task.side_effect = JenkinsServiceError("HTTP Error 404: Not Found")
+        response = admin_client.post(f"/api/v1/jenkins-tasks/{task.id}/cancel", {}, format="json")
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "task_not_cancelable"
+    assert response.data["error"]["message"] == "任务已不在 Jenkins 队列中，请同步状态后重试。"
+    task.refresh_from_db()
+    assert task.status == "queued"
+
+
 def test_sync_allure_not_generated_marks_task_failed(admin_client, p5_context):
     task = create_task(p5_context, status="running")
     metric_model("ModuleExecutionLock").objects.create(
@@ -423,6 +523,28 @@ def test_module_snapshot_actions_include_disabled_reasons(admin_client, p5_conte
     assert row["actions"]["module_rerun"] is False
     assert row["disabled_reasons"]["failed_rerun"] == "Jenkins Job 未配置"
     assert row["disabled_reasons"]["module_rerun"] == "Jenkins Job 未配置"
+
+
+def test_module_snapshot_retry_actions_remain_clickable_when_execution_locked(admin_client, p5_context):
+    snapshot = p5_context["module_snapshot"]
+    task = create_task(p5_context, status="running")
+    create_job_binding(p5_context, "failed_rerun")
+    create_job_binding(p5_context, "module_rerun", "AiApiTest-DWP-Module-Rerun")
+    metric_model("ModuleExecutionLock").objects.create(
+        environment=p5_context["environment"],
+        module=p5_context["module"],
+        task=task,
+        lock_type="module_execution",
+        status="active",
+        locked_at=timezone.now(),
+    )
+
+    response = admin_client.get("/api/v1/module-snapshots", {"environment_id": p5_context["environment"].id})
+
+    assert response.status_code == 200
+    row = next(item for item in response.data["data"] if item["id"] == snapshot.id)
+    assert row["actions"]["failed_rerun"] is True
+    assert row["actions"]["module_rerun"] is True
 
 
 def test_bulk_sync_discovers_daily_build_and_updates_snapshot(admin_client, p5_context):

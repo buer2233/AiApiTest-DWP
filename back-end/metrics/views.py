@@ -170,12 +170,21 @@ def is_admin(user) -> bool:
     return getattr(user, "role", None) == UserAccount.Role.ADMIN
 
 
-LOCKED_MESSAGE = "已有用例重试，无法执行！"
+LOCKED_MESSAGE = "已经有正在的本模块用例"
 TERMINAL_TASK_STATUSES = {
     TestRun.Status.SUCCESS,
     TestRun.Status.TEST_FAILED,
     TestRun.Status.FAILED,
     TestRun.Status.CANCELED,
+}
+ACTIVE_TASK_STATUSES = {
+    TestRun.Status.QUEUED,
+    TestRun.Status.RUNNING,
+    TestRun.Status.CANCELING,
+}
+RERUN_TASK_TYPES = {
+    TestRun.RunType.FAILED_RERUN,
+    TestRun.RunType.MODULE_RERUN,
 }
 
 
@@ -204,6 +213,24 @@ def active_lock_exists(snapshot: ModuleSnapshot) -> bool:
     ).exists()
 
 
+def active_rerun_task_exists(snapshot: ModuleSnapshot) -> bool:
+    return JenkinsTask.objects.filter(
+        environment=snapshot.environment,
+        module=snapshot.module,
+        task_type__in=RERUN_TASK_TYPES,
+        status__in=ACTIVE_TASK_STATUSES,
+    ).exists()
+
+
+def module_execution_is_busy(snapshot: ModuleSnapshot) -> bool:
+    return active_lock_exists(snapshot) or active_rerun_task_exists(snapshot)
+
+
+def is_jenkins_task_not_found_error(exc: JenkinsServiceError) -> bool:
+    message = str(exc).lower()
+    return "http error 404" in message or "not found" in message
+
+
 def jenkins_task_response(task: JenkinsTask, request, response_status: int = status.HTTP_200_OK) -> Response:
     return Response({"data": JenkinsTaskSerializer(task, context={"request": request}).data}, status=response_status)
 
@@ -217,7 +244,7 @@ def create_queued_jenkins_task(
     parameters: dict[str, str],
     requested_nodeids: list[str] | None = None,
 ) -> JenkinsTask | Response:
-    if active_lock_exists(snapshot):
+    if module_execution_is_busy(snapshot):
         return api_error_response("module_execution_locked", LOCKED_MESSAGE, status.HTTP_409_CONFLICT)
 
     try:
@@ -240,7 +267,7 @@ def create_queued_jenkins_task(
                 status=TestRun.Status.QUEUED,
                 requested_nodeids_json=requested_nodeids or [],
             )
-            ModuleExecutionLock.objects.create(
+            lock = ModuleExecutionLock.objects.create(
                 environment=snapshot.environment,
                 module=snapshot.module,
                 task=task,
@@ -252,6 +279,17 @@ def create_queued_jenkins_task(
                 build_parameters = {**parameters, "RUN_ID": run.run_key}
                 queued = trigger_jenkins_build(job_full_name=binding.job_full_name, parameters=build_parameters)
             except JenkinsServiceError as exc:
+                lock.status = ModuleExecutionLock.Status.RELEASED
+                lock.released_at = timezone.now()
+                lock.release_reason = "jenkins trigger failed"
+                lock.save(update_fields=["status", "active_lock_key", "released_at", "release_reason", "updated_at"])
+                task.status = TestRun.Status.FAILED
+                task.error_summary = str(exc)
+                task.finished_at = timezone.now()
+                task.save(update_fields=["status", "error_summary", "finished_at", "updated_at"])
+                run.status = TestRun.Status.FAILED
+                run.finished_at = task.finished_at
+                run.save(update_fields=["status", "finished_at", "updated_at"])
                 raise RuntimeError(str(exc)) from exc
             task.queue_id = queued.get("queue_id") or None
             task.jenkins_queue_url = queued.get("queue_url", "")
@@ -1109,6 +1147,12 @@ class JenkinsTaskCancelView(APIView):
         try:
             cancel_jenkins_task(task)
         except JenkinsServiceError as exc:
+            if is_jenkins_task_not_found_error(exc):
+                return api_error_response(
+                    "task_not_cancelable",
+                    "任务已不在 Jenkins 队列中，请同步状态后重试。",
+                    status.HTTP_409_CONFLICT,
+                )
             return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
         task.status = TestRun.Status.CANCELING
         if task.run:

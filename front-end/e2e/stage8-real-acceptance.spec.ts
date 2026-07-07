@@ -8,6 +8,7 @@ type FilterOptionPayload = {
 }
 
 const evidencePath = resolve(process.cwd(), 'tests/evidence/screenshots/stage8-real-acceptance-modules-20260707.png')
+const expectedLockedMessage = '已经有正在的本模块用例'
 
 function readLocalEnv(): EnvMap {
   const envPath = resolve(process.cwd(), '..', '.env')
@@ -40,6 +41,10 @@ async function login(page: Page, baseUrl: string, username: string, password: st
   await page.getByLabel('密码', { exact: true }).fill(password)
   await page.getByRole('button', { name: '进入平台' }).click()
   await expect(page.getByRole('navigation', { name: '平台导航' })).toBeVisible()
+}
+
+async function expectAcceptedOrLocked(responseStatus: number) {
+  expect([202, 409]).toContain(responseStatus)
 }
 
 test('AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽屉', async ({ page }) => {
@@ -85,7 +90,33 @@ test('AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽
   )
   await page.getByRole('button', { name: 'Jenkins 任务' }).first().click()
   await jenkinsTasksResponse
-  await expect(page.getByRole('dialog', { name: /Jenkins 任务/ })).toBeVisible()
+  const jenkinsDialog = page.getByRole('dialog', { name: /Jenkins 任务/ })
+  await expect(jenkinsDialog).toBeVisible()
+  const viewReportLink = jenkinsDialog.getByRole('link', { name: '查看报告' }).first()
+  if (await viewReportLink.isVisible()) {
+    const reportPopupPromise = page.waitForEvent('popup')
+    await viewReportLink.click()
+    const reportPopup = await reportPopupPromise
+    await expect(reportPopup).toHaveURL(/\/job\/.+\/allure\/?$/)
+    await reportPopup.close()
+  }
+  const viewJenkinsLink = jenkinsDialog.getByRole('link', { name: '查看 Jenkins 任务' }).first()
+  if (await viewJenkinsLink.isVisible()) {
+    const jenkinsPopupPromise = page.waitForEvent('popup')
+    await viewJenkinsLink.click()
+    const jenkinsPopup = await jenkinsPopupPromise
+    await expect(jenkinsPopup).toHaveURL(/\/job\/.+\/\d+\/?$/)
+    await jenkinsPopup.close()
+  }
+  const cancelButton = jenkinsDialog.getByRole('button', { name: '取消任务' }).first()
+  if ((await cancelButton.count()) > 0 && await cancelButton.isEnabled()) {
+    const cancelResponsePromise = page.waitForResponse((response) =>
+      response.url().includes('/api/v1/jenkins-tasks/') && response.url().includes('/cancel'),
+    )
+    await cancelButton.click()
+    const cancelResponse = await cancelResponsePromise
+    expect(cancelResponse.status()).not.toBe(503)
+  }
   await page.keyboard.press('Escape')
 
   const casesResponse = page.waitForResponse((response) =>
@@ -113,8 +144,12 @@ test('AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽
   )
   await page.locator('.table-frame').getByRole('button', { name: '一键失败重试', exact: true }).first().click()
   const listRetry = await listRetryResponse
-  expect(listRetry.status()).toBe(202)
-  await expect(page.getByText('开始执行失败重试')).toBeVisible()
+  await expectAcceptedOrLocked(listRetry.status())
+  if (listRetry.status() === 202) {
+    await expect(page.getByText('开始执行失败重试')).toBeVisible()
+  } else {
+    await expect(page.getByText(expectedLockedMessage)).toBeVisible()
+  }
 
   await page.getByRole('button', { name: '模块重试' }).last().click()
   await expect(page.getByText('模块重试会全量执行当前模块的所有用例，并更新测试时间和执行时间，是否确认重试？')).toBeVisible()
@@ -123,7 +158,10 @@ test('AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽
   )
   await page.getByRole('button', { name: '确认模块重试' }).click()
   const moduleRerun = await moduleRerunResponse
-  expect(moduleRerun.status()).toBe(202)
+  await expectAcceptedOrLocked(moduleRerun.status())
+  if (moduleRerun.status() === 409) {
+    await expect(page.getByText(expectedLockedMessage)).toBeVisible()
+  }
 
   mkdirSync(dirname(evidencePath), { recursive: true })
   await page.screenshot({ path: evidencePath, fullPage: true })

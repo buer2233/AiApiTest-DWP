@@ -29,6 +29,10 @@
 | EV-S8-SHOT-CASE | `../../../front-end/tests/evidence/screenshots/stage8-case-details-retry-20260707.png` | 用例详情失败重试提示截图 |
 | EV-S8-SHOT-JENKINS | `../../../front-end/tests/evidence/screenshots/stage8-jenkins-tasks-filters-20260707.png` | Jenkins 任务弹窗筛选截图 |
 | EV-S8-SHOT-MOBILE | `../../../front-end/tests/evidence/screenshots/stage8-modules-mobile-20260707.png` | `/modules` 移动端卡片截图 |
+| EV-S8-P14-BE-TARGET | `../../../back-end/tests/evidence/backend-stage8-phase14-target-green-20260707.txt` | Phase 14 后端目标回归：73 passed |
+| EV-S8-P14-BE-FULL | `../../../back-end/tests/evidence/backend-stage8-phase14-full-green-20260707.txt` | Phase 14 后端全量回归：153 passed，覆盖率 90% |
+| EV-S8-P14-FE-E2E | `../../../front-end/tests/evidence/stage8-phase14-frontend-affected-e2e-green-20260707.txt` | Phase 14 受影响前端 E2E：29 passed |
+| EV-S8-P14-REAL | `../../../front-end/tests/evidence/stage8-phase14-real-acceptance-5174-20260707.txt` | Phase 14 真实 `http://127.0.0.1:5174` AI 验收：1 passed |
 
 ## 3. AC 追溯矩阵
 
@@ -76,4 +80,5 @@
 - 方案 B 仅作为 UI 过程候选归档，不进入 Vue DOM 或 Playwright 断言。
 - 前端仍只调用 DRF 相对 API；Jenkins / Allure URL 仅展示后端返回链接。
 - 本地 Jenkins Daily Job 初始化已与后端 binding 命名对齐，避免 Daily discovery 扫描不存在的本地 Job。
-- Phase 8 复审 Critical / Important / Minor 均为无；真实 Jenkins Script Console 执行未在本阶段自动化内覆盖，需人工联调时执行本地脚本确认。
+- Phase 8 复审 Critical / Important / Minor 均为无；Phase 14 子代理审查 Critical 无，Important 已修复并由 EV-S8-P14-BE-TARGET、EV-S8-P14-FE-E2E、EV-S8-P14-REAL 覆盖。
+- 真实 Jenkins Script Console 执行未在本阶段自动化内覆盖，需人工联调时执行本地脚本确认。

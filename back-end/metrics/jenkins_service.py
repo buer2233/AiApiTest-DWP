@@ -48,16 +48,48 @@ def _to_public_url(config: JenkinsConfig, url: str) -> str:
     return url
 
 
-def _request(config: JenkinsConfig, method: str, url: str, data: bytes | None = None) -> urllib.response.addinfourl:
-    headers = {}
+def _request(
+    config: JenkinsConfig,
+    method: str,
+    url: str,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
+) -> urllib.response.addinfourl:
+    request_headers = {}
+    if headers:
+        request_headers.update(headers)
     if config.username and config.api_token:
         raw = f"{config.username}:{config.api_token}".encode("utf-8")
-        headers["Authorization"] = f"Basic {base64.b64encode(raw).decode('ascii')}"
-    request = urllib.request.Request(url, data=data, method=method, headers=headers)
+        request_headers["Authorization"] = f"Basic {base64.b64encode(raw).decode('ascii')}"
+    request = urllib.request.Request(url, data=data, method=method, headers=request_headers)
     try:
         return urllib.request.urlopen(request, timeout=config.timeout_seconds)
     except Exception as exc:  # pragma: no cover - 真实 Jenkins 网络异常由集成环境覆盖
         raise JenkinsServiceError(str(exc)) from exc
+
+
+def _jenkins_crumb_headers(config: JenkinsConfig) -> dict[str, str]:
+    if not config.username or not config.api_token:
+        return {}
+    url = f"{config.api_base_url}/crumbIssuer/api/json"
+    try:
+        with _request(config, "GET", url) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except JenkinsServiceError:
+        return {}
+    field = payload.get("crumbRequestField") or "Jenkins-Crumb"
+    crumb = payload.get("crumb")
+    if not crumb:
+        return {}
+    # urllib 的 Request.headers 大小写不透明；保留 Jenkins 返回字段并补一个测试/调试友好的等价键。
+    headers = {str(field): str(crumb)}
+    if str(field).lower() == "jenkins-crumb":
+        headers["Jenkins-crumb"] = str(crumb)
+    return headers
+
+
+def _post(config: JenkinsConfig, url: str, data: bytes | None = None) -> urllib.response.addinfourl:
+    return _request(config, "POST", url, data=data, headers=_jenkins_crumb_headers(config))
 
 
 def trigger_jenkins_build(*, job_full_name: str, parameters: dict[str, Any]) -> dict[str, str]:
@@ -67,7 +99,7 @@ def trigger_jenkins_build(*, job_full_name: str, parameters: dict[str, Any]) -> 
         raise JenkinsServiceError("JENKINS_API_BASE_URL is not configured")
     encoded = urllib.parse.urlencode({key: str(value) for key, value in parameters.items()}).encode("utf-8")
     url = f"{config.api_base_url}/{_job_path(job_full_name)}/buildWithParameters"
-    response = _request(config, "POST", url, encoded)
+    response = _post(config, url, encoded)
     queue_url = _to_public_url(config, response.headers.get("Location", ""))
     queue_id = queue_url.rstrip("/").split("/")[-1] if queue_url else ""
     return {"queue_id": queue_id, "queue_url": queue_url}
@@ -84,7 +116,7 @@ def cancel_jenkins_task(task) -> None:
         url = f"{config.api_base_url}/queue/cancelItem?id={urllib.parse.quote(str(task.queue_id))}"
     else:
         raise JenkinsServiceError("Jenkins task has no build_number or queue_id")
-    _request(config, "POST", url)
+    _post(config, url)
 
 
 def _build_tag_run_id(job_full_name: str, build_number: int) -> str:
