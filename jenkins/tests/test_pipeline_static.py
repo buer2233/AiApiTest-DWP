@@ -337,13 +337,26 @@ def test_local_mounted_job_config_script_uses_workspace_without_git_checkout():
     assert "AiApiTest-DWP-Daily-Full-Module" in script
     assert "AiApiTest-DWP-Failed-Rerun" in script
     assert "AiApiTest-DWP-Module-Rerun" in script
-    assert "test_case/test_gbif_case_module2" in script
+    assert "package_module.yaml" in script
+    assert "JENKINS_MODULE_CASE_PATH=${module.casePath}" in script
     assert "CpsFlowDefinition" in script
     assert "dir('${mountedWorkspace}')" in script
     assert "ws('${mountedWorkspace}')" not in script
     assert script.index("dir('${mountedWorkspace}')") < script.index("load '${config.scriptPath}'")
     assert "git branch:" not in script
     assert "github.com" not in script
+
+
+def test_local_mounted_job_config_creates_daily_job_per_module():
+    """本地 Daily Job 名必须与后端 sync_jenkins_job_bindings 的每模块 binding 保持一致。"""
+    script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
+
+    assert "JENKINS_DAILY_FULL_JOB_PREFIX" in script
+    assert "package_module.yaml" in script
+    assert "dailyModuleConfigs" in script
+    assert "name: \"${dailyFullJobPrefix}-${module.packageName}\"" in script
+    assert "JENKINS_MODULE_CASE_PATH=${module.casePath}" in script
+    assert "test_case/test_gbif_case_module2" not in script
 
 
 def test_daily_full_module_pipeline_is_scheduled_and_fixed_to_none_mode():

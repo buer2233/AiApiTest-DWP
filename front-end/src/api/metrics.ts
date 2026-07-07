@@ -7,6 +7,7 @@ import type {
   FailedCaseRetryPayload,
   JenkinsTask,
   JenkinsTaskFilters,
+  ModuleSnapshotFilterOptions,
   ModuleTrend,
   ModuleSnapshotFilters,
   PaginatedCaseResults,
@@ -28,6 +29,11 @@ export async function fetchEnvironmentSummary(environmentId: number): Promise<En
 export async function fetchModuleSnapshots(params: ModuleSnapshotFilters): Promise<PaginatedModuleSnapshots> {
   const response = await http.get<PaginatedModuleSnapshots>('/module-snapshots', { params })
   return response.data
+}
+
+export async function fetchModuleSnapshotFilterOptions(params: { environment_id: number }): Promise<ModuleSnapshotFilterOptions> {
+  const response = await http.get<{ data: ModuleSnapshotFilterOptions }>('/module-snapshots/filter-options', { params })
+  return response.data.data
 }
 
 export async function fetchModuleSnapshotCases(

@@ -89,7 +89,7 @@ function handleAction(key: ModuleSnapshotActionKey) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  min-width: 260px;
+  min-width: 0;
 }
 
 .readonly-actions__button {

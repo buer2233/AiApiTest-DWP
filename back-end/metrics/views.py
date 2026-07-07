@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Max, Sum
+from django.db.models import Count, Max, Sum
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -45,6 +45,7 @@ from metrics.serializers import (
     JenkinsTaskListResponseSerializer,
     JenkinsTaskResponseSerializer,
     JenkinsTaskSerializer,
+    ModuleSnapshotFilterOptionsResponseSerializer,
     ModuleRunHistorySerializer,
     ModuleTrendResponseSerializer,
     ModuleSnapshotListResponseSerializer,
@@ -102,6 +103,19 @@ def parse_sort(raw_value: str | None) -> list[str] | Response:
     if not sort_fields or any(field not in SORT_FIELDS for field in sort_fields):
         return validation_error("排序字段非法。")
     return sort_fields + ["id"]
+
+
+def parse_multi_select_values(param_name: str, raw_value: str | None) -> list[str] | Response | None:
+    if raw_value in (None, ""):
+        return None
+    values = [item.strip() for item in raw_value.split(",") if item.strip()]
+    if not values:
+        return None
+    if len(values) > 50:
+        return validation_error(f"{param_name} 最多支持 50 个筛选值。")
+    if any(len(value) > 128 for value in values):
+        return validation_error(f"{param_name} 单个筛选值长度不能超过 128。")
+    return values
 
 
 def paginated_response_with_context(queryset, serializer_class, page: int, per_page: int, context: dict) -> Response:
@@ -649,10 +663,10 @@ class ModuleSnapshotListView(APIView):
         description="登录用户按环境分页查询模块最新只读快照，支持模块字段筛选和通过率/日期/失败数排序。",
         parameters=[
             OpenApiParameter("environment_id", OpenApiTypes.INT, OpenApiParameter.QUERY, required=True, description="测试环境 ID"),
-            OpenApiParameter("module_test", OpenApiTypes.STR, OpenApiParameter.QUERY, description="模块测试人，模糊匹配"),
-            OpenApiParameter("module_name", OpenApiTypes.STR, OpenApiParameter.QUERY, description="模块名称，模糊匹配"),
-            OpenApiParameter("package_name", OpenApiTypes.STR, OpenApiParameter.QUERY, description="用例包名，模糊匹配"),
-            OpenApiParameter("pass_rate_lte", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, description="通过率上限，百分比 0-100"),
+            OpenApiParameter("module_name", OpenApiTypes.STR, OpenApiParameter.QUERY, description="模块名称，逗号分隔多选，精确匹配"),
+            OpenApiParameter("package_name", OpenApiTypes.STR, OpenApiParameter.QUERY, description="用例包名，逗号分隔多选，精确匹配"),
+            OpenApiParameter("module_dev", OpenApiTypes.STR, OpenApiParameter.QUERY, description="模块开发，逗号分隔多选，精确匹配"),
+            OpenApiParameter("module_test", OpenApiTypes.STR, OpenApiParameter.QUERY, description="模块测试，逗号分隔多选，精确匹配"),
             OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="页码，从 1 开始"),
             OpenApiParameter("per_page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="每页条数，范围 1-100"),
             OpenApiParameter("sort", OpenApiTypes.STR, OpenApiParameter.QUERY, description="排序字段，支持 pass_rate、completed_at、failed_count，可带 -"),
@@ -685,19 +699,71 @@ class ModuleSnapshotListView(APIView):
 
         queryset = ModuleSnapshot.objects.select_related("module", "environment").filter(environment_id=environment_id)
         for param_name, lookup in [
-            ("module_test", "module__module_test__icontains"),
-            ("module_name", "module__module_name__icontains"),
-            ("package_name", "module__package_name__icontains"),
+            ("module_test", "module__module_test__in"),
+            ("module_name", "module__module_name__in"),
+            ("module_dev", "module__module_dev__in"),
+            ("package_name", "module__package_name__in"),
         ]:
-            value = request.query_params.get(param_name)
-            if value:
-                if len(value) > 128:
-                    return validation_error(f"{param_name} 长度不能超过 128。")
-                queryset = queryset.filter(**{lookup: value})
+            values = parse_multi_select_values(param_name, request.query_params.get(param_name))
+            if isinstance(values, Response):
+                return values
+            if values:
+                queryset = queryset.filter(**{lookup: values})
         if pass_rate_lte is not None:
             queryset = queryset.filter(pass_rate__lte=pass_rate_lte)
         queryset = queryset.order_by(*sort_fields)
         return paginated_response_with_context(queryset, ModuleSnapshotSerializer, page, per_page, {"request": request})
+
+
+class ModuleSnapshotFilterOptionsView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    @extend_schema(
+        tags=["通过率"],
+        summary="查询模块通过率筛选下拉选项",
+        description="登录用户按环境查询模块名称、用例包名、模块开发和模块测试的去重多选项。",
+        parameters=[
+            OpenApiParameter("environment_id", OpenApiTypes.INT, OpenApiParameter.QUERY, required=True, description="测试环境 ID"),
+        ],
+        responses={
+            200: ModuleSnapshotFilterOptionsResponseSerializer,
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效：authentication_required"),
+            422: OpenApiResponse(ApiErrorResponseSerializer, description="环境参数非法：validation_error"),
+        },
+    )
+    def get(self, request):
+        environment_id = parse_environment_id(request.query_params.get("environment_id"))
+        if isinstance(environment_id, Response):
+            return environment_id
+        if not TestEnvironment.objects.filter(id=environment_id, is_active=True).exists():
+            return validation_error("environment_id 无效。")
+
+        queryset = ModuleSnapshot.objects.filter(environment_id=environment_id)
+
+        def build_options(field_name: str) -> list[dict]:
+            value_field = f"module__{field_name}"
+            rows = (
+                queryset.exclude(**{f"{value_field}": ""})
+                .values(value_field)
+                .annotate(count=Count("id"))
+                .order_by(value_field)
+            )
+            return [
+                {"label": row[value_field], "value": row[value_field], "count": row["count"]}
+                for row in rows
+            ]
+
+        return Response(
+            {
+                "data": {
+                    "module_names": build_options("module_name"),
+                    "package_names": build_options("package_name"),
+                    "module_devs": build_options("module_dev"),
+                    "module_tests": build_options("module_test"),
+                }
+            }
+        )
 
 
 class ModuleSnapshotCasesView(APIView):
@@ -973,6 +1039,25 @@ class ModuleSnapshotJenkinsTasksView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
 
+    @extend_schema(
+        tags=["Jenkins"],
+        summary="查询当前模块 Jenkins 任务",
+        description="登录用户查询当前模块的 Jenkins 任务弹窗数据，支持日期、状态、任务类型和分页筛选。",
+        parameters=[
+            OpenApiParameter("snapshot_id", OpenApiTypes.INT, OpenApiParameter.PATH, description="模块快照 ID"),
+            OpenApiParameter("date", OpenApiTypes.STR, OpenApiParameter.QUERY, description="任务日期，today 或 YYYY-MM-DD，默认 today"),
+            OpenApiParameter("status", OpenApiTypes.STR, OpenApiParameter.QUERY, description="任务状态枚举"),
+            OpenApiParameter("task_type", OpenApiTypes.STR, OpenApiParameter.QUERY, description="任务类型：daily_full/failed_rerun/module_rerun"),
+            OpenApiParameter("page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="页码，从 1 开始"),
+            OpenApiParameter("per_page", OpenApiTypes.INT, OpenApiParameter.QUERY, description="每页条数，范围 1-100"),
+        ],
+        responses={
+            200: JenkinsTaskListResponseSerializer,
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
+            404: OpenApiResponse(ApiErrorResponseSerializer, description="模块快照不存在：module_snapshot_not_found"),
+            422: OpenApiResponse(ApiErrorResponseSerializer, description="日期、状态、任务类型或分页参数非法：validation_error"),
+        },
+    )
     def get(self, request, snapshot_id: int):
         snapshot = get_active_snapshot(snapshot_id)
         if snapshot is None:
@@ -1001,6 +1086,12 @@ class ModuleSnapshotJenkinsTasksView(APIView):
             if status_value not in allowed_statuses:
                 return validation_error("任务状态筛选非法。")
             queryset = queryset.filter(status=status_value)
+        task_type = request.query_params.get("task_type")
+        if task_type:
+            allowed_task_types = {choice[0] for choice in TestRun.RunType.choices}
+            if task_type not in allowed_task_types:
+                return validation_error("任务类型筛选非法。")
+            queryset = queryset.filter(task_type=task_type)
 
         total = queryset.count()
         start = (page - 1) * per_page
@@ -1074,7 +1165,10 @@ class JenkinsTaskBulkSyncView(APIView):
         created_count = 0
         updated_count = 0
         synced_count = 0
-        discovered = discover_jenkins_builds(date=request.data.get("date"))
+        try:
+            discovered = discover_jenkins_builds(date=request.data.get("date"))
+        except JenkinsServiceError as exc:
+            return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
         for build_result in discovered:
             job_full_name = build_result.get("job_full_name")
             build_number = build_result.get("build_number")
@@ -1095,7 +1189,10 @@ class JenkinsTaskBulkSyncView(APIView):
             if "summary" in build_result or build_result.get("building") or build_result.get("canceled"):
                 sync_result = build_result
             else:
-                sync_result = fetch_jenkins_task_result(task)
+                try:
+                    sync_result = fetch_jenkins_task_result(task)
+                except JenkinsServiceError as exc:
+                    return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
             sync_task_with_result(task, sync_result)
             synced_count += 1
 

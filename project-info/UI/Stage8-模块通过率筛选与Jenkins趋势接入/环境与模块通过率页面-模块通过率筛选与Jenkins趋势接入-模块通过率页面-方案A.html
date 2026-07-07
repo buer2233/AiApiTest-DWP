@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stage8 模块通过率页面方案A</title>
+  <link rel="stylesheet" href="./stage8-prototype.css" />
+</head>
+<body>
+  <main class="artboard">
+    <div class="prototype-caption">
+      <span class="caption-pill">方案 A / 紧凑筛选条</span>
+      <span>原型标注层：仅用于方案选择，不进入产品 DOM</span>
+    </div>
+    <section class="shell">
+      <aside class="sidebar">
+        <div class="brand">AiApiTest-DWP <small>自动化测试平台</small></div>
+        <nav class="nav" aria-label="平台导航">
+          <a>环境汇总</a>
+          <a class="active">模块通过率</a>
+          <a>Jenkins 任务</a>
+          <a>报告入口</a>
+          <a>系统配置</a>
+        </nav>
+      </aside>
+      <div class="main">
+        <header class="page-head">
+          <div>
+            <h1>模块通过率</h1>
+            <p>集成环境的模块快照只读查询。</p>
+          </div>
+          <div class="head-actions">
+            <span class="metric-chip"><strong>96</strong> 模块</span>
+            <span class="metric-chip"><strong>28</strong> Jenkins 任务</span>
+            <button class="button-ghost">环境汇总</button>
+          </div>
+        </header>
+
+        <section class="filter-panel" aria-label="模块筛选区">
+          <div class="filter-grid">
+            <div class="filter-field">
+              <label>测试环境</label>
+              <div class="select-box">集成环境 1</div>
+            </div>
+            <div class="filter-field">
+              <label>名称筛选</label>
+              <div class="multi-box"><span class="tag blue">Species</span><span class="tag">Taxon</span></div>
+            </div>
+            <div class="filter-field">
+              <label>包名筛选</label>
+              <div class="multi-box"><span class="tag">test_gbif_case</span><span class="tag">test_occurrence</span></div>
+            </div>
+            <div class="filter-field">
+              <label>模块开发</label>
+              <div class="multi-box"><span class="tag teal">张三</span><span class="tag teal">李四</span></div>
+            </div>
+            <div class="filter-field">
+              <label>模块测试</label>
+              <div class="multi-box"><span class="tag amber">王五</span></div>
+            </div>
+            <div class="filter-actions">
+              <button class="button-primary small">重置</button>
+              <button class="button-primary">查询</button>
+            </div>
+          </div>
+        </section>
+
+        <div class="toolbar-strip">
+          <div class="button-row">
+            <span class="metric-chip"><strong>1</strong> 当前页</span>
+            <span class="metric-chip"><strong>20</strong> 每页</span>
+            <span class="metric-chip"><strong>通过率升序</strong></span>
+          </div>
+          <span class="inline-note">URL query：module_name=Species,Taxon&module_dev=张三,李四</span>
+        </div>
+        <div class="toast-tip">开始执行失败重试</div>
+
+        <table class="data-table" aria-label="模块通过率表格">
+          <thead>
+            <tr>
+              <th style="width: 126px;">日期</th>
+              <th style="width: 132px;">用例包名</th>
+              <th style="width: 110px;">模块名称</th>
+              <th style="width: 76px;">执行时间</th>
+              <th style="width: 72px;">模块开发</th>
+              <th style="width: 72px;">模块测试</th>
+              <th style="width: 56px;">总数</th>
+              <th style="width: 56px;">失败</th>
+              <th style="width: 56px;">跳过</th>
+              <th style="width: 76px;">通过率</th>
+              <th>后置能力</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">2026-07-06 09:31</td>
+              <td class="mono">test_gbif_case</td>
+              <td>Species</td>
+              <td>38.4秒</td>
+              <td>张三</td>
+              <td>王五</td>
+              <td>128</td>
+              <td>4</td>
+              <td>2</td>
+              <td><span class="rate warn">96.9%</span></td>
+              <td><div class="action-stack"><button>失败重试</button><button>模块重试</button><button>7天趋势</button><button>30天趋势</button><button>Jenkins任务</button></div></td>
+            </tr>
+            <tr>
+              <td class="mono">2026-07-06 09:18</td>
+              <td class="mono">test_occurrence</td>
+              <td>Occurrence</td>
+              <td>52.0秒</td>
+              <td>李四</td>
+              <td>赵六</td>
+              <td>216</td>
+              <td>0</td>
+              <td>8</td>
+              <td><span class="rate">100%</span></td>
+              <td><div class="action-stack"><button disabled>失败重试</button><button>模块重试</button><button>7天趋势</button><button>30天趋势</button><button>Jenkins任务</button></div></td>
+            </tr>
+            <tr>
+              <td class="mono">2026-07-05 23:44</td>
+              <td class="mono">test_taxon</td>
+              <td>Taxon</td>
+              <td>41.8秒</td>
+              <td>张三</td>
+              <td>王五</td>
+              <td>84</td>
+              <td>12</td>
+              <td>1</td>
+              <td><span class="rate fail">85.7%</span></td>
+              <td><div class="action-stack"><button>失败重试</button><button>模块重试</button><button>7天趋势</button><button>30天趋势</button><button>Jenkins任务</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+        <footer class="pagination">
+          <span>共 96 条，当前第 1 页</span>
+          <span>上一页　下一页</span>
+        </footer>
+      </div>
+      <section class="module-confirm-card" role="dialog" aria-modal="true" aria-label="模块重试确认">
+        <h3>确认模块重试</h3>
+        <p>模块重试会全量执行当前模块的所有用例，并更新测试时间和执行时间，是否确认重试？</p>
+        <div class="button-row"><button>取消</button><button class="button-primary">确认重试</button></div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

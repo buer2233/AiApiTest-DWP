@@ -7,6 +7,7 @@ import pytest
 from django.apps import apps
 from django.utils import timezone
 
+from metrics.jenkins_service import JenkinsServiceError
 from tests.p3_metrics_helpers import create_case_result, create_p3_metric_context
 
 
@@ -38,7 +39,15 @@ def create_job_binding(context: dict, task_type: str, job_full_name: str = "AiAp
     )
 
 
-def create_task(context: dict, *, status: str = "running", task_type: str = "failed_rerun"):
+def create_task(
+    context: dict,
+    *,
+    status: str = "running",
+    task_type: str = "failed_rerun",
+    queue_id: str = "1288",
+    build_number: int = 12,
+    job_full_name: str = "AiApiTest-DWP-Failed-Rerun",
+):
     JenkinsTask = metric_model("JenkinsTask")
     TestRun = metric_model("TestRun")
     run = TestRun.objects.create(
@@ -54,11 +63,11 @@ def create_task(context: dict, *, status: str = "running", task_type: str = "fai
         module=context["module"],
         task_type=task_type,
         trigger_source="platform_user",
-        job_full_name="AiApiTest-DWP-Failed-Rerun",
-        queue_id="1288",
-        build_number=12,
-        jenkins_queue_url="http://localhost:8080/queue/item/1288/",
-        jenkins_build_url="http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/12/",
+        job_full_name=job_full_name,
+        queue_id=queue_id,
+        build_number=build_number,
+        jenkins_queue_url=f"http://localhost:8080/queue/item/{queue_id}/",
+        jenkins_build_url=f"http://localhost:8080/job/{job_full_name}/{build_number}/",
         status=status,
     )
 
@@ -203,6 +212,49 @@ def test_module_jenkins_tasks_list_returns_actions(admin_client, p5_context):
     assert row["id"] == task.id
     assert row["status"] == "running"
     assert row["actions"] == {"cancel": True, "view_report": False, "view_jenkins_task": True}
+
+
+def test_module_jenkins_tasks_list_filters_by_task_type(admin_client, p5_context):
+    snapshot = p5_context["module_snapshot"]
+    create_task(
+        p5_context,
+        status="running",
+        task_type="failed_rerun",
+        queue_id="failed-queue",
+        build_number=12,
+        job_full_name="AiApiTest-DWP-Failed-Rerun",
+    )
+    module_task = create_task(
+        p5_context,
+        status="running",
+        task_type="module_rerun",
+        queue_id="module-queue",
+        build_number=13,
+        job_full_name="AiApiTest-DWP-Module-Rerun",
+    )
+
+    response = admin_client.get(
+        f"/api/v1/module-snapshots/{snapshot.id}/jenkins-tasks",
+        {"date": "today", "task_type": "module_rerun"},
+    )
+
+    assert response.status_code == 200
+    assert response.data["meta"]["total"] == 1
+    assert response.data["data"][0]["id"] == module_task.id
+    assert response.data["data"][0]["task_type"] == "module_rerun"
+    assert response.data["data"][0]["job_name"] == "AiApiTest-DWP-Module-Rerun"
+
+
+def test_module_jenkins_tasks_list_rejects_invalid_task_type(admin_client, p5_context):
+    snapshot = p5_context["module_snapshot"]
+
+    response = admin_client.get(
+        f"/api/v1/module-snapshots/{snapshot.id}/jenkins-tasks",
+        {"date": "today", "task_type": "unknown"},
+    )
+
+    assert response.status_code == 422
+    assert response.data["error"]["code"] == "validation_error"
 
 
 def test_sync_queued_task_without_build_keeps_queued_and_lock(admin_client, p5_context):
@@ -453,6 +505,59 @@ def test_bulk_sync_fetches_daily_artifacts_with_discovered_run_id(admin_client, 
     assert task.run.run_key == "jenkins-AiApiTest-DWP-Daily-Full-Module-Species-88"
     fetch_result.assert_called_once()
     assert fetch_result.call_args.args[0].run.run_key == "jenkins-AiApiTest-DWP-Daily-Full-Module-Species-88"
+
+
+def test_bulk_sync_returns_readable_error_when_daily_discovery_unavailable(admin_client, p5_context):
+    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-Species")
+
+    with patch("metrics.views.discover_jenkins_builds") as discover_builds:
+        discover_builds.side_effect = JenkinsServiceError("JENKINS_API_BASE_URL is not configured")
+        response = admin_client.post(
+            "/api/v1/jenkins-tasks/sync",
+            {"discover_daily": True, "date": "2026-07-05"},
+            format="json",
+        )
+
+    assert response.status_code == 503
+    assert response.data["error"]["code"] == "jenkins_unavailable"
+    assert "JENKINS_API_BASE_URL is not configured" in response.data["error"]["message"]
+    assert metric_model("JenkinsTask").objects.count() == 0
+
+
+def test_bulk_sync_fetch_error_keeps_existing_daily_task_status(admin_client, p5_context):
+    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-Species")
+    existing_task = create_task(
+        p5_context,
+        status="running",
+        task_type="daily_full",
+        queue_id="daily-queue",
+        build_number=88,
+        job_full_name="AiApiTest-DWP-Daily-Full-Module-Species",
+    )
+
+    with patch("metrics.views.discover_jenkins_builds") as discover_builds, patch(
+        "metrics.views.fetch_jenkins_task_result"
+    ) as fetch_result:
+        discover_builds.return_value = [
+            {
+                "job_full_name": "AiApiTest-DWP-Daily-Full-Module-Species",
+                "build_number": 88,
+                "jenkins_build_url": "http://localhost:8080/job/AiApiTest-DWP-Daily-Full-Module-Species/88/",
+                "building": False,
+            }
+        ]
+        fetch_result.side_effect = JenkinsServiceError("Jenkins artifact unavailable")
+        response = admin_client.post(
+            "/api/v1/jenkins-tasks/sync",
+            {"discover_daily": True, "date": "2026-07-05"},
+            format="json",
+        )
+
+    assert response.status_code == 503
+    assert response.data["error"]["code"] == "jenkins_unavailable"
+    assert "Jenkins artifact unavailable" in response.data["error"]["message"]
+    existing_task.refresh_from_db()
+    assert existing_task.status == "running"
 
 
 def test_sync_failed_retry_test_failed_updates_cases_without_touching_module_execution_time(admin_client, p5_context):

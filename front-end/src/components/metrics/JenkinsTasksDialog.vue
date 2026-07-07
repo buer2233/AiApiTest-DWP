@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onUnmounted, shallowRef, watch } from 'vue'
+import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
 
 import { cancelJenkinsTask, fetchModuleSnapshotJenkinsTasks } from '@/api/metrics'
 import { toApiError } from '@/api/client'
-import type { JenkinsTask, JenkinsTaskStatus, ModuleSnapshot } from '@/types/metrics'
+import type { JenkinsTask, JenkinsTaskStatus, JenkinsTaskType, ModuleSnapshot } from '@/types/metrics'
 import type { PaginationMeta } from '@/types/api'
 
 const props = defineProps<{
@@ -23,6 +23,32 @@ const errorMessage = shallowRef('')
 const cancelingTaskId = shallowRef<number | null>(null)
 const meta = shallowRef<PaginationMeta>({ total: 0, page: 1, per_page: 20, total_pages: 0 })
 let pollTimer: number | null = null
+
+const filters = reactive<{
+  date: 'today' | string
+  status: '' | JenkinsTaskStatus
+  task_type: '' | JenkinsTaskType
+}>({
+  date: 'today',
+  status: '',
+  task_type: '',
+})
+
+const statusOptions: Array<{ label: string; value: JenkinsTaskStatus }> = [
+  { value: 'queued', label: '排队中' },
+  { value: 'running', label: '运行中' },
+  { value: 'success', label: '成功' },
+  { value: 'test_failed', label: '测试失败' },
+  { value: 'failed', label: '执行失败' },
+  { value: 'canceling', label: '取消中' },
+  { value: 'canceled', label: '已取消' },
+]
+
+const taskTypeOptions: Array<{ label: string; value: JenkinsTaskType }> = [
+  { value: 'daily_full', label: '每日全量' },
+  { value: 'failed_rerun', label: '失败重试' },
+  { value: 'module_rerun', label: '模块重试' },
+]
 
 const title = computed(() => {
   if (!props.snapshot) {
@@ -46,6 +72,15 @@ function statusLabel(status: JenkinsTaskStatus) {
     canceled: '已取消',
   }
   return labels[status]
+}
+
+function taskTypeLabel(taskType: JenkinsTaskType) {
+  const labels: Record<JenkinsTaskType, string> = {
+    daily_full: '每日全量',
+    failed_rerun: '失败重试',
+    module_rerun: '模块重试',
+  }
+  return labels[taskType]
 }
 
 function formatDateTime(value: string | null): string {
@@ -89,7 +124,9 @@ async function loadTasks(page = 1) {
   errorMessage.value = ''
   try {
     const response = await fetchModuleSnapshotJenkinsTasks(props.snapshot.id, {
-      date: 'today',
+      date: filters.date || 'today',
+      status: filters.status || undefined,
+      task_type: filters.task_type || undefined,
       page,
       per_page: meta.value.per_page || 20,
     })
@@ -109,6 +146,10 @@ async function changePage(nextPage: number) {
     return
   }
   await loadTasks(nextPage)
+}
+
+async function applyFilters() {
+  await loadTasks(1)
 }
 
 async function cancelTask(task: JenkinsTask) {
@@ -135,6 +176,9 @@ function resetLocalState() {
   errorMessage.value = ''
   cancelingTaskId.value = null
   meta.value = { total: 0, page: 1, per_page: 20, total_pages: 0 }
+  filters.date = 'today'
+  filters.status = ''
+  filters.task_type = ''
   clearPollTimer()
 }
 
@@ -164,6 +208,32 @@ onUnmounted(clearPollTimer)
     @update:model-value="emit('update:modelValue', $event)"
   >
     <section class="jenkins-dialog" aria-label="Jenkins 任务列表">
+      <form class="jenkins-dialog__filters" @submit.prevent="applyFilters">
+        <label for="jenkins-task-status-filter">
+          <span>任务状态</span>
+          <select id="jenkins-task-status-filter" v-model="filters.status" aria-label="任务状态">
+            <option value="">全部状态</option>
+            <option v-for="option in statusOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+        <label for="jenkins-task-date-filter">
+          <span>任务日期</span>
+          <input id="jenkins-task-date-filter" v-model.trim="filters.date" aria-label="任务日期" placeholder="today 或 YYYY-MM-DD" />
+        </label>
+        <label for="jenkins-task-type-filter">
+          <span>任务类型</span>
+          <select id="jenkins-task-type-filter" v-model="filters.task_type" aria-label="任务类型">
+            <option value="">全部类型</option>
+            <option v-for="option in taskTypeOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+        <button class="primary-button" type="submit">查询</button>
+      </form>
+
       <p v-if="errorMessage" class="jenkins-dialog__error" role="alert">{{ errorMessage }}</p>
 
       <div v-loading="loading" class="jenkins-dialog__table-frame">
@@ -171,7 +241,8 @@ onUnmounted(clearPollTimer)
           <thead>
             <tr>
               <th>任务</th>
-              <th>类型</th>
+              <th>任务类型</th>
+              <th>任务名</th>
               <th>环境 URL</th>
               <th>状态</th>
               <th>触发人</th>
@@ -183,6 +254,7 @@ onUnmounted(clearPollTimer)
           <tbody>
             <tr v-for="task in tasks" :key="task.id">
               <td>#{{ task.id }}</td>
+              <td>{{ taskTypeLabel(task.task_type) }}</td>
               <td>{{ task.job_name }}</td>
               <td class="jenkins-dialog__url">{{ task.environment_url }}</td>
               <td>{{ statusLabel(task.status) }}</td>
@@ -223,7 +295,7 @@ onUnmounted(clearPollTimer)
               </td>
             </tr>
             <tr v-if="!loading && tasks.length === 0">
-              <td colspan="8" class="jenkins-dialog__empty">暂无 Jenkins 任务</td>
+              <td colspan="9" class="jenkins-dialog__empty">暂无 Jenkins 任务</td>
             </tr>
           </tbody>
         </table>
@@ -236,6 +308,10 @@ onUnmounted(clearPollTimer)
             <span>{{ statusLabel(task.status) }}</span>
           </header>
           <dl>
+            <div>
+              <dt>任务类型</dt>
+              <dd>{{ taskTypeLabel(task.task_type) }}</dd>
+            </div>
             <div>
               <dt>触发人</dt>
               <dd>{{ task.triggered_by || '-' }}</dd>
@@ -316,6 +392,33 @@ onUnmounted(clearPollTimer)
   gap: 12px;
 }
 
+.jenkins-dialog__filters {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(180px, 1fr) minmax(160px, 0.9fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.jenkins-dialog__filters label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-body);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.jenkins-dialog__filters select,
+.jenkins-dialog__filters input {
+  min-height: 38px;
+  width: 100%;
+  padding: 0 10px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
 .jenkins-dialog__table-frame {
   min-height: 180px;
   overflow-x: auto;
@@ -386,12 +489,19 @@ onUnmounted(clearPollTimer)
   display: none;
 }
 
+.primary-button,
 .secondary-button,
 .secondary-link {
   min-height: 38px;
   padding: 0 12px;
   border-radius: 8px;
   font-weight: 700;
+}
+
+.primary-button {
+  border: 0;
+  background: var(--color-primary);
+  color: white;
 }
 
 .secondary-button {
@@ -410,6 +520,10 @@ onUnmounted(clearPollTimer)
 }
 
 @media (max-width: 700px) {
+  .jenkins-dialog__filters {
+    grid-template-columns: 1fr;
+  }
+
   .jenkins-dialog__table-frame {
     display: none;
   }
