@@ -228,7 +228,7 @@ function normalizeTexts(values: string[]) {
 }
 
 test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', () => {
-  test('模块筛选区使用后端多选选项，查询和重置同步 URL query', async ({ page }) => {
+  test('模块筛选区使用后端多选选项，点选后自动同步 URL query', async ({ page }) => {
     const api = await mockStage8Api(page)
 
     await page.goto('/modules?environment_id=1&page=2')
@@ -242,17 +242,12 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
 
     const filterButtons = page.locator('.filter-bar button')
     await expect(filterButtons.nth(0)).toHaveText('重置')
-    await expect(filterButtons.nth(1)).toHaveText('查询')
-
-    const requestCountBeforeSameQuery = api.moduleSnapshotRequests.length
-    await page.getByRole('button', { name: '查询', exact: true }).click()
-    await expect.poll(() => api.moduleSnapshotRequests.length).toBe(requestCountBeforeSameQuery + 1)
+    await expect(page.getByRole('button', { name: '查询', exact: true })).toHaveCount(0)
 
     await selectMultiOption(page, 'module-name-filter', '物种查询模块')
     await selectMultiOption(page, 'module-name-filter', '库存模块')
     await selectMultiOption(page, 'module-dev-filter', '张三')
     await selectMultiOption(page, 'module-dev-filter', '赵六')
-    await page.getByRole('button', { name: '查询', exact: true }).click()
 
     await expect.poll(() => new URL(page.url()).searchParams.get('module_name')).toBe('物种查询模块,库存模块')
     await expect.poll(() => new URL(page.url()).searchParams.get('module_dev')).toBe('张三,赵六')
@@ -293,6 +288,22 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
     await expect(page.getByRole('option', { name: '赵六' })).toBeVisible()
   })
 
+  test('重复点击侧边栏模块通过率入口不会清空或重置当前环境数据', async ({ page }) => {
+    const api = await mockStage8Api(page)
+
+    await page.goto('/modules?environment_id=2')
+    await expect(page.locator('tbody').getByText('库存模块')).toBeVisible()
+
+    await page.getByRole('navigation', { name: '平台导航' }).getByRole('link', { name: '模块通过率' }).click()
+    await page.getByRole('navigation', { name: '平台导航' }).getByRole('link', { name: '模块通过率' }).click()
+
+    await expect.poll(() => new URL(page.url()).searchParams.get('environment_id')).toBe('2')
+    await expect.poll(() => api.moduleSnapshotRequests.at(-1)?.searchParams.get('environment_id')).toBe('2')
+    await expect(page.locator('tbody').getByText('库存模块')).toBeVisible()
+    await expect(page.locator('tbody').getByText('物种查询模块')).toHaveCount(0)
+    await expect(page.getByText('暂无模块快照')).toHaveCount(0)
+  })
+
   test('筛选选项接口失败时模块列表仍可基础查询', async ({ page }) => {
     await mockStage8Api(page, { filterOptionsFailure: true })
 
@@ -327,7 +338,8 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
     const api = await mockStage8Api(page)
 
     await page.goto('/modules?environment_id=1')
-    await page.getByRole('button', { name: '失败重试' }).click()
+    await expect(page.locator('.table-frame').getByRole('button', { name: '失败重试', exact: true })).toHaveCount(0)
+    await page.getByRole('button', { name: '一键失败重试', exact: true }).click()
     await expect(page.getByRole('dialog', { name: /确认失败重试/ })).toHaveCount(0)
     await expect.poll(() => api.failedRetryPayloads).toEqual([{ retry_scope: 'all_failed' }])
     await expect(page.getByText('开始执行失败重试')).toBeVisible()

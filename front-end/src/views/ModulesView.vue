@@ -189,14 +189,20 @@ async function refreshCurrentQuery(nextPage = 1) {
   await Promise.all([loadFilterOptions(), loadModules()])
 }
 
+async function ensureDefaultEnvironmentSelected() {
+  if (filters.environment_id || !environments.value[0]) {
+    return false
+  }
+  filters.environment_id = String(environments.value[0].id)
+  await router.replace({ path: '/modules', query: buildQuery(1) })
+  return true
+}
+
 async function loadEnvironments() {
   environmentLoading.value = true
   try {
     environments.value = await fetchTestEnvironments({ is_active: true })
-    if (!filters.environment_id && environments.value[0]) {
-      filters.environment_id = String(environments.value[0].id)
-      await router.replace({ path: '/modules', query: buildQuery(currentPage.value) })
-    }
+    await ensureDefaultEnvironmentSelected()
   } finally {
     environmentLoading.value = false
   }
@@ -328,6 +334,10 @@ async function applyFilters() {
   await router.replace({ path: '/modules', query })
 }
 
+async function handleFilterChanged() {
+  await applyFilters()
+}
+
 async function handleEnvironmentChanged() {
   filters.module_name = []
   filters.package_name = []
@@ -398,7 +408,16 @@ function handleTaskUpdated(_task: JenkinsTask) {
 watch(
   () => route.query,
   async () => {
+    const previousEnvironmentId = filters.environment_id
     syncFiltersFromRoute()
+    if (!filters.environment_id && previousEnvironmentId) {
+      filters.environment_id = previousEnvironmentId
+      await router.replace({ path: '/modules', query: buildQuery(1) })
+      return
+    }
+    if (await ensureDefaultEnvironmentSelected()) {
+      return
+    }
     await Promise.all([loadFilterOptions(), loadModules()])
   },
   { immediate: true },
@@ -418,7 +437,7 @@ onMounted(loadEnvironments)
         <RouterLink class="secondary-link" aria-label="环境通过率" to="/environments">环境汇总</RouterLink>
       </header>
 
-      <form class="filter-bar" @submit.prevent="applyFilters">
+      <form class="filter-bar" @submit.prevent>
         <label class="filter-field" for="module-environment-filter">
           <span>测试环境</span>
           <select
@@ -444,6 +463,7 @@ onMounted(loadEnvironments)
             collapse-tags-tooltip
             placeholder="选择模块名称"
             :loading="filterOptionsLoading"
+            @change="handleFilterChanged"
           >
             <el-option
               v-for="option in filterOptions.module_names"
@@ -465,6 +485,7 @@ onMounted(loadEnvironments)
             collapse-tags-tooltip
             placeholder="选择用例包名"
             :loading="filterOptionsLoading"
+            @change="handleFilterChanged"
           >
             <el-option
               v-for="option in filterOptions.package_names"
@@ -486,6 +507,7 @@ onMounted(loadEnvironments)
             collapse-tags-tooltip
             placeholder="选择模块开发"
             :loading="filterOptionsLoading"
+            @change="handleFilterChanged"
           >
             <el-option
               v-for="option in filterOptions.module_devs"
@@ -507,6 +529,7 @@ onMounted(loadEnvironments)
             collapse-tags-tooltip
             placeholder="选择模块测试"
             :loading="filterOptionsLoading"
+            @change="handleFilterChanged"
           >
             <el-option
               v-for="option in filterOptions.module_tests"
@@ -518,7 +541,6 @@ onMounted(loadEnvironments)
         </label>
         <div class="filter-actions">
           <button class="primary-button primary-button--small" type="button" @click="resetFilters">重置</button>
-          <button class="primary-button" type="submit">查询</button>
         </div>
       </form>
 

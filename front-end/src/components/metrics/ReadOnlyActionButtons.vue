@@ -17,7 +17,7 @@ const emit = defineEmits<{
 }>()
 
 const actionItems = computed(() => [
-  { key: 'failed_rerun' as const, label: '失败重试', enabled: props.actions.failed_rerun },
+  { key: 'failed_rerun' as const, label: '一键失败重试', enabled: props.actions.failed_rerun },
   { key: 'module_rerun' as const, label: '模块重试', enabled: props.actions.module_rerun },
   { key: 'trend_7d' as const, label: '7天趋势', enabled: props.actions.trend_7d },
   { key: 'trend_30d' as const, label: '30天趋势', enabled: props.actions.trend_30d },
