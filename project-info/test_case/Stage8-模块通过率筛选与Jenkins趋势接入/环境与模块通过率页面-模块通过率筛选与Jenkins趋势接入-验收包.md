@@ -4,13 +4,13 @@
 
 - 需求定级：M 档，完整 loop。
 - 需求状态：已冻结，主人确认所有待选方案采用方案 A。
-- 开发状态：后端、前端、Jenkins/Docker 静态兼容检查已完成并通过回归。
-- 验收建议：通过，等待主人终审签字。
+- 开发状态：后端、前端、Jenkins/Docker 静态兼容检查、真实 `http://127.0.0.1:5174` AI 验收已完成并通过回归。
+- 验收建议：通过，等待主人终审签字。备注：本地 Jenkins API 当前缺私有认证变量，触发类接口已证明不再 404/422，但真实 Jenkins 构建返回 503/403，需在本机 `.env` 补 `JENKINS_USERNAME/JENKINS_API_TOKEN` 后验证 202 构建成功路径。
 
 ## 2. 本阶段交付范围
 
 - `/modules` 页面删除筛选描述与通过率上限筛选，新增模块开发筛选。
-- 模块名称、用例包名、模块开发、模块测试改为后端选项驱动的下拉多选，URL query 使用逗号分隔多值。
+- 模块名称、用例包名、模块开发、模块测试改为后端选项驱动的下拉多选，选项直接来自 `api-test/utils/package_module.yaml`，URL query 使用逗号分隔多值。
 - 重置按钮放在查询按钮左侧，清空四个多选筛选并回到第一页。
 - 表格列顺序调整为：日期、用例包名、模块名称、执行时间、模块开发、模块测试、总数、失败、跳过、通过率、后置能力；移动端卡片同步该统计顺序。
 - 用例详情和模块行的失败重试不再二次确认，直接调用失败重试接口，成功提示固定为 `开始执行失败重试`。
@@ -33,7 +33,7 @@
 
 | 模块 | 文件 | 摘要 |
 | --- | --- | --- |
-| 后端 API | `../../../back-end/config/urls.py`、`../../../back-end/metrics/views.py`、`../../../back-end/metrics/serializers.py` | 新增 `filter-options`，支持多选精确筛选、`module_dev`、Jenkins task_type 筛选和 Swagger 注解 |
+| 后端 API | `../../../back-end/config/urls.py`、`../../../back-end/metrics/views.py`、`../../../back-end/metrics/serializers.py`、`../../../back-end/metrics/module_metadata.py` | 新增 `filter-options`，从 `package_module.yaml` 提供下拉选项，支持多选精确筛选、`module_dev`、Jenkins task_type 筛选和 Swagger 注解 |
 | 后端命令 | `../../../back-end/metrics/management/commands/sync_jenkins_job_bindings.py` | 读取 `.env` 中非敏感 Job 名变量，按启用环境和模块幂等 upsert Job binding |
 | 后端测试 | `../../../back-end/tests/test_metrics_api.py`、`../../../back-end/tests/test_metrics_commands.py`、`../../../back-end/tests/test_metrics_jenkins_execution_api.py`、`../../../back-end/tests/test_metrics_swagger_docs.py` | 覆盖筛选、命令、Jenkins 任务筛选、权限和 Swagger 契约 |
 | 前端页面 | `../../../front-end/src/views/ModulesView.vue` | 方案 A 筛选区、列顺序、URL 同步、环境切换刷新、失败重试直触发、模块重试确认 |
@@ -59,6 +59,7 @@
 | 前端全量 Playwright | `npm run test:e2e` | `../../../front-end/tests/evidence/stage8-frontend-playwright-full-green-20260707.txt` | 51 passed，1 skipped（既有 `.local` 真服务回归） |
 | 前端生产构建 | `npm run build` | `../../../front-end/tests/evidence/stage8-frontend-build-green-20260707.txt` | 构建通过；存在既有 Rollup PURE 注释和 chunk size warning |
 | Jenkins/Docker 静态回归 | `python -m pytest jenkins/tests/test_docker_deployment_static.py jenkins/tests/test_pipeline_static.py` | `../../../jenkins/tests/evidence/jenkins-stage8-phase7-static-20260707.txt` | 41 passed |
+| AI 真实 5174 验收 | `STAGE8_REAL_ACCEPTANCE=1 STAGE8_REAL_BASE_URL=http://127.0.0.1:5174 npm run test:e2e -- e2e/stage8-real-acceptance.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-real-acceptance-5174-20260707.txt`、`../../../front-end/tests/evidence/screenshots/stage8-real-acceptance-modules-20260707.png` | 1 passed；filter-options 200 且来自 YAML；查询/重置、Jenkins 任务、右侧 70% 抽屉、一键失败重试和模块重试请求均已在真实页面执行 |
 
 ## 6. 截图证据
 
@@ -68,6 +69,7 @@
 | 用例详情失败重试 | `../../../front-end/tests/evidence/screenshots/stage8-case-details-retry-20260707.png` | 选中重试和一键失败重试直接触发后提示 |
 | Jenkins 任务筛选 | `../../../front-end/tests/evidence/screenshots/stage8-jenkins-tasks-filters-20260707.png` | 状态、日期、任务类型筛选和任务类型/任务名展示 |
 | 模块页移动端 | `../../../front-end/tests/evidence/screenshots/stage8-modules-mobile-20260707.png` | 移动端通过率位于统计字段之后且不溢出 |
+| 真实 5174 AI 验收 | `../../../front-end/tests/evidence/screenshots/stage8-real-acceptance-modules-20260707.png` | 真实服务页面完成筛选、查询/重置、Jenkins 任务、用例详情抽屉、失败重试和模块重试动作 |
 
 ## 7. 容器化兼容检查
 
@@ -92,6 +94,8 @@
 
 - Jenkins 本地脚本已通过静态测试，但未在真实 Jenkins Script Console 中自动执行。人工联调时需在 `LOCAL_WORKSPACE_REPO=true` 的本地 Jenkins 中执行 `jenkins/scripts/configure-local-mounted-jobs.groovy`，确认生成 `JENKINS_DAILY_FULL_JOB_PREFIX-<package_name>` 每模块 Daily Job。
 - 批量 Daily 同步在“新发现 build 后拉取 artifact 失败”时可能已创建 running task/run，再返回 `503 jenkins_unavailable`。这是可观测的部分同步状态；后续再次同步同一 build 会复用该 task 并继续拉取结果。
+- 当前本机 Jenkins 8080 要求认证，但根 `.env` 未配置私有 `JENKINS_USERNAME/JENKINS_API_TOKEN`。真实 5174 AI 验收已验证平台按钮请求不再 404/422、动作已绑定；触发 Jenkins 构建的 202 成功路径需在补齐私有 Jenkins API 凭据后复测。
+- 后续 loop 的最终审查必须运行真实地址 Playwright 验收；mock Playwright/Vitest/pytest 只能作为开发回归，不可替代主人验收前的真实端到端测试。
 
 ## 10. 主人终审签字
 

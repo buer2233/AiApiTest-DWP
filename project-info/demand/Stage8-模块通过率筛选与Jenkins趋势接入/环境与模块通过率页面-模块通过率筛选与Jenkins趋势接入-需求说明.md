@@ -26,7 +26,7 @@
 | Q2 | 趋势写入范围 | 方案 A：每日全量必须写入每天每模块通过率；模块重试作为完整模块基线也写入；失败重试不写入趋势，避免非完整执行污染日趋势。方案 B：失败重试也写入。 | 采用方案 A：`daily_full` 和 `module_rerun` 写 `module_run_history`，`failed_rerun` 只刷新当前失败数/通过率，不写趋势。 | 采纳推荐方案 A：`daily_full` 和 `module_rerun` 写趋势，`failed_rerun` 不写趋势。 | 已确认 |
 | Q3 | Jenkins Job binding 初始化方式 | 方案 A：新增 `sync_jenkins_job_bindings` 管理命令，读取 `.env` 中 `JENKINS_FAILED_RERUN_JOB_NAME`、`JENKINS_MODULE_RERUN_JOB_NAME`、`JENKINS_DAILY_FULL_JOB_PREFIX` 并按当前环境/模块 upsert `jenkins_job_binding`；方案 B：新增管理页面维护。 | 采用方案 A：先用管理命令补齐本地和 CI 初始化，不新增管理页面。 | 采纳推荐方案 A：新增 `sync_jenkins_job_bindings` 管理命令，不新增管理页面。 | 已确认 |
 | Q4 | 多选筛选语义 | 方案 A：名称、包名、模块开发、模块测试均为下拉多选，后端按逗号分隔 query 做精确 `IN` 匹配；方案 B：多选后仍做模糊匹配。 | 采用方案 A：多选精确匹配，URL 参数如 `module_name=示例模块1,示例模块2`，避免多选语义不确定。 | 采纳推荐方案 A：四个多选筛选使用逗号分隔 query，后端精确 `IN` 匹配。 | 已确认 |
-| Q5 | 多选下拉选项来源 | 方案 A：新增 `GET /api/v1/module-snapshots/filter-options?environment_id=`，后端按环境聚合去重选项；方案 B：前端只从当前页数据去重。 | 采用方案 A：后端提供完整选项，避免分页导致选项缺失。 | 采纳推荐方案 A：新增后端筛选选项 API，按环境聚合完整选项。 | 已确认 |
+| Q5 | 多选下拉选项来源 | 方案 A：新增 `GET /api/v1/module-snapshots/filter-options?environment_id=`，后端校验环境存在后直接从 `api-test/utils/package_module.yaml` 读取模块名称、用例包名、模块开发、模块测试配置；方案 B：前端只从当前页数据去重。 | 采用方案 A：后端提供完整配置选项，避免分页导致选项缺失，并与 `sync_modules` 的配置源保持一致。 | 采纳推荐方案 A，并按 2026-07-07 验收反馈明确：下拉数据直接取 `api-test/utils/package_module.yaml`。 | 已确认 |
 | Q6 | `pass_rate_lte` 上限筛选处理 | 方案 A：前端删除上限筛选且不再发送；后端保留兼容但从 Stage8 Swagger/验收中移除主路径。方案 B：后端同步删除并让旧 URL 报错。 | 采用方案 A：UI 删除，后端兼容旧 URL，降低破坏面。 | 采纳推荐方案 A：前端删除上限筛选，后端兼容旧 URL，Stage8 主路径不再强调。 | 已确认 |
 | Q7 | Jenkins 同步增强范围 | 方案 A：本阶段补齐手动/命令式同步 queued/running/canceling 和 Daily discovery，可通过 API 或管理命令触发；不引入后台常驻 worker。方案 B：引入 Celery/APScheduler。 | 采用方案 A：不扩基础设施，先保证可验收同步入口。 | 采纳推荐方案 A：补齐手动/命令式同步入口，不引入后台常驻 worker。 | 已确认 |
 | Q8 | Jenkins 任务弹窗增强范围 | 方案 A：补状态筛选、日期筛选和任务类型列；保持当前模块弹窗，不新增全局 Jenkins 页面。方案 B：新增全局任务页。 | 采用方案 A：当前模块弹窗增强，延续 P5 不新增全局路由的裁决。 | 采纳推荐方案 A：增强当前模块 Jenkins 任务弹窗，不新增全局 Jenkins 页面。 | 已确认 |
@@ -42,7 +42,7 @@
   - 现状代码已经具备 Jenkins 触发接口，但本地演示数据默认缺少 `jenkins_job_binding` 初始化，可能导致按钮禁用；筛选区仍保留上限筛选和文本输入；通过率列仍位于执行时间前。
 - **目标**：
   - `/modules` 页面删除筛选描述文案和“上限筛选”，新增“模块开发”筛选。
-  - 名称、包名、模块开发、模块测试四个筛选改为下拉多选，选项来自后端聚合。
+  - 名称、包名、模块开发、模块测试四个筛选改为下拉多选，选项来自后端读取的 `api-test/utils/package_module.yaml`。
   - “重置”按钮视觉风格与“查询”一致但尺寸更小，并放在筛选操作区最左侧。
   - 表格列顺序调整为“通过率”位于“跳过”之后、“后置能力”之前。
   - 补齐 Jenkins Job binding 初始化和同步入口，使失败重试、模块重试、Jenkins 任务弹窗在平台内可稳定触发、查询和验收。
@@ -60,7 +60,7 @@
   - `/modules` 页面标题说明文案调整，删除“筛选与分页状态会同步到地址栏”等筛选描述。
   - 删除前端“上限筛选”输入框；新增“模块开发”筛选。
   - 名称、包名、模块开发、模块测试使用 Element Plus 下拉多选，支持清空、重置、URL 同步。
-  - 新增模块筛选选项 API，并调整模块列表筛选契约。
+  - 新增模块筛选选项 API，校验环境存在后读取 `api-test/utils/package_module.yaml` 作为选项源，并调整模块列表筛选契约。
   - 调整桌面表格和移动端卡片中通过率的展示位置。
   - 新增或补齐 Jenkins Job binding 初始化命令，使用 `.env.example` 已声明的非敏感 Job 名变量。
   - 校准 Jenkins 任务弹窗：状态/日期筛选、任务类型展示、同步后刷新。
@@ -100,7 +100,7 @@
 - **验收标准（Given-When-Then）**：
   - `AC-S8-1.1` — Given 用户打开 `/modules` When 页面渲染 Then 页面说明中不出现“筛选与分页状态会同步到地址栏”或等价筛选描述。
   - `AC-S8-1.2` — Given 用户打开筛选区 When 查看筛选项 Then 不展示“上限筛选”，且展示“模块开发”筛选。
-  - `AC-S8-1.3` — Given 后端返回名称、包名、模块开发、模块测试选项 When 用户展开任一下拉 Then 可多选并可清空。
+  - `AC-S8-1.3` — Given 后端从 `api-test/utils/package_module.yaml` 返回名称、包名、模块开发、模块测试选项 When 用户展开任一下拉 Then 可多选并可清空。
   - `AC-S8-1.4` — Given 用户选择多个模块名称和模块开发 When 点击查询 Then URL query 和后端请求携带逗号分隔多值，列表只展示匹配模块。
   - `AC-S8-1.5` — Given 用户已选择多个筛选 When 点击重置 Then 四个多选筛选清空、页码回到 1，并重新查询当前环境模块列表。
 - **异常场景**：
@@ -279,12 +279,12 @@
 
 ### `GET /api/v1/module-snapshots/filter-options`
 
-- **用途 / 权限**：获取模块通过率筛选下拉选项；登录用户可读。
+- **用途 / 权限**：获取模块通过率筛选下拉选项；登录用户可读。接口使用 `environment_id` 校验环境有效性，选项值直接来自仓库配置 `api-test/utils/package_module.yaml`。
 - **请求参数**：
 
 | 参数 | 位置 | 类型 | 必填 | 校验 | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| `environment_id` | query | integer | 是 | 启用环境存在 | 按环境聚合选项 |
+| `environment_id` | query | integer | 是 | 启用环境存在 | 校验当前页面环境有效，选项源为 YAML 配置 |
 
 - **成功响应**：
 
@@ -307,7 +307,7 @@
 }
 ```
 
-- **错误码**：`401 authentication_required`、`422 validation_error`。
+- **错误码**：`401 authentication_required`、`422 validation_error`、`503 module_metadata_unavailable`。
 
 ### `GET /api/v1/module-snapshots/{snapshot_id}/jenkins-tasks`
 
@@ -438,6 +438,14 @@
 | AC-S8-6.2 | 详情失败重试创建 Jenkins 任务并刷新状态 | F6 |
 | AC-S8-6.3 | 模块重试必须确认，取消不创建任务 | F6 |
 
+### AI 真实验收门禁（追加）
+
+- Stage8 以及后续同类前端/Jenkins 联调需求，在最终审查和验收测试阶段必须执行真实地址端到端验收。
+- 默认真实验收地址为 `http://127.0.0.1:5174`；如端口因本地冲突调整，必须在验收记录中写明实际 `STAGE8_REAL_BASE_URL`。
+- 真实验收必须使用 Playwright 操作真实页面，不得只依赖 mock route、Vitest 或接口单测替代。
+- 真实验收允许产生本地测试数据和 Jenkins task 记录；验收包必须记录新增任务、接口状态、截图和残余环境风险。
+- Jenkins 私有认证信息只允许来自本地 `.env` 或临时环境变量，不写入 `.env.example`、测试代码、证据文件或提交记录。
+
 ---
 
 ## §13 变更记录
@@ -448,6 +456,7 @@
 | 2026-07-06 | v1.0 | 回写主人对 Q1-Q9 的全部裁决，文档状态改为已冻结，API 契约和冻结门禁闭环 | 主人确认 Q1-Q9；Q9 当时采用失败重试二次确认，后续已由 v1.0.2 覆盖 |
 | 2026-07-06 | v1.0.1 | 补充 Daily Job binding 命名规则为 `{JENKINS_DAILY_FULL_JOB_PREFIX}-{module.package_name}` | Phase 3 测试用例要求 AC-S8-3.2 可断言，规则沿用 `.env.example` 与 P5 既有示例 |
 | 2026-07-07 | v1.0.2 | 回写主人 Phase 4 方案选择：所有待选方案采用方案 A；失败重试取消二次确认，直接触发 Jenkins 并提示“开始执行失败重试”；模块重试保留确认弹窗及固定文案 | 主人明确调整失败重试/模块重试交互口径 |
+| 2026-07-07 | v1.0.3 | 回写验收反馈：筛选下拉选项直接来自 `api-test/utils/package_module.yaml`；新增 AI 真实验收门禁，最终验收必须在 `http://127.0.0.1:5174` 运行 Playwright E2E | 主人要求修复真实验收问题，并将真实环境 AI 验收纳入 loop 流程 |
 
 ---
 

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Count, Max, Sum
+from django.core.exceptions import ImproperlyConfigured
+from django.db.models import Max, Sum
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -23,6 +24,7 @@ from metrics.jenkins_service import (
     fetch_jenkins_task_result,
     trigger_jenkins_build,
 )
+from metrics.module_metadata import build_filter_options_from_package_module_yaml
 from metrics.models import (
     CaseStatusAudit,
     EnvironmentSnapshot,
@@ -739,31 +741,15 @@ class ModuleSnapshotFilterOptionsView(APIView):
         if not TestEnvironment.objects.filter(id=environment_id, is_active=True).exists():
             return validation_error("environment_id 无效。")
 
-        queryset = ModuleSnapshot.objects.filter(environment_id=environment_id)
-
-        def build_options(field_name: str) -> list[dict]:
-            value_field = f"module__{field_name}"
-            rows = (
-                queryset.exclude(**{f"{value_field}": ""})
-                .values(value_field)
-                .annotate(count=Count("id"))
-                .order_by(value_field)
+        try:
+            options = build_filter_options_from_package_module_yaml()
+        except ImproperlyConfigured as exc:
+            return api_error_response(
+                "module_metadata_unavailable",
+                str(exc),
+                status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-            return [
-                {"label": row[value_field], "value": row[value_field], "count": row["count"]}
-                for row in rows
-            ]
-
-        return Response(
-            {
-                "data": {
-                    "module_names": build_options("module_name"),
-                    "package_names": build_options("package_name"),
-                    "module_devs": build_options("module_dev"),
-                    "module_tests": build_options("module_test"),
-                }
-            }
-        )
+        return Response({"data": options})
 
 
 class ModuleSnapshotCasesView(APIView):

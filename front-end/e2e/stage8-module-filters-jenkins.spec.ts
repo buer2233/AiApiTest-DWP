@@ -244,6 +244,10 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
     await expect(filterButtons.nth(0)).toHaveText('重置')
     await expect(filterButtons.nth(1)).toHaveText('查询')
 
+    const requestCountBeforeSameQuery = api.moduleSnapshotRequests.length
+    await page.getByRole('button', { name: '查询', exact: true }).click()
+    await expect.poll(() => api.moduleSnapshotRequests.length).toBe(requestCountBeforeSameQuery + 1)
+
     await selectMultiOption(page, 'module-name-filter', '物种查询模块')
     await selectMultiOption(page, 'module-name-filter', '库存模块')
     await selectMultiOption(page, 'module-dev-filter', '张三')
@@ -266,6 +270,10 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
     await expect.poll(() => new URL(page.url()).searchParams.get('module_dev')).toBeNull()
     await expect.poll(() => new URL(page.url()).searchParams.get('page')).toBeNull()
     await expect.poll(() => api.moduleSnapshotRequests.at(-1)?.searchParams.get('page')).toBe('1')
+
+    const requestCountBeforeSameReset = api.moduleSnapshotRequests.length
+    await page.getByRole('button', { name: '重置', exact: true }).click()
+    await expect.poll(() => api.moduleSnapshotRequests.length).toBe(requestCountBeforeSameReset + 1)
   })
 
   test('切换测试环境会同步 URL、刷新筛选选项和模块列表', async ({ page }) => {
@@ -343,6 +351,10 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
     await page.getByRole('button', { name: /查看物种查询模块用例详情/ }).click()
     const dialog = page.getByRole('dialog', { name: /用例详情/ })
     await expect(dialog).toBeVisible()
+    const dialogBox = await dialog.boundingBox()
+    const viewport = page.viewportSize()
+    expect(dialogBox?.width).toBeGreaterThanOrEqual((viewport?.width ?? 1440) * 0.68)
+    expect(dialogBox?.x).toBeGreaterThan((viewport?.width ?? 1440) * 0.25)
 
     await dialog.getByRole('checkbox', { name: '选择 test_search_species' }).check()
     await dialog.getByRole('button', { name: '重试选中用例' }).click()

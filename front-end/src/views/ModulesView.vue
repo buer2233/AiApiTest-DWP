@@ -170,6 +170,25 @@ function buildQuery(nextPage = 1) {
   return query
 }
 
+function isSameRouteQuery(nextQuery: Record<string, string>) {
+  const currentEntries = Object.entries(route.query)
+    .map(([key, value]) => [key, getQueryValue(value)] as const)
+    .filter(([, value]) => value)
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+  const nextEntries = Object.entries(nextQuery)
+    .filter(([, value]) => value)
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+  if (currentEntries.length !== nextEntries.length) {
+    return false
+  }
+  return nextEntries.every(([key, value], index) => currentEntries[index][0] === key && currentEntries[index][1] === value)
+}
+
+async function refreshCurrentQuery(nextPage = 1) {
+  currentPage.value = nextPage
+  await Promise.all([loadFilterOptions(), loadModules()])
+}
+
 async function loadEnvironments() {
   environmentLoading.value = true
   try {
@@ -301,7 +320,12 @@ async function confirmExecutionAction() {
 }
 
 async function applyFilters() {
-  await router.replace({ path: '/modules', query: buildQuery(1) })
+  const query = buildQuery(1)
+  if (isSameRouteQuery(query)) {
+    await refreshCurrentQuery(1)
+    return
+  }
+  await router.replace({ path: '/modules', query })
 }
 
 async function handleEnvironmentChanged() {
@@ -320,7 +344,12 @@ async function resetFilters() {
   filters.module_test = []
   filters.sort = 'pass_rate,-completed_at'
   perPage.value = 20
-  await router.replace({ path: '/modules', query: buildQuery(1) })
+  const query = buildQuery(1)
+  if (isSameRouteQuery(query)) {
+    await refreshCurrentQuery(1)
+    return
+  }
+  await router.replace({ path: '/modules', query })
 }
 
 async function changePerPage() {
