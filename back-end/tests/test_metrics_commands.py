@@ -8,6 +8,7 @@ from django.test import override_settings
 
 from metrics.models import (
     EnvironmentSnapshot,
+    JenkinsJobBinding,
     ModuleSnapshot,
     TestEnvironment as MetricEnvironment,
     TestModule as MetricModule,
@@ -99,6 +100,89 @@ broken_case:
     assert "broken_case" in output
     assert "module_test" in output
     assert "failed=1" in output
+
+
+@pytest.mark.django_db
+def test_sync_jenkins_job_bindings_upserts_retry_and_daily_jobs(monkeypatch):
+    environment = MetricEnvironment.objects.create(
+        env_key="mock-gbif",
+        env_name="模拟测试环境",
+        base_url="https://api.gbif.org",
+        is_active=True,
+    )
+    module = MetricModule.objects.create(
+        package_name="Species",
+        case_path="test_case/Species",
+        module_name="物种查询",
+        module_dev="张三",
+        module_test="王五",
+        is_active=True,
+    )
+    MetricEnvironment.objects.create(
+        env_key="inactive",
+        env_name="停用环境",
+        base_url="https://inactive.example.com",
+        is_active=False,
+    )
+    MetricModule.objects.create(
+        package_name="Inactive",
+        case_path="test_case/Inactive",
+        module_name="停用模块",
+        module_dev="赵四",
+        module_test="王麻子",
+        is_active=False,
+    )
+    monkeypatch.setenv("JENKINS_FAILED_RERUN_JOB_NAME", "AiApiTest-DWP-Failed-Rerun")
+    monkeypatch.setenv("JENKINS_MODULE_RERUN_JOB_NAME", "AiApiTest-DWP-Module-Rerun")
+    monkeypatch.setenv("JENKINS_DAILY_FULL_JOB_PREFIX", "AiApiTest-DWP-Daily-Full-Module")
+    monkeypatch.setenv("JENKINS_API_TOKEN", "secret-token-not-for-output")
+
+    stdout = StringIO()
+    call_command("sync_jenkins_job_bindings", stdout=stdout)
+    call_command("sync_jenkins_job_bindings", stdout=stdout)
+
+    bindings = JenkinsJobBinding.objects.filter(environment=environment, module=module, is_active=True)
+    assert bindings.count() == 3
+    assert bindings.get(task_type=MetricRun.RunType.FAILED_RERUN).job_full_name == "AiApiTest-DWP-Failed-Rerun"
+    assert bindings.get(task_type=MetricRun.RunType.MODULE_RERUN).job_full_name == "AiApiTest-DWP-Module-Rerun"
+    assert bindings.get(task_type=MetricRun.RunType.DAILY_FULL).job_full_name == "AiApiTest-DWP-Daily-Full-Module-Species"
+    assert JenkinsJobBinding.objects.filter(environment__env_key="inactive").count() == 0
+    assert JenkinsJobBinding.objects.filter(module__package_name="Inactive").count() == 0
+    output = stdout.getvalue()
+    assert "created=3" in output
+    assert "created=0" in output
+    assert "skipped=" in output
+    assert "secret-token-not-for-output" not in output
+
+
+@pytest.mark.django_db
+def test_sync_jenkins_job_bindings_skips_empty_job_names(monkeypatch):
+    MetricEnvironment.objects.create(
+        env_key="mock-gbif",
+        env_name="模拟测试环境",
+        base_url="https://api.gbif.org",
+        is_active=True,
+    )
+    MetricModule.objects.create(
+        package_name="Species",
+        case_path="test_case/Species",
+        module_name="物种查询",
+        module_dev="张三",
+        module_test="王五",
+        is_active=True,
+    )
+    monkeypatch.setenv("JENKINS_FAILED_RERUN_JOB_NAME", "")
+    monkeypatch.setenv("JENKINS_MODULE_RERUN_JOB_NAME", "AiApiTest-DWP-Module-Rerun")
+    monkeypatch.setenv("JENKINS_DAILY_FULL_JOB_PREFIX", "")
+
+    stdout = StringIO()
+    call_command("sync_jenkins_job_bindings", stdout=stdout)
+
+    assert not JenkinsJobBinding.objects.filter(task_type=MetricRun.RunType.FAILED_RERUN).exists()
+    assert JenkinsJobBinding.objects.filter(task_type=MetricRun.RunType.MODULE_RERUN).exists()
+    assert not JenkinsJobBinding.objects.filter(task_type=MetricRun.RunType.DAILY_FULL).exists()
+    assert "failed_rerun skipped" in stdout.getvalue()
+    assert "daily_full skipped" in stdout.getvalue()
 
 
 @pytest.mark.django_db

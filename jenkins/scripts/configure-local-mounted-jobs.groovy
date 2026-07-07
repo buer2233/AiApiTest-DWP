@@ -10,6 +10,9 @@ def jenkins = Jenkins.get()
 def localWorkspaceMode = System.getenv('LOCAL_WORKSPACE_REPO') ?: 'false'
 def mountedWorkspace = System.getenv('AIAPITEST_LOCAL_WORKSPACE') ?: '/workspace/AiApiTest-DWP'
 def replaceExistingLocalJobs = System.getenv('AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS') ?: 'false'
+def failedRerunJobName = System.getenv('JENKINS_FAILED_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Failed-Rerun'
+def moduleRerunJobName = System.getenv('JENKINS_MODULE_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Module-Rerun'
+def dailyFullJobPrefix = System.getenv('JENKINS_DAILY_FULL_JOB_PREFIX') ?: 'AiApiTest-DWP-Daily-Full-Module'
 def managedMarker = '[AiApiTest-DWP local-mounted]'
 def legacyRemoteUrl = ['https://github', 'com/buer2233/AiApiTest-DWP.git'].join('.')
 
@@ -45,26 +48,50 @@ def shouldReplaceExistingJob = { job ->
     return false
 }
 
-def jobConfigs = [
+def packageModuleFile = new File(mountedWorkspace, 'api-test/utils/package_module.yaml')
+def dailyModuleConfigs = []
+if (!packageModuleFile.isFile()) {
+    println "[AiApiTest-DWP] package_module.yaml not found: ${packageModuleFile}; skip daily full module Jobs."
+} else {
+    def packageNames = [] as LinkedHashSet
+    packageModuleFile.eachLine('UTF-8') { line ->
+        def matcher = line =~ /^([A-Za-z0-9_.-]+):\s*$/
+        if (matcher.matches()) {
+            packageNames << matcher[0][1]
+        }
+    }
+    dailyModuleConfigs = packageNames.collect { packageName ->
+        // Daily Job 命名必须与后端 sync_jenkins_job_bindings 的 prefix-package 规则一致。
+        [
+            packageName: packageName,
+            casePath: "test_case/${packageName}",
+        ]
+    }
+}
+
+def jobConfigs = dailyModuleConfigs.collect { module ->
     [
-        name: 'AiApiTest-DWP-Daily-Full-Module',
-        description: "${managedMarker} P4/P5 本地每日全量模块执行 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
+        name: "${dailyFullJobPrefix}-${module.packageName}",
+        description: "${managedMarker} Stage8 本地每日全量模块执行 Job（${module.packageName}）。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
         scriptPath: 'jenkins/scripts/daily-full-module-pipeline.groovy',
-        envVars: ['LOCAL_WORKSPACE_REPO=true', 'JENKINS_MODULE_CASE_PATH=test_case/test_gbif_case_module2']
-    ],
+        envVars: ['LOCAL_WORKSPACE_REPO=true', "JENKINS_MODULE_CASE_PATH=${module.casePath}"]
+    ]
+}
+
+jobConfigs.addAll([
     [
-        name: 'AiApiTest-DWP-Failed-Rerun',
-        description: "${managedMarker} P4/P5 本地失败用例重试 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
+        name: failedRerunJobName,
+        description: "${managedMarker} Stage8 本地失败用例重试 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
         scriptPath: 'jenkins/scripts/failed-rerun-pipeline.groovy',
         envVars: ['LOCAL_WORKSPACE_REPO=true']
     ],
     [
-        name: 'AiApiTest-DWP-Module-Rerun',
-        description: "${managedMarker} P4/P5 本地模块重试 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
+        name: moduleRerunJobName,
+        description: "${managedMarker} Stage8 本地模块重试 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
         scriptPath: 'jenkins/scripts/module-rerun-pipeline.groovy',
         envVars: ['LOCAL_WORKSPACE_REPO=true']
     ]
-]
+])
 
 jobConfigs.each { config ->
     def job = jenkins.getItemByFullName(config.name, WorkflowJob)

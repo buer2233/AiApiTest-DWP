@@ -43,6 +43,9 @@ def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
 
     for variable in [
         "JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}",
+        "JENKINS_FAILED_RERUN_JOB_NAME: ${JENKINS_FAILED_RERUN_JOB_NAME:-AiApiTest-DWP-Failed-Rerun}",
+        "JENKINS_MODULE_RERUN_JOB_NAME: ${JENKINS_MODULE_RERUN_JOB_NAME:-AiApiTest-DWP-Module-Rerun}",
+        "JENKINS_DAILY_FULL_JOB_PREFIX: ${JENKINS_DAILY_FULL_JOB_PREFIX:-AiApiTest-DWP-Daily-Full-Module}",
         "JENKINS_DEFAULT_CASE_PATH: ${JENKINS_DEFAULT_CASE_PATH:-test_case/test_gbif_case}",
         "JENKINS_API_TEST_DIR: ${JENKINS_API_TEST_DIR:-api-test}",
         "JENKINS_PYTHON_VENV_DIR: ${JENKINS_PYTHON_VENV_DIR:-.venv}",

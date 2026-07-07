@@ -3,7 +3,13 @@ import { computed, onMounted, reactive, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { toApiError } from '@/api/client'
-import { createFailedCaseRetry, createModuleRerun, fetchModuleSnapshots, fetchTestEnvironments } from '@/api/metrics'
+import {
+  createFailedCaseRetry,
+  createModuleRerun,
+  fetchModuleSnapshotFilterOptions,
+  fetchModuleSnapshots,
+  fetchTestEnvironments,
+} from '@/api/metrics'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CaseDetailsDialog from '@/components/metrics/CaseDetailsDialog.vue'
 import JenkinsTasksDialog from '@/components/metrics/JenkinsTasksDialog.vue'
@@ -12,7 +18,14 @@ import RateBadge from '@/components/metrics/RateBadge.vue'
 import ReadOnlyActionButtons from '@/components/metrics/ReadOnlyActionButtons.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { PaginationMeta } from '@/types/api'
-import type { CaseStatusUpdateResult, JenkinsTask, ModuleSnapshot, ModuleSnapshotActionKey, TestEnvironment } from '@/types/metrics'
+import type {
+  CaseStatusUpdateResult,
+  JenkinsTask,
+  ModuleSnapshot,
+  ModuleSnapshotActionKey,
+  ModuleSnapshotFilterOptions,
+  TestEnvironment,
+} from '@/types/metrics'
 
 type ExecutionAction = 'failed_rerun' | 'module_rerun'
 
@@ -22,10 +35,18 @@ const authStore = useAuthStore()
 
 const environments = shallowRef<TestEnvironment[]>([])
 const modules = shallowRef<ModuleSnapshot[]>([])
+const filterOptions = shallowRef<ModuleSnapshotFilterOptions>({
+  module_names: [],
+  package_names: [],
+  module_devs: [],
+  module_tests: [],
+})
 const meta = shallowRef<PaginationMeta>({ total: 0, page: 1, per_page: 20, total_pages: 0 })
 const loading = shallowRef(false)
 const environmentLoading = shallowRef(false)
+const filterOptionsLoading = shallowRef(false)
 const errorMessage = shallowRef('')
+const filterOptionsError = shallowRef('')
 const selectedSnapshot = shallowRef<ModuleSnapshot | null>(null)
 const caseDialogOpen = shallowRef(false)
 const trendDialogOpen = shallowRef(false)
@@ -36,13 +57,14 @@ const pendingExecutionAction = shallowRef<ExecutionAction | null>(null)
 const submittingExecutionAction = shallowRef<ExecutionAction | null>(null)
 const operationMessage = shallowRef('')
 const operationError = shallowRef('')
+const loadedFilterOptionsEnvironmentId = shallowRef('')
 
 const filters = reactive({
   environment_id: '',
-  module_name: '',
-  package_name: '',
-  module_test: '',
-  pass_rate_lte: '',
+  module_name: [] as string[],
+  package_name: [] as string[],
+  module_dev: [] as string[],
+  module_test: [] as string[],
   sort: 'pass_rate,-completed_at',
 })
 
@@ -56,27 +78,15 @@ const selectedEnvironmentName = computed(() => {
 const isAdmin = computed(() => authStore.isAdmin)
 
 const confirmTitle = computed(() => {
-  if (pendingExecutionAction.value === 'module_rerun') {
-    return '确认模块重试'
-  }
-  return '确认失败重试'
+  return '确认模块重试'
 })
 
 const confirmDescription = computed(() => {
-  if (!selectedSnapshot.value) {
-    return ''
-  }
-  if (pendingExecutionAction.value === 'module_rerun') {
-    return `将通过 Jenkins 执行 ${selectedSnapshot.value.module_name} 的全部用例，完成后会更新日期和执行时间。`
-  }
-  return `将通过 Jenkins 重试 ${selectedSnapshot.value.module_name} 当前全部失败用例，本次执行不会更新日期和执行时间。`
+  return '模块重试会全量执行当前模块的所有用例，并更新测试时间和执行时间，是否确认重试？'
 })
 
 const confirmButtonLabel = computed(() => {
-  if (pendingExecutionAction.value === 'module_rerun') {
-    return submittingExecutionAction.value === 'module_rerun' ? '提交中' : '确认模块重试'
-  }
-  return submittingExecutionAction.value === 'failed_rerun' ? '提交中' : '确认失败重试'
+  return submittingExecutionAction.value === 'module_rerun' ? '提交中' : '确认模块重试'
 })
 
 function getQueryValue(value: unknown): string {
@@ -84,6 +94,21 @@ function getQueryValue(value: unknown): string {
     return value[0] ? String(value[0]) : ''
   }
   return value ? String(value) : ''
+}
+
+function getQueryValues(value: unknown): string[] {
+  const rawValue = getQueryValue(value)
+  if (!rawValue) {
+    return []
+  }
+  return rawValue
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function joinSelectedOptions(values: string[]): string | undefined {
+  return values.length > 0 ? values.join(',') : undefined
 }
 
 function formatDateTime(value: string): string {
@@ -104,10 +129,10 @@ function formatDuration(value: string | number | null): string {
 
 function syncFiltersFromRoute() {
   filters.environment_id = getQueryValue(route.query.environment_id)
-  filters.module_name = getQueryValue(route.query.module_name)
-  filters.package_name = getQueryValue(route.query.package_name)
-  filters.module_test = getQueryValue(route.query.module_test)
-  filters.pass_rate_lte = getQueryValue(route.query.pass_rate_lte)
+  filters.module_name = getQueryValues(route.query.module_name)
+  filters.package_name = getQueryValues(route.query.package_name)
+  filters.module_dev = getQueryValues(route.query.module_dev)
+  filters.module_test = getQueryValues(route.query.module_test)
   filters.sort = getQueryValue(route.query.sort) || 'pass_rate,-completed_at'
   currentPage.value = Number(getQueryValue(route.query.page) || 1)
   if (!Number.isInteger(currentPage.value) || currentPage.value < 1) {
@@ -122,10 +147,19 @@ function buildQuery(nextPage = 1) {
   if (filters.environment_id) {
     query.environment_id = filters.environment_id
   }
-  for (const key of ['module_name', 'package_name', 'module_test', 'pass_rate_lte', 'sort'] as const) {
-    if (filters[key]) {
-      query[key] = filters[key]
+  const multiSelectEntries = {
+    module_name: joinSelectedOptions(filters.module_name),
+    package_name: joinSelectedOptions(filters.package_name),
+    module_dev: joinSelectedOptions(filters.module_dev),
+    module_test: joinSelectedOptions(filters.module_test),
+  }
+  for (const [key, value] of Object.entries(multiSelectEntries)) {
+    if (value) {
+      query[key] = value
     }
+  }
+  if (filters.sort) {
+    query.sort = filters.sort
   }
   if (nextPage > 1) {
     query.page = String(nextPage)
@@ -149,6 +183,31 @@ async function loadEnvironments() {
   }
 }
 
+async function loadFilterOptions() {
+  if (!filters.environment_id) {
+    filterOptions.value = { module_names: [], package_names: [], module_devs: [], module_tests: [] }
+    loadedFilterOptionsEnvironmentId.value = ''
+    return
+  }
+  if (loadedFilterOptionsEnvironmentId.value === filters.environment_id) {
+    return
+  }
+  filterOptionsLoading.value = true
+  filterOptionsError.value = ''
+  try {
+    filterOptions.value = await fetchModuleSnapshotFilterOptions({
+      environment_id: Number(filters.environment_id),
+    })
+    loadedFilterOptionsEnvironmentId.value = filters.environment_id
+  } catch {
+    filterOptions.value = { module_names: [], package_names: [], module_devs: [], module_tests: [] }
+    loadedFilterOptionsEnvironmentId.value = ''
+    filterOptionsError.value = '筛选选项加载失败，可稍后重试。'
+  } finally {
+    filterOptionsLoading.value = false
+  }
+}
+
 async function loadModules() {
   if (!filters.environment_id) {
     modules.value = []
@@ -160,10 +219,10 @@ async function loadModules() {
   try {
     const response = await fetchModuleSnapshots({
       environment_id: Number(filters.environment_id),
-      module_name: filters.module_name || undefined,
-      package_name: filters.package_name || undefined,
-      module_test: filters.module_test || undefined,
-      pass_rate_lte: filters.pass_rate_lte || undefined,
+      module_name: joinSelectedOptions(filters.module_name),
+      package_name: joinSelectedOptions(filters.package_name),
+      module_dev: joinSelectedOptions(filters.module_dev),
+      module_test: joinSelectedOptions(filters.module_test),
       sort: filters.sort || undefined,
       page: currentPage.value,
       per_page: perPage.value,
@@ -185,7 +244,27 @@ function actionLoadingFor(row: ModuleSnapshot): Partial<Record<ModuleSnapshotAct
   }
 }
 
+async function triggerFailedRerun(snapshot: ModuleSnapshot) {
+  selectedSnapshot.value = snapshot
+  operationMessage.value = ''
+  operationError.value = ''
+  submittingExecutionAction.value = 'failed_rerun'
+  try {
+    await createFailedCaseRetry(snapshot.id, { retry_scope: 'all_failed' })
+    operationMessage.value = '开始执行失败重试'
+    await loadModules()
+  } catch (error) {
+    operationError.value = toApiError(error).message
+  } finally {
+    submittingExecutionAction.value = null
+  }
+}
+
 function openExecutionConfirm(snapshot: ModuleSnapshot, action: ExecutionAction) {
+  if (action === 'failed_rerun') {
+    void triggerFailedRerun(snapshot)
+    return
+  }
   selectedSnapshot.value = snapshot
   pendingExecutionAction.value = action
   operationMessage.value = ''
@@ -202,17 +281,14 @@ function closeExecutionConfirm() {
 }
 
 async function confirmExecutionAction() {
-  if (!selectedSnapshot.value || !pendingExecutionAction.value || submittingExecutionAction.value) {
+  if (!selectedSnapshot.value || pendingExecutionAction.value !== 'module_rerun' || submittingExecutionAction.value) {
     return
   }
-  submittingExecutionAction.value = pendingExecutionAction.value
+  submittingExecutionAction.value = 'module_rerun'
   operationMessage.value = ''
   operationError.value = ''
   try {
-    const task =
-      pendingExecutionAction.value === 'failed_rerun'
-        ? await createFailedCaseRetry(selectedSnapshot.value.id, { retry_scope: 'all_failed' })
-        : await createModuleRerun(selectedSnapshot.value.id)
+    const task = await createModuleRerun(selectedSnapshot.value.id)
     operationMessage.value = `Jenkins 任务已创建：${task.job_name}`
     confirmDialogOpen.value = false
     pendingExecutionAction.value = null
@@ -228,11 +304,20 @@ async function applyFilters() {
   await router.replace({ path: '/modules', query: buildQuery(1) })
 }
 
+async function handleEnvironmentChanged() {
+  filters.module_name = []
+  filters.package_name = []
+  filters.module_dev = []
+  filters.module_test = []
+  loadedFilterOptionsEnvironmentId.value = ''
+  await router.replace({ path: '/modules', query: buildQuery(1) })
+}
+
 async function resetFilters() {
-  filters.module_name = ''
-  filters.package_name = ''
-  filters.module_test = ''
-  filters.pass_rate_lte = ''
+  filters.module_name = []
+  filters.package_name = []
+  filters.module_dev = []
+  filters.module_test = []
   filters.sort = 'pass_rate,-completed_at'
   perPage.value = 20
   await router.replace({ path: '/modules', query: buildQuery(1) })
@@ -271,8 +356,8 @@ function handleCaseStatusUpdated(_result: CaseStatusUpdateResult) {
   void loadModules()
 }
 
-function handleRetryCreated(task: JenkinsTask) {
-  operationMessage.value = `Jenkins 任务已创建：${task.job_name}`
+function handleRetryCreated(_task: JenkinsTask) {
+  operationMessage.value = '开始执行失败重试'
   operationError.value = ''
   void loadModules()
 }
@@ -285,7 +370,7 @@ watch(
   () => route.query,
   async () => {
     syncFiltersFromRoute()
-    await loadModules()
+    await Promise.all([loadFilterOptions(), loadModules()])
   },
   { immediate: true },
 )
@@ -299,7 +384,7 @@ onMounted(loadEnvironments)
       <header class="page-heading">
         <div>
           <h1 class="serif-title">模块通过率</h1>
-          <p>{{ selectedEnvironmentName }} 的模块快照只读查询，筛选与分页状态会同步到地址栏。</p>
+          <p>{{ selectedEnvironmentName }} 的模块快照只读查询。</p>
         </div>
         <RouterLink class="secondary-link" aria-label="环境通过率" to="/environments">环境汇总</RouterLink>
       </header>
@@ -307,46 +392,132 @@ onMounted(loadEnvironments)
       <form class="filter-bar" @submit.prevent="applyFilters">
         <label class="filter-field" for="module-environment-filter">
           <span>测试环境</span>
-          <select id="module-environment-filter" v-model="filters.environment_id" :disabled="environmentLoading">
+          <select
+            id="module-environment-filter"
+            v-model="filters.environment_id"
+            :disabled="environmentLoading"
+            @change="handleEnvironmentChanged"
+          >
             <option v-for="environment in environments" :key="environment.id" :value="String(environment.id)">
               {{ environment.env_name }}
             </option>
           </select>
         </label>
-        <label class="filter-field" for="module-name-filter">
+        <label class="filter-field">
           <span>名称筛选</span>
-          <input id="module-name-filter" v-model.trim="filters.module_name" aria-label="模块名称" type="search" />
+          <el-select
+            v-model="filters.module_name"
+            data-testid="module-name-filter"
+            multiple
+            filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="选择模块名称"
+            :loading="filterOptionsLoading"
+          >
+            <el-option
+              v-for="option in filterOptions.module_names"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
         </label>
-        <label class="filter-field" for="package-name-filter">
+        <label class="filter-field">
           <span>包名筛选</span>
-          <input id="package-name-filter" v-model.trim="filters.package_name" aria-label="用例包名" type="search" />
+          <el-select
+            v-model="filters.package_name"
+            data-testid="package-name-filter"
+            multiple
+            filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="选择用例包名"
+            :loading="filterOptionsLoading"
+          >
+            <el-option
+              v-for="option in filterOptions.package_names"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
         </label>
-        <label class="filter-field" for="module-test-filter">
-          <span>测试人筛选</span>
-          <input id="module-test-filter" v-model.trim="filters.module_test" aria-label="模块测试" type="search" />
+        <label class="filter-field">
+          <span>模块开发</span>
+          <el-select
+            v-model="filters.module_dev"
+            data-testid="module-dev-filter"
+            multiple
+            filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="选择模块开发"
+            :loading="filterOptionsLoading"
+          >
+            <el-option
+              v-for="option in filterOptions.module_devs"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
         </label>
-        <label class="filter-field filter-field--small" for="pass-rate-lte-filter">
-          <span>上限筛选</span>
-          <input id="pass-rate-lte-filter" v-model.trim="filters.pass_rate_lte" aria-label="通过率上限" inputmode="decimal" />
+        <label class="filter-field">
+          <span>模块测试</span>
+          <el-select
+            v-model="filters.module_test"
+            data-testid="module-test-filter"
+            multiple
+            filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="选择模块测试"
+            :loading="filterOptionsLoading"
+          >
+            <el-option
+              v-for="option in filterOptions.module_tests"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
         </label>
-        <button class="primary-button" type="submit">查询</button>
-        <button class="secondary-button" type="button" @click="resetFilters">重置</button>
+        <div class="filter-actions">
+          <button class="primary-button primary-button--small" type="button" @click="resetFilters">重置</button>
+          <button class="primary-button" type="submit">查询</button>
+        </div>
       </form>
 
       <p v-if="errorMessage" class="status-line" role="alert">{{ errorMessage }}</p>
+      <p v-if="filterOptionsError" class="status-line" role="alert">{{ filterOptionsError }}</p>
       <p v-if="operationMessage" class="status-line status-line--success">{{ operationMessage }}</p>
       <p v-if="operationError && !confirmDialogOpen" class="status-line" role="alert">{{ operationError }}</p>
 
       <div class="table-frame">
         <el-table v-loading="loading" :data="modules" border>
-          <el-table-column label="日期" min-width="180">
+          <el-table-column label="日期" min-width="125">
             <template #default="{ row }">
               {{ formatDateTime(row.completed_at) }}
             </template>
           </el-table-column>
-          <el-table-column prop="package_name" label="用例包名" min-width="160" />
-          <el-table-column prop="module_name" label="模块名称" min-width="160" />
-          <el-table-column label="通过率" min-width="150">
+          <el-table-column prop="package_name" label="用例包名" min-width="120" />
+          <el-table-column prop="module_name" label="模块名称" min-width="120" />
+          <el-table-column label="执行时间" min-width="80">
+            <template #default="{ row }">
+              {{ formatDuration(row.duration_seconds) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="module_dev" label="模块开发" min-width="80" />
+          <el-table-column prop="module_test" label="模块测试" min-width="80" />
+          <el-table-column prop="total_count" label="总数" min-width="50" />
+          <el-table-column prop="failed_count" label="失败" min-width="50" />
+          <el-table-column prop="skipped_count" label="跳过" min-width="50" />
+          <el-table-column label="通过率" min-width="90">
             <template #default="{ row }">
               <button
                 class="rate-entry-button"
@@ -358,17 +529,7 @@ onMounted(loadEnvironments)
               </button>
             </template>
           </el-table-column>
-          <el-table-column label="执行时间" min-width="110">
-            <template #default="{ row }">
-              {{ formatDuration(row.duration_seconds) }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="module_dev" label="模块开发" min-width="120" />
-          <el-table-column prop="module_test" label="模块测试" min-width="120" />
-          <el-table-column prop="total_count" label="总数" min-width="90" />
-          <el-table-column prop="failed_count" label="失败" min-width="90" />
-          <el-table-column prop="skipped_count" label="跳过" min-width="90" />
-          <el-table-column label="后置能力" min-width="280">
+          <el-table-column label="后置能力" min-width="210">
             <template #default="{ row }">
               <ReadOnlyActionButtons
                 :actions="row.actions"
@@ -391,14 +552,6 @@ onMounted(loadEnvironments)
               <span>{{ item.package_name }}</span>
               <strong>{{ item.module_name }}</strong>
             </div>
-            <button
-              class="rate-entry-button"
-              type="button"
-              :aria-label="`查看${item.module_name}用例详情 ${Number(item.pass_rate) * 100}%`"
-              @click="openCaseDetails(item)"
-            >
-              <RateBadge :value="item.pass_rate" compact />
-            </button>
           </header>
           <dl class="module-card__facts">
             <div>
@@ -428,6 +581,19 @@ onMounted(loadEnvironments)
             <div>
               <dt>跳过</dt>
               <dd>跳过 {{ item.skipped_count }}</dd>
+            </div>
+            <div>
+              <dt>通过率</dt>
+              <dd>
+                <button
+                  class="rate-entry-button"
+                  type="button"
+                  :aria-label="`查看${item.module_name}用例详情 ${Number(item.pass_rate) * 100}%`"
+                  @click="openCaseDetails(item)"
+                >
+                  <RateBadge :value="item.pass_rate" compact />
+                </button>
+              </dd>
             </div>
           </dl>
           <ReadOnlyActionButtons
@@ -539,7 +705,7 @@ p {
 
 .filter-bar {
   display: grid;
-  grid-template-columns: minmax(180px, 1.1fr) repeat(3, minmax(150px, 1fr)) minmax(120px, 0.7fr) auto;
+  grid-template-columns: minmax(180px, 1.05fr) repeat(4, minmax(150px, 1fr)) auto;
   align-items: end;
   gap: 12px;
 }
@@ -564,8 +730,22 @@ p {
   color: var(--color-ink);
 }
 
-.filter-field--small {
-  max-width: 140px;
+.filter-field :deep(.el-select) {
+  width: 100%;
+}
+
+.filter-field :deep(.el-select__wrapper) {
+  min-height: 40px;
+  border-radius: 8px;
+  background: var(--color-canvas);
+  box-shadow: 0 0 0 1px var(--color-hairline) inset;
+}
+
+.filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: max-content;
 }
 
 .primary-button,
@@ -582,6 +762,12 @@ p {
   border: 0;
   background: var(--color-primary);
   color: white;
+}
+
+.primary-button--small {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
 }
 
 .secondary-button {
@@ -707,10 +893,6 @@ p {
   .filter-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .filter-field--small {
-    max-width: none;
-  }
 }
 
 @media (max-width: 700px) {
@@ -726,6 +908,11 @@ p {
 
   .filter-bar {
     grid-template-columns: 1fr;
+  }
+
+  .filter-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .table-frame {

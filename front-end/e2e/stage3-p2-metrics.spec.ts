@@ -104,7 +104,29 @@ async function mockStage3P2Api(page: Page, options: Stage3P2ApiOptions = {}) {
     await route.fulfill({ status: 200, json: { data: summary } })
   })
 
-  await page.route('**/api/v1/module-snapshots**', async (route) => {
+  await page.route(/\/api\/v1\/module-snapshots\/filter-options(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      json: {
+        data: {
+          module_names: [
+            { label: moduleSnapshot.module_name, value: moduleSnapshot.module_name, count: 1 },
+          ],
+          package_names: [
+            { label: moduleSnapshot.package_name, value: moduleSnapshot.package_name, count: 1 },
+          ],
+          module_devs: [
+            { label: moduleSnapshot.module_dev, value: moduleSnapshot.module_dev, count: 1 },
+          ],
+          module_tests: [
+            { label: moduleSnapshot.module_test, value: moduleSnapshot.module_test, count: 1 },
+          ],
+        },
+      },
+    })
+  })
+
+  await page.route(/\/api\/v1\/module-snapshots(?:\?.*)?$/, async (route) => {
     const requestUrl = new URL(route.request().url())
     moduleSnapshotRequests.push(requestUrl)
     const pageNumber = Number(requestUrl.searchParams.get('page') ?? '1')
@@ -125,6 +147,11 @@ async function mockStage3P2Api(page: Page, options: Stage3P2ApiOptions = {}) {
   })
 
   return { moduleSnapshotRequests, sideEffectRequests }
+}
+
+async function selectModuleFilterOption(page: Page, testId: string, optionName: string) {
+  await page.getByTestId(testId).click()
+  await page.getByRole('option', { name: optionName }).click()
 }
 
 test.describe('Stage3 P2 环境与模块通过率只读页面 RED', () => {
@@ -196,21 +223,21 @@ test.describe('Stage3 P2 环境与模块通过率只读页面 RED', () => {
     await expect(tableBody).toContainText('2')
   })
 
-  test('模块页筛选、重置和分页会同步到 URL query 并请求后端分页接口', async ({ page }) => {
+  test('模块页多选筛选、重置和分页会同步到 URL query 并请求后端分页接口', async ({ page }) => {
     const api = await mockStage3P2Api(page, { totalModules: 21 })
 
     await page.goto('/modules?environment_id=1')
-    await page.getByLabel('模块名称').fill('物种')
-    await page.getByLabel('用例包名').fill('test_gbif_case')
-    await page.getByLabel('模块测试').fill('李四')
-    await page.getByLabel('通过率上限').fill('90')
+    await selectModuleFilterOption(page, 'module-name-filter', '物种查询模块')
+    await selectModuleFilterOption(page, 'package-name-filter', 'test_gbif_case')
+    await selectModuleFilterOption(page, 'module-test-filter', '李四')
     await page.getByRole('button', { name: '查询', exact: true }).click()
 
-    await expect.poll(() => new URL(page.url()).searchParams.get('module_name')).toBe('物种')
+    await expect.poll(() => new URL(page.url()).searchParams.get('module_name')).toBe('物种查询模块')
     await expect.poll(() => new URL(page.url()).searchParams.get('package_name')).toBe('test_gbif_case')
     await expect.poll(() => new URL(page.url()).searchParams.get('module_test')).toBe('李四')
-    await expect.poll(() => new URL(page.url()).searchParams.get('pass_rate_lte')).toBe('90')
-    await expect.poll(() => api.moduleSnapshotRequests.at(-1)?.searchParams.get('module_name')).toBe('物种')
+    await expect.poll(() => new URL(page.url()).searchParams.get('pass_rate_lte')).toBeNull()
+    await expect.poll(() => api.moduleSnapshotRequests.at(-1)?.searchParams.get('module_name')).toBe('物种查询模块')
+    await expect.poll(() => api.moduleSnapshotRequests.at(-1)?.searchParams.get('pass_rate_lte')).toBeNull()
 
     await page.getByRole('button', { name: '下一页' }).click()
     await expect.poll(() => new URL(page.url()).searchParams.get('page')).toBe('2')

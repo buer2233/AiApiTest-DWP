@@ -178,6 +178,7 @@ export interface JenkinsTask {
 export interface JenkinsTaskFilters {
   date?: 'today' | string
   status?: JenkinsTaskStatus
+  task_type?: JenkinsTaskType
   page?: number
   per_page?: number
 }
@@ -191,8 +192,8 @@ export interface ModuleSnapshotFilters {
   environment_id: number
   module_name?: string
   package_name?: string
+  module_dev?: string
   module_test?: string
-  pass_rate_lte?: string
   sort?: string
   page?: number
   per_page?: number
@@ -201,4 +202,17 @@ export interface ModuleSnapshotFilters {
 export interface PaginatedModuleSnapshots {
   data: ModuleSnapshot[]
   meta: PaginationMeta
+}
+
+export interface ModuleSnapshotFilterOption {
+  label: string
+  value: string
+  count: number
+}
+
+export interface ModuleSnapshotFilterOptions {
+  module_names: ModuleSnapshotFilterOption[]
+  package_names: ModuleSnapshotFilterOption[]
+  module_devs: ModuleSnapshotFilterOption[]
+  module_tests: ModuleSnapshotFilterOption[]
 }

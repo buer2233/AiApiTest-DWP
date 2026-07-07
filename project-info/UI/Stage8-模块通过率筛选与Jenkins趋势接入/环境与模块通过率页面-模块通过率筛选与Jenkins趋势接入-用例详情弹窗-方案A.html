@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stage8 用例详情弹窗方案A</title>
+  <link rel="stylesheet" href="./stage8-prototype.css" />
+</head>
+<body>
+  <main class="artboard">
+    <div class="prototype-caption">
+      <span class="caption-pill">方案 A / 详情弹窗内联任务入口</span>
+      <span>展示 Jenkins 任务筛选增强 + 失败重试直接触发提示</span>
+    </div>
+    <section class="modal-stage">
+      <article class="dialog case-dialog">
+        <header class="dialog-head">
+          <div>
+            <h2>Species / 集成环境 1 / 用例详情</h2>
+            <p>通过率入口打开当前模块用例，失败重试直接触发 Jenkins 并提示开始执行。</p>
+          </div>
+          <div class="segment"><button class="active">失败</button><button>通过</button><button>跳过</button></div>
+        </header>
+        <section class="dialog-toolbar">
+          <div class="case-filter-grid">
+            <div class="filter-field"><label>用例名</label><div class="input-box">search_taxon</div></div>
+            <div class="filter-field"><label>来源 node id</label><div class="input-box mono">tests/test_species.py::test_search</div></div>
+            <div class="filter-field"><label>错误类型</label><div class="input-box">AssertionError</div></div>
+            <button class="button-primary">查询</button>
+            <button>重置</button>
+          </div>
+          <div class="retry-bar">
+            <span><strong>已选 2 条失败用例</strong>，点击后直接通过 Jenkins 创建 failed_rerun 任务</span>
+            <div class="button-row"><button>重试选中用例</button><button class="button-primary">一键失败重试</button><button>Jenkins 任务</button></div>
+          </div>
+          <div class="toast-tip">开始执行失败重试</div>
+        </section>
+        <table class="data-table">
+          <thead><tr><th style="width:60px;">选择</th><th>用例名</th><th>来源</th><th>错误类型</th><th>展示状态</th><th>确认结果</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td>☑</td><td>test_species_search</td><td class="mono">tests/test_species.py::test_search</td><td>AssertionError</td><td><span class="status failed">失败</span></td><td>-</td><td><button>查看详情</button></td></tr>
+            <tr><td>☑</td><td>test_species_detail</td><td class="mono">tests/test_species.py::test_detail</td><td>TimeoutError</td><td><span class="status failed">失败</span></td><td>待确认</td><td><button>修改状态</button></td></tr>
+            <tr><td>☐</td><td>test_species_count</td><td class="mono">tests/test_species.py::test_count</td><td>AssertionError</td><td><span class="status failed">失败</span></td><td>-</td><td><button>查看详情</button></td></tr>
+          </tbody>
+        </table>
+        <footer class="pagination"><span>共 12 条，当前第 1 页</span><span>关闭</span></footer>
+      </article>
+
+      <aside class="dialog jenkins-panel" aria-label="Jenkins 任务弹窗">
+        <h3>Jenkins 任务</h3>
+        <p class="inline-note">新增状态筛选、日期筛选、任务类型展示；queued/running/canceling 自动轮询。</p>
+        <div class="panel-filter">
+          <div class="filter-field"><label>状态</label><div class="select-box">running</div></div>
+          <div class="filter-field"><label>日期</label><div class="select-box">2026-07-06</div></div>
+          <div class="filter-field"><label>任务类型</label><div class="select-box">failed_rerun</div></div>
+          <button class="button-primary">同步</button>
+        </div>
+        <div class="task-card">
+          <header><span>#318 failed_rerun</span><span class="status running">运行中</span></header>
+          <span class="mono">AiApiTest-DWP-Failed-Rerun</span>
+          <span>触发人：admin / 开始：09:42 / 结束：-</span>
+          <div class="button-row"><button>取消任务</button><button>查看 Jenkins</button></div>
+        </div>
+        <div class="task-card">
+          <header><span>#317 module_rerun</span><span class="status">排队中</span></header>
+          <span class="mono">AiApiTest-DWP-Module-Rerun</span>
+          <span>触发人：admin / 开始：- / 结束：-</span>
+          <div class="button-row"><button>取消任务</button><button disabled>查看报告</button></div>
+        </div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

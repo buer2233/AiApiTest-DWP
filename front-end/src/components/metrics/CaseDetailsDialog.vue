@@ -145,7 +145,7 @@ async function retrySelectedCases() {
       retry_scope: 'selected_failed',
       case_result_ids: selectedRetryCaseIds.value,
     })
-    successMessage.value = 'Jenkins 任务已创建：失败重试'
+    successMessage.value = '开始执行失败重试'
     selectedRetryCaseIds.value = []
     emit('retryCreated', task)
   } catch (error) {
@@ -164,7 +164,7 @@ async function retryAllFailedCases() {
   successMessage.value = ''
   try {
     const task = await createFailedCaseRetry(props.snapshot.id, { retry_scope: 'all_failed' })
-    successMessage.value = 'Jenkins 任务已创建：失败重试'
+    successMessage.value = '开始执行失败重试'
     selectedRetryCaseIds.value = []
     emit('retryCreated', task)
   } catch (error) {

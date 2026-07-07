@@ -18,6 +18,7 @@ from metrics.views import (
     JenkinsTaskCancelView,
     JenkinsTaskListView,
     JenkinsTaskSyncView,
+    ModuleSnapshotFilterOptionsView,
     ModuleRerunCreateView,
     ModuleSnapshotCasesView,
     ModuleSnapshotJenkinsTasksView,
@@ -48,6 +49,11 @@ urlpatterns = [
         name="test-environment-summary",
     ),
     path("api/v1/module-snapshots", ModuleSnapshotListView.as_view(), name="module-snapshot-list"),
+    path(
+        "api/v1/module-snapshots/filter-options",
+        ModuleSnapshotFilterOptionsView.as_view(),
+        name="module-snapshot-filter-options",
+    ),
     path(
         "api/v1/module-snapshots/<int:snapshot_id>/cases",
         ModuleSnapshotCasesView.as_view(),

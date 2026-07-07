@@ -159,6 +159,7 @@ def test_metrics_api_requires_login(api_client, environment):
         "/api/v1/test-environments",
         f"/api/v1/test-environments/{environment.id}/summary",
         f"/api/v1/module-snapshots?environment_id={environment.id}",
+        f"/api/v1/module-snapshots/filter-options?environment_id={environment.id}",
     ]
 
     for url in urls:
@@ -194,16 +195,59 @@ def test_module_snapshots_return_core_fields_actions_and_pagination(admin_client
     }
 
 
+def test_module_snapshot_filter_options_returns_distinct_choices(admin_client, environment, modules, seeded_snapshots):
+    duplicate = MetricModule.objects.create(
+        package_name="test_gbif_case_duplicate",
+        case_path="test_case/test_gbif_case_duplicate",
+        module_name="示例模块1",
+        module_dev="张三",
+        module_test="王五",
+    )
+    ModuleSnapshot.objects.create(
+        environment=environment,
+        module=duplicate,
+        total_count=10,
+        failed_count=1,
+        passed_count=9,
+        skipped_count=0,
+        pass_rate=Decimal("0.900000"),
+    )
+
+    response = admin_client.get("/api/v1/module-snapshots/filter-options", {"environment_id": environment.id})
+
+    assert response.status_code == 200
+    assert response.data["data"]["module_names"] == [
+        {"label": "示例模块1", "value": "示例模块1", "count": 2},
+        {"label": "示例模块2", "value": "示例模块2", "count": 1},
+    ]
+    assert response.data["data"]["package_names"] == [
+        {"label": "test_gbif_case", "value": "test_gbif_case", "count": 1},
+        {"label": "test_gbif_case_duplicate", "value": "test_gbif_case_duplicate", "count": 1},
+        {"label": "test_gbif_case_module2", "value": "test_gbif_case_module2", "count": 1},
+    ]
+    assert response.data["data"]["module_devs"] == [
+        {"label": "张三", "value": "张三", "count": 2},
+        {"label": "赵四", "value": "赵四", "count": 1},
+    ]
+    assert response.data["data"]["module_tests"] == [
+        {"label": "王五", "value": "王五", "count": 2},
+        {"label": "王麻子", "value": "王麻子", "count": 1},
+    ]
+
+
 @pytest.mark.parametrize(
     "params,expected_total",
     [
-        ({"module_name": "模块1"}, 1),
-        ({"package_name": "module2"}, 1),
+        ({"module_name": "示例模块1"}, 1),
+        ({"module_name": "示例模块1,示例模块2"}, 2),
+        ({"package_name": "test_gbif_case_module2"}, 1),
+        ({"module_dev": "张三"}, 1),
+        ({"module_dev": "张三,赵四"}, 2),
         ({"module_test": "王五"}, 1),
         ({"pass_rate_lte": "96"}, 2),
     ],
 )
-def test_module_snapshots_filter_by_module_fields_and_pass_rate(
+def test_module_snapshots_filter_by_exact_module_fields_and_pass_rate(
     admin_client,
     environment,
     seeded_snapshots,
@@ -214,6 +258,20 @@ def test_module_snapshots_filter_by_module_fields_and_pass_rate(
 
     assert response.status_code == 200
     assert response.data["meta"]["total"] == expected_total
+
+
+def test_module_snapshots_use_exact_matching_for_multi_select_fields(admin_client, environment, seeded_snapshots):
+    response = admin_client.get("/api/v1/module-snapshots", {"environment_id": environment.id, "module_name": "模块1"})
+
+    assert response.status_code == 200
+    assert response.data["meta"]["total"] == 0
+
+
+def test_module_snapshots_accept_legacy_pass_rate_lte_query(admin_client, environment, seeded_snapshots):
+    response = admin_client.get("/api/v1/module-snapshots", {"environment_id": environment.id, "pass_rate_lte": "0.95"})
+
+    assert response.status_code == 200
+    assert "data" in response.data
 
 
 def test_module_snapshots_accept_comma_separated_sort_fields(admin_client, environment, modules):
@@ -277,6 +335,20 @@ def test_module_snapshots_accept_comma_separated_sort_fields(admin_client, envir
 )
 def test_module_snapshots_reject_invalid_query_params(admin_client, environment, params):
     response = admin_client.get("/api/v1/module-snapshots", params)
+
+    assert response.status_code == 422
+    assert response.data["error"]["code"] == "validation_error"
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"module_name": ",".join(["A"] * 51)},
+        {"module_dev": "A" * 129},
+    ],
+)
+def test_module_snapshots_reject_invalid_multi_select_params(admin_client, environment, params):
+    response = admin_client.get("/api/v1/module-snapshots", {"environment_id": environment.id, **params})
 
     assert response.status_code == 422
     assert response.data["error"]["code"] == "validation_error"

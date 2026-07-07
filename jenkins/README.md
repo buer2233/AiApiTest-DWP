@@ -127,6 +127,8 @@ Jenkins 内展示 Allure 报告依赖 Allure Jenkins 插件。默认官方 Jenki
 
 `configure-local-mounted-jobs.groovy` 只有在显式 `LOCAL_WORKSPACE_REPO=true` 时才会执行；脚本会创建本地 Job，或修复早期“先 GitHub checkout、再设置 LOCAL_WORKSPACE_REPO”的旧本地 Job。已有非本地 Job 默认不会被覆盖，如确需强制替换，可在 Jenkins 环境中显式设置 `AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS=true` 后再执行脚本。
 
+Stage8 起，本地脚本会读取挂载仓库内的 `api-test/utils/package_module.yaml`，按 `JENKINS_DAILY_FULL_JOB_PREFIX-<package_name>` 创建每个模块的 Daily Job，并为每个 Job 注入 `JENKINS_MODULE_CASE_PATH=test_case/<package_name>`。该命名规则必须与后端 `sync_jenkins_job_bindings` 管理命令保持一致；否则 Daily discovery 会扫描到不存在的 Job。
+
 ### 远端 Jenkins
 
 远端 Jenkins 可以继续使用 SCM / Pipeline script path 加载 `jenkins/Jenkinsfile.*`，但远端网络、凭据和仓库地址必须由 Jenkins 自身配置维护，不写入本仓库。远端环境不要执行本地挂载 Job 配置脚本，除非同时配置了可用的 `AIAPITEST_LOCAL_WORKSPACE`。

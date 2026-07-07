@@ -156,6 +156,23 @@ class ModuleSnapshotListResponseSerializer(serializers.Serializer):
     meta = PaginationMetaSerializer()
 
 
+class FilterOptionSerializer(serializers.Serializer):
+    label = serializers.CharField()
+    value = serializers.CharField()
+    count = serializers.IntegerField()
+
+
+class ModuleSnapshotFilterOptionsDataSerializer(serializers.Serializer):
+    module_names = FilterOptionSerializer(many=True)
+    package_names = FilterOptionSerializer(many=True)
+    module_devs = FilterOptionSerializer(many=True)
+    module_tests = FilterOptionSerializer(many=True)
+
+
+class ModuleSnapshotFilterOptionsResponseSerializer(serializers.Serializer):
+    data = ModuleSnapshotFilterOptionsDataSerializer()
+
+
 class CaseResultSerializer(serializers.ModelSerializer):
     error_message_detail = serializers.SerializerMethodField()
     actions = serializers.SerializerMethodField()
@@ -229,12 +246,7 @@ class JenkinsTaskSerializer(serializers.ModelSerializer):
         ]
 
     def get_job_name(self, obj: JenkinsTask) -> str:
-        names = {
-            "daily_full": "每日全量",
-            "failed_rerun": "失败重试",
-            "module_rerun": "模块重试",
-        }
-        return names.get(obj.task_type, obj.job_full_name)
+        return obj.job_full_name
 
     def get_triggered_by(self, obj: JenkinsTask) -> str | None:
         return obj.triggered_by.display_name if obj.triggered_by else None
