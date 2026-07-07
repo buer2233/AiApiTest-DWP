@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
-from metrics.jenkins_service import discover_jenkins_builds, fetch_jenkins_task_result, trigger_jenkins_build
+from metrics.jenkins_service import cancel_jenkins_task, discover_jenkins_builds, fetch_jenkins_task_result, trigger_jenkins_build
 
 
 class FakeJenkinsResponse:
@@ -98,6 +98,52 @@ def test_fetch_task_result_marks_queue_canceled_when_queue_item_was_canceled(mon
     result = fetch_jenkins_task_result(task)
 
     assert result == {"canceled": True}
+
+
+def test_cancel_task_sends_jenkins_crumb_for_authenticated_post(monkeypatch):
+    monkeypatch.setenv("JENKINS_API_BASE_URL", "http://jenkins:8080")
+    monkeypatch.setenv("JENKINS_USERNAME", "local-user")
+    monkeypatch.setenv("JENKINS_API_TOKEN", "local-token")
+    requested: list[tuple[str, str, str]] = []
+
+    def fake_urlopen(request, timeout):
+        requested.append((request.get_method(), request.full_url, request.headers.get("Jenkins-crumb", "")))
+        if request.full_url == "http://jenkins:8080/crumbIssuer/api/json":
+            return FakeJenkinsResponse({"crumbRequestField": "Jenkins-Crumb", "crumb": "crumb-123"})
+        return FakeJenkinsResponse({})
+
+    monkeypatch.setattr("metrics.jenkins_service.urllib.request.urlopen", fake_urlopen)
+    task = SimpleNamespace(job_full_name="AiApiTest-DWP-Failed-Rerun", build_number=9, queue_id="")
+
+    cancel_jenkins_task(task)
+
+    assert requested == [
+        ("GET", "http://jenkins:8080/crumbIssuer/api/json", ""),
+        ("POST", "http://jenkins:8080/job/AiApiTest-DWP-Failed-Rerun/9/stop", "crumb-123"),
+    ]
+
+
+def test_cancel_queued_task_sends_jenkins_crumb_for_authenticated_post(monkeypatch):
+    monkeypatch.setenv("JENKINS_API_BASE_URL", "http://jenkins:8080")
+    monkeypatch.setenv("JENKINS_USERNAME", "local-user")
+    monkeypatch.setenv("JENKINS_API_TOKEN", "local-token")
+    requested: list[tuple[str, str, str]] = []
+
+    def fake_urlopen(request, timeout):
+        requested.append((request.get_method(), request.full_url, request.headers.get("Jenkins-crumb", "")))
+        if request.full_url == "http://jenkins:8080/crumbIssuer/api/json":
+            return FakeJenkinsResponse({"crumbRequestField": "Jenkins-Crumb", "crumb": "crumb-123"})
+        return FakeJenkinsResponse({})
+
+    monkeypatch.setattr("metrics.jenkins_service.urllib.request.urlopen", fake_urlopen)
+    task = SimpleNamespace(job_full_name="AiApiTest-DWP-Failed-Rerun", build_number=None, queue_id="99")
+
+    cancel_jenkins_task(task)
+
+    assert requested == [
+        ("GET", "http://jenkins:8080/crumbIssuer/api/json", ""),
+        ("POST", "http://jenkins:8080/queue/cancelItem?id=99", "crumb-123"),
+    ]
 
 
 def test_discover_jenkins_builds_reads_daily_jobs_and_build_tag_run_id(monkeypatch):

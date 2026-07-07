@@ -5,7 +5,7 @@
 - 需求定级：M 档，完整 loop。
 - 需求状态：已冻结，主人确认所有待选方案采用方案 A。
 - 开发状态：后端、前端、Jenkins/Docker 静态兼容检查、真实 `http://127.0.0.1:5174` AI 验收已完成并通过回归。
-- 验收建议：通过，等待主人终审签字。备注：本地 Jenkins 已使用运行时验收 API token 验证真实构建触发，模块列表“一键失败重试”和模块重试均已在真实 5174 验收中返回 202。
+- 验收建议：通过，等待主人终审签字。备注：本地 Jenkins 已使用运行时验收 API token 验证真实构建触发；第三轮验收已覆盖同模块活跃任务后端互斥、取消任务不再 503、外链新标签打开，以及触发类请求 202 / 后端 409 两种真实状态。
 
 ## 2. 本阶段交付范围
 
@@ -16,6 +16,8 @@
 - 用例详情失败重试和模块行“一键失败重试”不再二次确认，直接调用失败重试接口，成功提示固定为 `开始执行失败重试`。
 - 模块重试保留二次确认，文案固定为 `模块重试会全量执行当前模块的所有用例，并更新测试时间和执行时间，是否确认重试？`。
 - Jenkins 任务弹窗新增状态、日期、任务类型筛选，并区分展示任务类型和任务名。
+- Jenkins 任务弹窗支持取消任务、查看报告、查看 Jenkins 任务；取消遇到 Jenkins 队列/build 已不存在时返回 409 业务冲突，不再作为 503 服务错误。
+- 同一模块已有 `queued/running/canceling` 的失败重试或模块重试任务时，后端返回 `409 module_execution_locked` 和 `已经有正在的本模块用例`；前端按钮仍可点击并展示该提示。
 - 后端新增筛选选项 API、多选精确筛选、Jenkins 任务 `task_type` 筛选和 `sync_jenkins_job_bindings` 管理命令。
 - 本地 Jenkins 初始化脚本升级为按 `package_module.yaml` 创建每模块 Daily Job，命名与后端 binding 规则一致。
 
@@ -36,6 +38,7 @@
 | 后端 API | `../../../back-end/config/urls.py`、`../../../back-end/metrics/views.py`、`../../../back-end/metrics/serializers.py`、`../../../back-end/metrics/module_metadata.py` | 新增 `filter-options`，从 `package_module.yaml` 提供下拉选项，支持多选精确筛选、`module_dev`、Jenkins task_type 筛选和 Swagger 注解 |
 | 后端命令 | `../../../back-end/metrics/management/commands/sync_jenkins_job_bindings.py` | 读取 `.env` 中非敏感 Job 名变量，按启用环境和模块幂等 upsert Job binding |
 | 后端测试 | `../../../back-end/tests/test_metrics_api.py`、`../../../back-end/tests/test_metrics_commands.py`、`../../../back-end/tests/test_metrics_jenkins_execution_api.py`、`../../../back-end/tests/test_metrics_swagger_docs.py` | 覆盖筛选、命令、Jenkins 任务筛选、权限和 Swagger 契约 |
+| 后端 Jenkins service | `../../../back-end/metrics/jenkins_service.py` | Jenkins POST 触发/取消统一携带 crumb；crumb 不可用时回退既有 POST |
 | 前端页面 | `../../../front-end/src/views/ModulesView.vue` | 方案 A 筛选区、选择即筛选、无查询按钮、列顺序、URL 同步、环境切换和侧边栏重复进入恢复、失败重试直触发、模块重试确认 |
 | 前端组件 | `../../../front-end/src/components/metrics/CaseDetailsDialog.vue`、`../../../front-end/src/components/metrics/JenkinsTasksDialog.vue`、`../../../front-end/src/components/metrics/ReadOnlyActionButtons.vue` | 用例详情提示文案、Jenkins 任务筛选、模块行“一键失败重试”文案、按钮宽度适配 |
 | 前端 API/类型 | `../../../front-end/src/api/metrics.ts`、`../../../front-end/src/types/metrics.ts` | 新增筛选选项 API helper、筛选类型和任务类型筛选参数 |
@@ -63,6 +66,10 @@
 | Phase 13 前端单元测试 | `npm run test:unit` | `../../../front-end/tests/evidence/stage8-phase13-frontend-unit-green-20260707.txt` | 6 files / 12 tests passed |
 | Phase 13 受影响前端 E2E | `npm run test:e2e -- e2e/stage3-p2-metrics.spec.ts e2e/stage4-p3-case-detail-trend.spec.ts e2e/stage6-p5-jenkins-execution.spec.ts e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-phase13-frontend-affected-e2e-green-20260707.txt` | 28 passed |
 | AI 真实 5174 验收 | `STAGE8_REAL_ACCEPTANCE=1 STAGE8_REAL_BASE_URL=http://127.0.0.1:5174 npm run test:e2e -- e2e/stage8-real-acceptance.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-real-acceptance-5174-20260707.txt`、`../../../front-end/tests/evidence/screenshots/stage8-real-acceptance-modules-20260707.png` | 1 passed；filter-options 200 且来自 YAML；点选下拉自动筛选、无查询按钮、重置、Jenkins 任务、右侧 70% 抽屉、侧边栏重复进入不清空、模块行一键失败重试 202、模块重试 202 均已在真实页面执行 |
+| Phase 14 后端目标 GREEN | `python -m pytest tests/test_metrics_api.py tests/test_metrics_commands.py tests/test_metrics_jenkins_execution_api.py tests/test_metrics_jenkins_service.py tests/test_metrics_swagger_docs.py` | `../../../back-end/tests/evidence/backend-stage8-phase14-target-green-20260707.txt` | 73 passed，覆盖同模块活跃任务互斥、取消 404 转 409、crumb 和外链派生 |
+| Phase 14 后端全量 GREEN | `python -m pytest` | `../../../back-end/tests/evidence/backend-stage8-phase14-full-green-20260707.txt` | 153 passed，覆盖率 90% |
+| Phase 14 受影响前端 E2E | `npx playwright test e2e/stage3-p2-metrics.spec.ts e2e/stage4-p3-case-detail-trend.spec.ts e2e/stage6-p5-jenkins-execution.spec.ts e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-phase14-frontend-affected-e2e-green-20260707.txt` | 29 passed |
+| Phase 14 AI 真实 5174 验收 | `STAGE8_REAL_ACCEPTANCE=1 STAGE8_REAL_BASE_URL=http://127.0.0.1:5174 npx playwright test e2e/stage8-real-acceptance.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-phase14-real-acceptance-5174-20260707.txt`、`../../../front-end/tests/evidence/screenshots/stage8-real-acceptance-modules-20260707.png` | 1 passed；取消任务不再 503；外链新标签打开；一键失败重试/模块重试允许 202 或后端 409 互斥提示 |
 
 ## 6. 截图证据
 
@@ -92,12 +99,16 @@
   - 批量 Daily 同步捕获 Jenkins discovery / artifact 拉取异常，返回 `503 jenkins_unavailable`，不让接口变成 500。
   - `pass_rate_lte` 继续兼容旧 URL，但从 Stage8 OpenAPI 主契约移除。
 - Phase 8 复审：Critical 无、Important 无、Minor 无，三项 Important 已闭环。
+- Phase 14 子代理只读审查：Critical 无；Important 已闭环：
+  - 无 `build_number` 的 queued 任务不再派生 job 级 Allure 报告入口。
+  - 活跃任务互斥补齐 `queued/running/canceling` x `failed_rerun/module_rerun` 参数化覆盖。
+  - queue cancel 分支补充 crumb 覆盖。
 
 ## 9. 残余风险与人工验收建议
 
 - Jenkins 本地脚本已通过静态测试，但未在真实 Jenkins Script Console 中自动执行。人工联调时需在 `LOCAL_WORKSPACE_REPO=true` 的本地 Jenkins 中执行 `jenkins/scripts/configure-local-mounted-jobs.groovy`，确认生成 `JENKINS_DAILY_FULL_JOB_PREFIX-<package_name>` 每模块 Daily Job。
 - 批量 Daily 同步在“新发现 build 后拉取 artifact 失败”时可能已创建 running task/run，再返回 `503 jenkins_unavailable`。这是可观测的部分同步状态；后续再次同步同一 build 会复用该 task 并继续拉取结果。
-- 当前本机 Jenkins 8080 要求认证，根 `.env` 未提交私有 `JENKINS_USERNAME/JENKINS_API_TOKEN`。本轮真实验收通过在 Jenkins 容器运行时生成本地验收 API token 并注入后端进程环境，已验证触发 Jenkins 构建的 202 成功路径；该 token 属于本机运行时数据，不进入仓库、不进入 `.env.example`。
+- 当前本机 Jenkins 8080 要求认证，根 `.env` 未提交私有 `JENKINS_USERNAME/JENKINS_API_TOKEN`。本轮真实验收通过读取 Jenkins 容器运行时验收 token 并注入后端进程环境，已验证触发 Jenkins 构建或后端互斥拦截路径；该 token 属于本机运行时数据，不进入仓库、不进入 `.env.example`。
 - 重复运行真实触发验收会创建 Jenkins task 和模块执行锁；如需重复执行同一模块触发类验收，需先通过后端同步释放锁，或在本地测试数据中清理 `ModuleExecutionLock.active_lock_key`。
 - 后续 loop 的最终审查必须运行真实地址 Playwright 验收；mock Playwright/Vitest/pytest 只能作为开发回归，不可替代主人验收前的真实端到端测试。
 

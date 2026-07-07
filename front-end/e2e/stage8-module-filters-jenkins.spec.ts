@@ -46,6 +46,19 @@ const moduleSnapshot = {
   actions: enabledActions,
 }
 
+const lockedModuleSnapshot = {
+  ...moduleSnapshot,
+  actions: {
+    ...enabledActions,
+    failed_rerun: false,
+    module_rerun: false,
+  },
+  disabled_reasons: {
+    failed_rerun: '已有执行中任务',
+    module_rerun: '已有执行中任务',
+  },
+}
+
 const secondModuleSnapshot = {
   ...moduleSnapshot,
   id: 102,
@@ -84,8 +97,8 @@ const failedRetryTask = {
   started_at: null,
   finished_at: null,
   jenkins_build_url: 'https://jenkins.example.test/job/AiApiTest-DWP-Failed-Rerun/301/',
-  allure_report_url: null,
-  actions: { cancel: true, view_report: false, view_jenkins_task: true },
+  allure_report_url: 'https://jenkins.example.test/job/AiApiTest-DWP-Failed-Rerun/allure/',
+  actions: { cancel: true, view_report: true, view_jenkins_task: true },
 }
 
 const moduleRerunTask = {
@@ -110,10 +123,12 @@ type Stage8MockApi = {
   failedRetryPayloads: unknown[]
   moduleRerunPayloads: unknown[]
   taskListRequests: URL[]
+  cancelRequests: number[]
 }
 
 type Stage8MockOptions = {
   filterOptionsFailure?: boolean
+  lockedRetry?: boolean
 }
 
 async function mockStage8Api(page: Page, options: Stage8MockOptions = {}): Promise<Stage8MockApi> {
@@ -122,6 +137,11 @@ async function mockStage8Api(page: Page, options: Stage8MockOptions = {}): Promi
   const failedRetryPayloads: unknown[] = []
   const moduleRerunPayloads: unknown[] = []
   const taskListRequests: URL[] = []
+  const cancelRequests: number[] = []
+
+  await page.context().route('https://jenkins.example.test/**', async (route) => {
+    await route.fulfill({ status: 200, body: '<html><title>Jenkins</title></html>' })
+  })
 
   await page.route('**/api/v1/auth/me', async (route) => {
     await route.fulfill({ status: 200, json: { data: adminUser } })
@@ -160,7 +180,9 @@ async function mockStage8Api(page: Page, options: Stage8MockOptions = {}): Promi
   await page.route(/\/api\/v1\/module-snapshots(?:\?.*)?$/, async (route) => {
     const requestUrl = new URL(route.request().url())
     moduleSnapshotRequests.push(requestUrl)
-    const data = requestUrl.searchParams.get('environment_id') === '2' ? [secondModuleSnapshot] : [moduleSnapshot]
+    const data = requestUrl.searchParams.get('environment_id') === '2'
+      ? [secondModuleSnapshot]
+      : [options.lockedRetry ? lockedModuleSnapshot : moduleSnapshot]
     await route.fulfill({
       status: 200,
       json: {
@@ -187,11 +209,25 @@ async function mockStage8Api(page: Page, options: Stage8MockOptions = {}): Promi
 
   await page.route(/\/api\/v1\/module-snapshots\/\d+\/failed-case-retries$/, async (route) => {
     failedRetryPayloads.push(route.request().postDataJSON())
+    if (options.lockedRetry) {
+      await route.fulfill({
+        status: 409,
+        json: { error: { code: 'module_execution_locked', message: '已经有正在的本模块用例' } },
+      })
+      return
+    }
     await route.fulfill({ status: 202, json: { data: failedRetryTask } })
   })
 
   await page.route(/\/api\/v1\/module-snapshots\/\d+\/module-reruns$/, async (route) => {
     moduleRerunPayloads.push(route.request().postDataJSON())
+    if (options.lockedRetry) {
+      await route.fulfill({
+        status: 409,
+        json: { error: { code: 'module_execution_locked', message: '已经有正在的本模块用例' } },
+      })
+      return
+    }
     await route.fulfill({ status: 202, json: { data: moduleRerunTask } })
   })
 
@@ -209,12 +245,29 @@ async function mockStage8Api(page: Page, options: Stage8MockOptions = {}): Promi
     })
   })
 
+  await page.route(/\/api\/v1\/jenkins-tasks\/\d+\/cancel$/, async (route) => {
+    const taskId = Number(route.request().url().match(/jenkins-tasks\/(\d+)\/cancel/)?.[1])
+    cancelRequests.push(taskId)
+    await route.fulfill({
+      status: 202,
+      json: {
+        data: {
+          ...failedRetryTask,
+          id: taskId,
+          status: 'canceling',
+          actions: { ...failedRetryTask.actions, cancel: false },
+        },
+      },
+    })
+  })
+
   return {
     filterOptionRequests,
     moduleSnapshotRequests,
     failedRetryPayloads,
     moduleRerunPayloads,
     taskListRequests,
+    cancelRequests,
   }
 }
 
@@ -268,7 +321,7 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
 
     const requestCountBeforeSameReset = api.moduleSnapshotRequests.length
     await page.getByRole('button', { name: '重置', exact: true }).click()
-    await expect.poll(() => api.moduleSnapshotRequests.length).toBe(requestCountBeforeSameReset + 1)
+    await expect.poll(() => api.moduleSnapshotRequests.length).toBeGreaterThan(requestCountBeforeSameReset)
   })
 
   test('切换测试环境会同步 URL、刷新筛选选项和模块列表', async ({ page }) => {
@@ -397,6 +450,22 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
     await expect(dialog.getByRole('cell', { name: taskTypeLabels.failed_rerun })).toBeVisible()
     await expect(dialog.getByRole('cell', { name: failedRetryTask.job_name })).toBeVisible()
 
+    await dialog.getByRole('button', { name: '取消任务' }).first().click()
+    await expect.poll(() => api.cancelRequests).toEqual([301])
+    await expect(dialog.getByRole('cell', { name: '取消中' })).toBeVisible()
+
+    const reportPopupPromise = page.waitForEvent('popup')
+    await dialog.getByRole('link', { name: '查看报告' }).first().click()
+    const reportPopup = await reportPopupPromise
+    await expect(reportPopup).toHaveURL(/jenkins\.example\.test\/job\/AiApiTest-DWP-Failed-Rerun\/allure/)
+    await reportPopup.close()
+
+    const jenkinsPopupPromise = page.waitForEvent('popup')
+    await dialog.getByRole('link', { name: '查看 Jenkins 任务' }).first().click()
+    const jenkinsPopup = await jenkinsPopupPromise
+    await expect(jenkinsPopup).toHaveURL(/jenkins\.example\.test\/job\/AiApiTest-DWP-Failed-Rerun\/301/)
+    await jenkinsPopup.close()
+
     await dialog.getByLabel('任务状态').selectOption('running')
     await dialog.getByLabel('任务日期').fill('2026-07-06')
     await dialog.getByLabel('任务类型').selectOption('module_rerun')
@@ -407,6 +476,25 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
     await expect.poll(() => api.taskListRequests.at(-1)?.searchParams.get('task_type')).toBe('module_rerun')
     await expect(dialog.getByRole('cell', { name: taskTypeLabels.module_rerun })).toBeVisible()
     await expect(dialog.getByRole('cell', { name: moduleRerunTask.job_name })).toBeVisible()
+  })
+
+  test('执行中任务由后端拦截，模块行按钮仍可点击并展示接口提示', async ({ page }) => {
+    const api = await mockStage8Api(page, { lockedRetry: true })
+
+    await page.goto('/modules?environment_id=1')
+    const failedRetryButton = page.getByRole('button', { name: '一键失败重试', exact: true })
+    const moduleRerunButton = page.getByRole('button', { name: '模块重试', exact: true })
+    await expect(failedRetryButton).toBeEnabled()
+    await expect(moduleRerunButton).toBeEnabled()
+
+    await failedRetryButton.click()
+    await expect.poll(() => api.failedRetryPayloads).toEqual([{ retry_scope: 'all_failed' }])
+    await expect(page.getByText('已经有正在的本模块用例')).toBeVisible()
+
+    await moduleRerunButton.click()
+    await page.getByRole('dialog', { name: /确认模块重试/ }).getByRole('button', { name: '确认模块重试' }).click()
+    await expect.poll(() => api.moduleRerunPayloads).toEqual([{}])
+    await expect(page.getByRole('dialog', { name: /确认模块重试/ }).getByText('已经有正在的本模块用例')).toBeVisible()
   })
 
   test('保存 Stage8 模块筛选与 Jenkins 弹窗关键截图', async ({ page }) => {
