@@ -236,7 +236,7 @@ test.describe('Stage6 P5 Jenkins 执行闭环前端 RED', () => {
     await expect(page.getByRole('heading', { name: '模块通过率' })).toBeVisible()
     await expect(page.locator('tbody').getByText('33.5秒')).toBeVisible()
 
-    await page.getByRole('button', { name: '失败重试' }).click()
+    await page.getByRole('button', { name: '一键失败重试' }).click()
     await expect(page.getByRole('dialog', { name: /确认失败重试/ })).toHaveCount(0)
 
     await expect.poll(() => api.failedRetryPayloads).toEqual([{ retry_scope: 'all_failed' }])
@@ -325,13 +325,13 @@ test.describe('Stage6 P5 Jenkins 执行闭环前端 RED', () => {
   test('锁冲突使用固定文案提示，member 只读可看任务但不能触发重试且移动端无横向溢出', async ({ page }) => {
     await mockStage6P5Api(page, { lockedRetry: true })
     await page.goto('/modules?environment_id=1')
-    await page.getByRole('button', { name: '失败重试' }).click()
+    await page.getByRole('button', { name: '一键失败重试' }).click()
     await expect(page.getByText('已有用例重试，无法执行！')).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })
     await mockStage6P5Api(page, { role: 'member' })
     await page.goto('/modules?environment_id=1')
-    await expect(page.getByRole('button', { name: '失败重试' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: '一键失败重试' })).toBeDisabled()
     await expect(page.getByRole('button', { name: '模块重试' })).toBeDisabled()
     await page.getByRole('button', { name: 'Jenkins 任务' }).click()
     await expect(page.getByRole('dialog', { name: /Jenkins 任务/ })).toBeVisible()

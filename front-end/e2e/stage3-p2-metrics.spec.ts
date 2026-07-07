@@ -230,7 +230,6 @@ test.describe('Stage3 P2 环境与模块通过率只读页面 RED', () => {
     await selectModuleFilterOption(page, 'module-name-filter', '物种查询模块')
     await selectModuleFilterOption(page, 'package-name-filter', 'test_gbif_case')
     await selectModuleFilterOption(page, 'module-test-filter', '李四')
-    await page.getByRole('button', { name: '查询', exact: true }).click()
 
     await expect.poll(() => new URL(page.url()).searchParams.get('module_name')).toBe('物种查询模块')
     await expect.poll(() => new URL(page.url()).searchParams.get('package_name')).toBe('test_gbif_case')
@@ -260,7 +259,7 @@ test.describe('Stage3 P2 环境与模块通过率只读页面 RED', () => {
 
     await page.goto('/modules?environment_id=1')
 
-    const actionNames = [/失败重试/, /模块重试/, /7天趋势/, /30天趋势/, /Jenkins任务|Jenkins 任务/]
+    const actionNames = [/一键失败重试/, /模块重试/, /7天趋势/, /30天趋势/, /Jenkins任务|Jenkins 任务/]
     for (const actionName of actionNames) {
       const button = page.getByRole('button', { name: actionName })
       await expect(button).toBeVisible()

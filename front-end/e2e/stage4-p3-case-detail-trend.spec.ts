@@ -343,7 +343,7 @@ test.describe('Stage4 P3 用例详情、状态审计与趋势数据 RED', () => 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/modules?environment_id=1')
 
-    await expect(page.getByRole('button', { name: '失败重试' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: '一键失败重试' })).toBeDisabled()
     await expect(page.getByRole('button', { name: '模块重试' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Jenkins 任务' })).toBeDisabled()
     await page.getByRole('button', { name: /查看物种查询模块用例详情/ }).click()

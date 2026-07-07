@@ -43,7 +43,7 @@
 - **目标**：
   - `/modules` 页面删除筛选描述文案和“上限筛选”，新增“模块开发”筛选。
   - 名称、包名、模块开发、模块测试四个筛选改为下拉多选，选项来自后端读取的 `api-test/utils/package_module.yaml`。
-  - “重置”按钮视觉风格与“查询”一致但尺寸更小，并放在筛选操作区最左侧。
+  - 删除“查询”按钮；筛选下拉点选或清空后自动触发筛选，重置按钮保留在筛选操作区。
   - 表格列顺序调整为“通过率”位于“跳过”之后、“后置能力”之前。
   - 补齐 Jenkins Job binding 初始化和同步入口，使失败重试、模块重试、Jenkins 任务弹窗在平台内可稳定触发、查询和验收。
   - 继续使用趋势专用表沉淀每天模块通过率，并确保 7 天 / 30 天趋势展示来自后端历史表。
@@ -59,7 +59,7 @@
 - **做（in scope）**：
   - `/modules` 页面标题说明文案调整，删除“筛选与分页状态会同步到地址栏”等筛选描述。
   - 删除前端“上限筛选”输入框；新增“模块开发”筛选。
-  - 名称、包名、模块开发、模块测试使用 Element Plus 下拉多选，支持清空、重置、URL 同步。
+  - 名称、包名、模块开发、模块测试使用 Element Plus 下拉多选，支持点选即筛选、清空、重置、URL 同步。
   - 新增模块筛选选项 API，校验环境存在后读取 `api-test/utils/package_module.yaml` 作为选项源，并调整模块列表筛选契约。
   - 调整桌面表格和移动端卡片中通过率的展示位置。
   - 新增或补齐 Jenkins Job binding 初始化命令，使用 `.env.example` 已声明的非敏感 Job 名变量。
@@ -94,14 +94,14 @@
   - 页面不再展示筛选说明文案和“上限筛选”。
   - 筛选项包含测试环境、名称、包名、模块开发、模块测试。
   - 名称、包名、模块开发、模块测试均为下拉多选，支持搜索、清空、选择多个值。
-  - 筛选查询提交后同步 URL query，刷新页面后可还原筛选条件。
-  - “重置”按钮使用与“查询”一致的主按钮视觉语言，尺寸更小，位于操作区最左侧；点击后清空四个多选筛选并保留当前或默认测试环境。
+  - 筛选点选或清空后立即同步 URL query，刷新页面后可还原筛选条件。
+  - “查询”按钮不展示；“重置”按钮使用主按钮视觉语言，点击后清空四个多选筛选并保留当前或默认测试环境。
 - **关联数据表**：复用 `test_module`、`module_snapshot`
 - **验收标准（Given-When-Then）**：
   - `AC-S8-1.1` — Given 用户打开 `/modules` When 页面渲染 Then 页面说明中不出现“筛选与分页状态会同步到地址栏”或等价筛选描述。
   - `AC-S8-1.2` — Given 用户打开筛选区 When 查看筛选项 Then 不展示“上限筛选”，且展示“模块开发”筛选。
   - `AC-S8-1.3` — Given 后端从 `api-test/utils/package_module.yaml` 返回名称、包名、模块开发、模块测试选项 When 用户展开任一下拉 Then 可多选并可清空。
-  - `AC-S8-1.4` — Given 用户选择多个模块名称和模块开发 When 点击查询 Then URL query 和后端请求携带逗号分隔多值，列表只展示匹配模块。
+  - `AC-S8-1.4` — Given 用户选择多个模块名称和模块开发 When 下拉选项变更 Then 自动触发筛选，URL query 和后端请求携带逗号分隔多值，列表只展示匹配模块。
   - `AC-S8-1.5` — Given 用户已选择多个筛选 When 点击重置 Then 四个多选筛选清空、页码回到 1，并重新查询当前环境模块列表。
 - **异常场景**：
   - 筛选选项 API 失败 -> 下拉显示错误/空态，模块列表已有查询不崩溃。
@@ -132,7 +132,7 @@
 - **验收标准**：
   - `AC-S8-3.1` — Given `.env` 配置了 `JENKINS_FAILED_RERUN_JOB_NAME` 和 `JENKINS_MODULE_RERUN_JOB_NAME` When 执行 `sync_jenkins_job_bindings` Then 每个启用环境和启用模块都存在 active 失败重试、模块重试 Job binding。
   - `AC-S8-3.2` — Given `.env` 配置了 `JENKINS_DAILY_FULL_JOB_PREFIX` When 执行命令 Then 每个启用环境和启用模块存在 active Daily Job binding，Job 名按 `{JENKINS_DAILY_FULL_JOB_PREFIX}-{module.package_name}` 生成。
-  - `AC-S8-3.3` — Given Job binding 存在且用户为管理人员 When 点击失败重试或模块重试 Then 后端创建 `queued` Jenkins task 并调用 Jenkins 构建。
+  - `AC-S8-3.3` — Given Job binding 存在且用户为管理人员 When 点击模块列表“一键失败重试”或模块重试 Then 后端创建 `queued` Jenkins task 并调用 Jenkins 构建。
   - `AC-S8-3.4` — Given Job binding 缺失 When 管理人员触发重试 Then 后端返回 `422 jenkins_job_not_configured`，前端展示可读禁用原因或错误提示。
   - `AC-S8-3.5` — Given 普通成员打开模块页 When 查看触发按钮 Then 失败重试和模块重试不可触发。
 - **异常场景**：
@@ -180,14 +180,14 @@
 ### F6 失败重试直接触发与模块重试确认
 
 - **能做什么 / 做到什么程度 / 满足什么要求**：
-  - 点击“失败重试”无需二次确认，前端直接调用失败重试接口触发 Jenkins 对应 Job。
+  - 模块列表行按钮展示为“一键失败重试”，点击无需二次确认，前端直接调用失败重试接口触发 Jenkins 对应 Job。
   - 失败重试触发后显示提示文案：`开始执行失败重试`。
   - 用例详情弹窗中，勾选失败用例后点击失败重试直接触发选中失败用例重试。
   - 用例详情弹窗中的一键失败重试直接触发全部失败用例重试。
   - 点击“模块重试”必须弹出二次确认，确认文案为：`模块重试会全量执行当前模块的所有用例，并更新测试时间和执行时间，是否确认重试？`
 - **关联数据表**：`jenkins_task`、`test_case_result`
 - **验收标准**：
-  - `AC-S8-6.1` — Given 用户点击失败重试 When 操作触发 Then 前端不弹二次确认，直接调用失败重试接口，并提示“开始执行失败重试”。
+  - `AC-S8-6.1` — Given 用户点击模块列表“一键失败重试”或详情失败重试 When 操作触发 Then 前端不弹二次确认，直接调用失败重试接口，并提示“开始执行失败重试”。
   - `AC-S8-6.2` — Given 用户在详情弹窗勾选失败用例或点击一键失败重试 When 后端返回 202 Then 前端刷新 Jenkins 任务状态。
   - `AC-S8-6.3` — Given 用户点击模块重试 When 确认弹窗出现 Then 文案为“模块重试会全量执行当前模块的所有用例，并更新测试时间和执行时间，是否确认重试？”；取消确认不创建 Jenkins 任务，确认后才调用模块重试接口。
 
@@ -346,14 +346,14 @@
 | --- | --- | --- | --- | --- |
 | 页面说明 | 本地文案 | 不含筛选描述 | 不适用 | 只说明当前环境模块快照 |
 | 测试环境 | `GET /test-environments` | 环境名称 | 加载中禁用 | 切换后刷新筛选选项和列表 |
-| 名称筛选 | `filter-options.module_names` | 下拉多选 | 选项加载失败显示空态 | 多选后查询 |
-| 包名筛选 | `filter-options.package_names` | 下拉多选 | 同上 | 多选后查询 |
-| 模块开发 | `filter-options.module_devs` | 下拉多选 | 同上 | 多选后查询 |
-| 模块测试 | `filter-options.module_tests` | 下拉多选 | 同上 | 多选后查询 |
-| 重置按钮 | 前端状态 | 主按钮风格，小尺寸 | 筛选提交中禁用 | 位于操作区最左侧，清空多选 |
-| 查询按钮 | 前端状态 | 主按钮 | 查询中禁用 | 提交筛选并刷新列表 |
+| 名称筛选 | `filter-options.module_names` | 下拉多选 | 选项加载失败显示空态 | 多选后自动筛选 |
+| 包名筛选 | `filter-options.package_names` | 下拉多选 | 同上 | 多选后自动筛选 |
+| 模块开发 | `filter-options.module_devs` | 下拉多选 | 同上 | 多选后自动筛选 |
+| 模块测试 | `filter-options.module_tests` | 下拉多选 | 同上 | 多选后自动筛选 |
+| 重置按钮 | 前端状态 | 主按钮风格，小尺寸 | 筛选提交中禁用 | 清空多选并刷新列表 |
+| 查询按钮 | 无 | 不展示 | 无 | 下拉选择已自动筛选 |
 | 表格通过率列 | `row.pass_rate` | 百分比 + 详情入口 | 无数据不展示 | 位于跳过之后，点击打开详情 |
-| 后置能力 | `row.actions` / `disabled_reasons` | 失败重试、模块重试、7天趋势、30天趋势、Jenkins 任务 | 按权限、锁、Job binding 禁用 | 触发 DRF API，不直连 Jenkins |
+| 后置能力 | `row.actions` / `disabled_reasons` | 一键失败重试、模块重试、7天趋势、30天趋势、Jenkins 任务 | 按权限、锁、Job binding 禁用 | 触发 DRF API，不直连 Jenkins |
 
 ### UI 区域语义拆解与前端实现范围映射
 
@@ -361,12 +361,12 @@
 | --- | --- | --- | --- | --- | --- |
 | R1 | 模块通过率页面主体 | 当前页面直接展示 | `/modules` / `ModulesView.vue` | 进入模块页 | 截图红字说明 |
 | R2 | 红字编号、红框、箭头 | 仅设计说明不实现 | 无 | 无 | 不进入 DOM、不进截图断言 |
-| R3 | 筛选区 | 当前页面直接展示 | `ModulesView.vue` + Element Plus select | 选择筛选、查询、重置 | 旧“上限筛选” |
+| R3 | 筛选区 | 当前页面直接展示 | `ModulesView.vue` + Element Plus select | 选择即筛选、重置 | 旧“上限筛选”、查询按钮 |
 | R4 | 表格列顺序 | 当前页面直接展示 | `el-table` / 移动端卡片 | 数据加载后渲染 | 旧通过率列位置 |
 | R5 | 后置能力按钮 | 当前页面直接展示 | `ReadOnlyActionButtons.vue` | 点击触发趋势/Jenkins/重试 | Jenkins 外部参数页 iframe |
 | R6 | Jenkins 任务弹窗 | 弹窗 | `JenkinsTasksDialog.vue` | 点击 Jenkins 任务 | 全局 Jenkins 任务页面 |
 | R7 | 7/30 天趋势弹窗 | 弹窗 | `ModuleTrendDialog.vue` | 点击 7天/30天趋势 | 前端临时计算趋势说明 |
-| R8 | 失败重试直接触发与模块重试确认 | 提示 / 确认框 | `ModulesView.vue`、`CaseDetailsDialog.vue` | 点击失败重试、勾选失败重试、一键失败重试、模块重试 | 失败重试二次确认弹窗 |
+| R8 | 失败重试直接触发与模块重试确认 | 提示 / 确认框 | `ModulesView.vue`、`CaseDetailsDialog.vue` | 点击模块列表一键失败重试、勾选失败重试、详情一键失败重试、模块重试 | 失败重试二次确认弹窗 |
 
 ---
 
@@ -457,6 +457,7 @@
 | 2026-07-06 | v1.0.1 | 补充 Daily Job binding 命名规则为 `{JENKINS_DAILY_FULL_JOB_PREFIX}-{module.package_name}` | Phase 3 测试用例要求 AC-S8-3.2 可断言，规则沿用 `.env.example` 与 P5 既有示例 |
 | 2026-07-07 | v1.0.2 | 回写主人 Phase 4 方案选择：所有待选方案采用方案 A；失败重试取消二次确认，直接触发 Jenkins 并提示“开始执行失败重试”；模块重试保留确认弹窗及固定文案 | 主人明确调整失败重试/模块重试交互口径 |
 | 2026-07-07 | v1.0.3 | 回写验收反馈：筛选下拉选项直接来自 `api-test/utils/package_module.yaml`；新增 AI 真实验收门禁，最终验收必须在 `http://127.0.0.1:5174` 运行 Playwright E2E | 主人要求修复真实验收问题，并将真实环境 AI 验收纳入 loop 流程 |
+| 2026-07-07 | v1.0.4 | 回写二次验收反馈：模块筛选选择即自动筛选并删除查询按钮；模块列表行按钮文案改为“一键失败重试”；侧边栏重复点击 `/modules` 不得清空当前环境；真实 Jenkins 触发需返回 202 | 主人截图验收指出查询按钮、多次导航空数据和失败重试 503 问题 |
 
 ---
 

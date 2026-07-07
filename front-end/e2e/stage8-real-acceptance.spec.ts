@@ -65,13 +65,14 @@ test('AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽
 
   await page.getByTestId('module-name-filter').click()
   await expect(page.locator('.el-select-dropdown__item').filter({ hasText: '物种数据1' })).toBeVisible()
-  await page.keyboard.press('Escape')
-
-  const queryResponse = page.waitForResponse((response) =>
+  const autoFilterResponse = page.waitForResponse((response) =>
     response.url().includes('/api/v1/module-snapshots?') && response.status() === 200,
   )
-  await page.getByRole('button', { name: '查询' }).click()
-  await queryResponse
+  await page.locator('.el-select-dropdown__item').filter({ hasText: '物种数据1' }).click()
+  await autoFilterResponse
+  await expect.poll(() => new URL(page.url()).searchParams.get('module_name')).toBe('物种数据1')
+  await expect(page.getByRole('button', { name: '查询', exact: true })).toHaveCount(0)
+  await page.keyboard.press('Escape')
 
   const resetResponse = page.waitForResponse((response) =>
     response.url().includes('/api/v1/module-snapshots?') && response.status() === 200,
@@ -98,27 +99,31 @@ test('AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽
   const viewport = page.viewportSize()
   expect(drawerBox?.width ?? 0).toBeGreaterThanOrEqual((viewport?.width ?? 0) * 0.68)
 
-  const detailRetryResponse = page.waitForResponse((response) =>
-    response.url().includes('/api/v1/module-snapshots/') && response.url().includes('/failed-case-retries'),
-  )
-  await page.getByRole('button', { name: '一键失败重试' }).click()
-  const detailRetry = await detailRetryResponse
-  expect([202, 503]).toContain(detailRetry.status())
-  expect(detailRetry.status()).not.toBe(404)
-  expect(detailRetry.status()).not.toBe(422)
-  await expect(page.locator('.case-dialog__success, .case-dialog__error').filter({ hasText: /开始执行失败重试|HTTP Error 403|Jenkins/ })).toBeVisible()
+  await expect(drawer.getByRole('button', { name: '一键失败重试', exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: '模块重试' }).first().click()
+  await page.getByRole('navigation', { name: '平台导航' }).getByRole('link', { name: '模块通过率' }).click()
+  await page.getByRole('navigation', { name: '平台导航' }).getByRole('link', { name: '模块通过率' }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('environment_id')).toBe('1')
+  await expect(page.getByText('暂无模块快照')).toHaveCount(0)
+
+  await expect(page.locator('.table-frame').getByRole('button', { name: '失败重试', exact: true })).toHaveCount(0)
+  const listRetryResponse = page.waitForResponse((response) =>
+    response.url().includes('/api/v1/module-snapshots/') && response.url().includes('/failed-case-retries'),
+  )
+  await page.locator('.table-frame').getByRole('button', { name: '一键失败重试', exact: true }).first().click()
+  const listRetry = await listRetryResponse
+  expect(listRetry.status()).toBe(202)
+  await expect(page.getByText('开始执行失败重试')).toBeVisible()
+
+  await page.getByRole('button', { name: '模块重试' }).last().click()
   await expect(page.getByText('模块重试会全量执行当前模块的所有用例，并更新测试时间和执行时间，是否确认重试？')).toBeVisible()
   const moduleRerunResponse = page.waitForResponse((response) =>
     response.url().includes('/api/v1/module-snapshots/') && response.url().includes('/module-reruns'),
   )
   await page.getByRole('button', { name: '确认模块重试' }).click()
   const moduleRerun = await moduleRerunResponse
-  expect([202, 503]).toContain(moduleRerun.status())
-  expect(moduleRerun.status()).not.toBe(404)
-  expect(moduleRerun.status()).not.toBe(422)
+  expect(moduleRerun.status()).toBe(202)
 
   mkdirSync(dirname(evidencePath), { recursive: true })
   await page.screenshot({ path: evidencePath, fullPage: true })
