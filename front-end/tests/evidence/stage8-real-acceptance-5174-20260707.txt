@@ -1,0 +1,10 @@
+
+> aiapitest-dwp-front-end@0.1.0 test:e2e
+> playwright test e2e/stage8-real-acceptance.spec.ts
+
+
+Running 1 test using 1 worker
+
+  ok 1 [chromium] › e2e\stage8-real-acceptance.spec.ts:45:1 › AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽屉 (15.0s)
+
+  1 passed (17.9s)

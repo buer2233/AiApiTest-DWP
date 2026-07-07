@@ -4,13 +4,10 @@ import os
 from pathlib import Path
 
 import yaml
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
+from metrics.module_metadata import REQUIRED_MODULE_METADATA_FIELDS, package_module_yaml_path
 from metrics.models import TestModule
-
-
-REQUIRED_FIELDS = ("module_name", "module_dev", "module_test")
 
 
 class Command(BaseCommand):
@@ -21,7 +18,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         source = options.get("source") or os.getenv("PACKAGE_MODULE_YAML_PATH")
-        source_path = Path(source) if source else settings.REPO_ROOT / "api-test" / "utils" / "package_module.yaml"
+        source_path = Path(source) if source else package_module_yaml_path()
         if not source_path.exists():
             raise CommandError(f"package_module.yaml 不存在: {source_path}")
 
@@ -34,7 +31,7 @@ class Command(BaseCommand):
         for package_name, module_config in raw_data.items():
             missing_fields = [
                 field_name
-                for field_name in REQUIRED_FIELDS
+                for field_name in REQUIRED_MODULE_METADATA_FIELDS
                 if not isinstance(module_config, dict) or not module_config.get(field_name)
             ]
             if missing_fields:

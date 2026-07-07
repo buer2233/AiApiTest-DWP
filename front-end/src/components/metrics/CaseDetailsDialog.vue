@@ -245,11 +245,13 @@ watch(
 </script>
 
 <template>
-  <el-dialog
+  <el-drawer
     v-if="modelValue && snapshot"
     :model-value="modelValue"
     :title="title"
-    width="min(1120px, calc(100vw - 32px))"
+    direction="rtl"
+    size="70%"
+    class="case-detail-drawer"
     destroy-on-close
     @close="closeDialog"
     @update:model-value="emit('update:modelValue', $event)"
@@ -483,10 +485,19 @@ watch(
       :case-result="selectedCase"
       @updated="handleStatusUpdated"
     />
-  </el-dialog>
+  </el-drawer>
 </template>
 
 <style scoped>
+:global(.case-detail-drawer) {
+  min-width: min(70vw, calc(100vw - 24px));
+}
+
+:global(.case-detail-drawer .el-drawer__body) {
+  min-width: 0;
+  overflow: auto;
+}
+
 .case-dialog {
   display: grid;
   gap: 14px;
@@ -697,6 +708,10 @@ watch(
 }
 
 @media (max-width: 700px) {
+  :global(.case-detail-drawer) {
+    width: 100% !important;
+  }
+
   .case-dialog__filters {
     grid-template-columns: 1fr;
   }

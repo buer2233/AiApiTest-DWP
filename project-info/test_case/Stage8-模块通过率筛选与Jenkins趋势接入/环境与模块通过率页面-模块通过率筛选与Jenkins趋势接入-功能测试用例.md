@@ -7,7 +7,7 @@
 | 需求名 | 环境与模块通过率页面-模块通过率筛选与Jenkins趋势接入 |
 | 需求来源 | `project-info/demand/Stage8-模块通过率筛选与Jenkins趋势接入/环境与模块通过率页面-模块通过率筛选与Jenkins趋势接入-需求说明.md` v1.0.2 |
 | 需求分级 | M |
-| 测试范围 | 模块筛选区、多选筛选 API、表格列顺序、Jenkins Job binding 初始化、Jenkins 任务弹窗筛选与同步、趋势表写入、失败重试直接触发、模块重试二次确认 |
+| 测试范围 | 模块筛选区、多选筛选 API、表格列顺序、Jenkins Job binding 初始化、Jenkins 任务弹窗筛选与同步、趋势表写入、失败重试直接触发、模块重试二次确认、真实 5174 AI 验收 |
 | 层次标注 | `[接口]`=后端 pytest；`[UI]`=Playwright；`[单元]`=Vitest；`[静态]`=静态配置/文档检查；`[回归]`=前序阶段回归 |
 | 更新时间 | 2026-07-07 |
 
@@ -38,13 +38,14 @@
 ### TC-S8-1.3-001 四个字段支持下拉多选和清空 `[接口] [UI]`
 - **关联 AC**：AC-S8-1.3
 - **优先级**：P0
-- **前置条件**：`GET /api/v1/module-snapshots/filter-options?environment_id=` 返回名称、包名、模块开发、模块测试选项。
+- **前置条件**：`GET /api/v1/module-snapshots/filter-options?environment_id=` 从 `api-test/utils/package_module.yaml` 返回名称、包名、模块开发、模块测试选项。
 - **步骤**：
   1. 打开名称、包名、模块开发、模块测试任一下拉框。
   2. 分别选择多个选项。
   3. 点击清空。
 - **预期结果**：
   - 四个字段均使用后端选项渲染为下拉多选。
+  - 选项值与 `api-test/utils/package_module.yaml` 中的 `module_name`、顶层包名、`module_dev`、`module_test` 一致。
   - 可搜索、可多选、可清空。
   - 清空后前端筛选状态为空数组，不残留旧 query。
 
@@ -345,6 +346,27 @@
   - 后端兼容旧参数，不因旧 URL 报错。
   - Stage8 前端不展示上限筛选，也不主动发送 `pass_rate_lte`。
 
+### TC-S8-REAL-001 AI 真实 5174 端到端验收 `[真实环境] [UI]`
+- **优先级**：P0
+- **关联 AC**：AC-S8-1.3、AC-S8-1.5、AC-S8-2.2、AC-S8-3.3、AC-S8-4.1、AC-S8-6.2、AC-S8-6.3
+- **前置条件**：
+  - 本地前端服务可访问 `http://127.0.0.1:5174`。
+  - 后端 8000 已加载当前代码，前端代理指向该后端。
+  - 已执行 `sync_modules`、`seed_environment`、`seed_demo_metrics`、`sync_jenkins_job_bindings`。
+  - 平台管理员账号来自本地 `.env` 或临时环境变量，不写入测试代码。
+- **步骤**：
+  1. 设置 `STAGE8_REAL_ACCEPTANCE=1`、`STAGE8_REAL_BASE_URL=http://127.0.0.1:5174`。
+  2. 运行 `npm run test:e2e -- e2e/stage8-real-acceptance.spec.ts --project=chromium`。
+  3. Playwright 登录真实页面并进入 `/modules?environment_id=1&sort=pass_rate,-completed_at`。
+  4. 断言 `filter-options` 返回 200，且下拉选项包含 YAML 中的模块名称、包名、模块开发、模块测试。
+  5. 点击“查询”和“重置”，断言模块列表请求重新发出且返回 200。
+  6. 点击“Jenkins 任务”，断言模块 Jenkins 任务接口返回 200 且弹窗可见。
+  7. 点击通过率打开用例详情，断言右侧抽屉宽度不小于视口 68%。
+  8. 点击“一键失败重试”和“模块重试 -> 确认模块重试”，断言请求已发出且不再返回 404/422。
+- **预期结果**：
+  - 真实 5174 用例通过并生成截图证据。
+  - 若本地 Jenkins 缺少私有 `JENKINS_USERNAME/JENKINS_API_TOKEN`，触发类请求允许返回 `503 jenkins_unavailable`，但必须记录为环境配置残余风险；不允许再出现 404、422 或按钮无动作。
+
 ## 8. 覆盖矩阵
 
 | AC 编号 | 测试用例 |
@@ -373,8 +395,8 @@
 | AC-S8-5.4 | TC-S8-5.4-001、TC-S8-5.5-002 |
 | AC-S8-5.5 | TC-S8-5.5-001、TC-S8-5.5-002 |
 | AC-S8-6.1 | TC-S8-6.1-001 |
-| AC-S8-6.2 | TC-S8-6.2-001、TC-S8-6.2-002 |
-| AC-S8-6.3 | TC-S8-6.3-001、TC-S8-6.3-002 |
+| AC-S8-6.2 | TC-S8-6.2-001、TC-S8-6.2-002、TC-S8-REAL-001 |
+| AC-S8-6.3 | TC-S8-6.3-001、TC-S8-6.3-002、TC-S8-REAL-001 |
 
 ## 9. Phase 3 覆盖结论
 
