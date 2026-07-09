@@ -142,6 +142,7 @@ async function mockStage6P5Api(page: Page, options: MockOptions = {}) {
   const failedRetryPayloads: unknown[] = []
   const moduleRerunPayloads: unknown[] = []
   const cancelRequests: number[] = []
+  const syncRequests: number[] = []
   const taskListRequests: URL[] = []
   let moduleSnapshot = {
     ...originalModuleSnapshot,
@@ -225,7 +226,16 @@ async function mockStage6P5Api(page: Page, options: MockOptions = {}) {
     await route.fulfill({ status: 202, json: { data: tasks.find((task) => task.id === taskId) } })
   })
 
-  return { failedRetryPayloads, moduleRerunPayloads, cancelRequests, taskListRequests }
+  await page.route(/\/api\/v1\/jenkins-tasks\/\d+\/sync$/, async (route) => {
+    const taskId = Number(route.request().url().match(/jenkins-tasks\/(\d+)\/sync/)?.[1])
+    syncRequests.push(taskId)
+    tasks = tasks.map((task) =>
+      task.id === taskId ? { ...task, status: 'success', actions: { ...task.actions, cancel: false } } : task,
+    )
+    await route.fulfill({ status: 200, json: { data: tasks.find((task) => task.id === taskId) } })
+  })
+
+  return { failedRetryPayloads, moduleRerunPayloads, cancelRequests, syncRequests, taskListRequests }
 }
 
 test.describe('Stage6 P5 Jenkins 执行闭环前端 RED', () => {
@@ -313,6 +323,8 @@ test.describe('Stage6 P5 Jenkins 执行闭环前端 RED', () => {
     await page.getByRole('button', { name: 'Jenkins 任务' }).click()
     const dialog = page.getByRole('dialog', { name: /Jenkins 任务/ })
 
+    await expect.poll(() => api.syncRequests.length, { timeout: 6500 }).toBeGreaterThan(0)
+    expect(api.syncRequests).toContain(302)
     await expect.poll(() => api.taskListRequests.length, { timeout: 6500 }).toBeGreaterThan(1)
     await expect(dialog.getByRole('cell', { name: '成功' })).toBeVisible()
 

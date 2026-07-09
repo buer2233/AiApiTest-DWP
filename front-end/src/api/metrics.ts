@@ -82,3 +82,8 @@ export async function cancelJenkinsTask(taskId: number): Promise<JenkinsTask> {
   const response = await http.post<{ data: JenkinsTask }>(`/jenkins-tasks/${taskId}/cancel`, {})
   return response.data.data
 }
+
+export async function syncJenkinsTask(taskId: number): Promise<JenkinsTask> {
+  const response = await http.post<{ data: JenkinsTask }>(`/jenkins-tasks/${taskId}/sync`, {})
+  return response.data.data
+}

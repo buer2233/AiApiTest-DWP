@@ -572,17 +572,19 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
         return task
 
 
-def discover_jenkins_builds(*, date: str | None = None) -> list[dict]:
+def discover_jenkins_builds(*, job_full_names: list[str] | None = None, date: str | None = None) -> list[dict]:
     """发现 Jenkins 定时构建，按当前 active daily Job binding 限定扫描范围。"""
-    job_full_names = list(
-        JenkinsJobBinding.objects.filter(task_type=TestRun.RunType.DAILY_FULL, is_active=True)
-        .order_by("job_full_name")
-        .values_list("job_full_name", flat=True)
-        .distinct()
-    )
-    if not job_full_names:
+    resolved_job_names = job_full_names
+    if resolved_job_names is None:
+        resolved_job_names = list(
+            JenkinsJobBinding.objects.filter(task_type=TestRun.RunType.DAILY_FULL, is_active=True)
+            .order_by("job_full_name")
+            .values_list("job_full_name", flat=True)
+            .distinct()
+        )
+    if not resolved_job_names:
         return []
-    return discover_jenkins_builds_from_jenkins(job_full_names=job_full_names, date=date)
+    return discover_jenkins_builds_from_jenkins(job_full_names=resolved_job_names, date=date)
 
 
 def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_result: dict) -> tuple[JenkinsTask, bool]:
@@ -1195,8 +1197,17 @@ class JenkinsTaskBulkSyncView(APIView):
         created_count = 0
         updated_count = 0
         synced_count = 0
+        daily_job_names = list(
+            JenkinsJobBinding.objects.filter(
+                task_type=TestRun.RunType.DAILY_FULL,
+                is_active=True,
+            )
+            .order_by("job_full_name")
+            .values_list("job_full_name", flat=True)
+            .distinct()
+        )
         try:
-            discovered = discover_jenkins_builds(date=request.data.get("date"))
+            discovered = discover_jenkins_builds(job_full_names=daily_job_names, date=request.data.get("date"))
         except JenkinsServiceError as exc:
             return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
         for build_result in discovered:
