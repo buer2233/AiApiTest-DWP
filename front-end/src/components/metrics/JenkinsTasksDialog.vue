@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
 
-import { cancelJenkinsTask, fetchModuleSnapshotJenkinsTasks } from '@/api/metrics'
+import { cancelJenkinsTask, fetchModuleSnapshotJenkinsTasks, syncJenkinsTask } from '@/api/metrics'
 import { toApiError } from '@/api/client'
 import type { JenkinsTask, JenkinsTaskStatus, JenkinsTaskType, ModuleSnapshot } from '@/types/metrics'
 import type { PaginationMeta } from '@/types/api'
@@ -21,6 +21,8 @@ const tasks = shallowRef<JenkinsTask[]>([])
 const loading = shallowRef(false)
 const errorMessage = shallowRef('')
 const cancelingTaskId = shallowRef<number | null>(null)
+const syncing = shallowRef(false)
+const refreshing = shallowRef(false)
 const meta = shallowRef<PaginationMeta>({ total: 0, page: 1, per_page: 20, total_pages: 0 })
 let pollTimer: number | null = null
 
@@ -112,16 +114,55 @@ function ensurePollTimer() {
   }
   // P5 冻结轮询间隔为 5 秒；关闭弹窗时会在 watch 中清理。
   pollTimer = window.setInterval(() => {
-    void loadTasks(meta.value.page || 1)
+    void refreshRunningTasks(meta.value.page || 1)
   }, 5000)
 }
 
-async function loadTasks(page = 1) {
+async function syncActiveTasks(): Promise<boolean> {
+  if (syncing.value) {
+    return true
+  }
+  const activeTasks = tasks.value.filter((task) => ['queued', 'running', 'canceling'].includes(task.status))
+  if (activeTasks.length === 0) {
+    return true
+  }
+  syncing.value = true
+  try {
+    const syncedTasks = await Promise.all(activeTasks.map((task) => syncJenkinsTask(task.id)))
+    for (const syncedTask of syncedTasks) {
+      tasks.value = tasks.value.map((task) => (task.id === syncedTask.id ? syncedTask : task))
+      emit('taskUpdated', syncedTask)
+    }
+    return true
+  } catch (error) {
+    errorMessage.value = toApiError(error).message
+    return false
+  } finally {
+    syncing.value = false
+  }
+}
+
+async function refreshRunningTasks(page = 1) {
+  if (refreshing.value) {
+    return
+  }
+  refreshing.value = true
+  try {
+    const syncOk = await syncActiveTasks()
+    await loadTasks(page, { preserveError: !syncOk })
+  } finally {
+    refreshing.value = false
+  }
+}
+
+async function loadTasks(page = 1, options: { preserveError?: boolean } = {}) {
   if (!props.snapshot) {
     return
   }
   loading.value = true
-  errorMessage.value = ''
+  if (!options.preserveError) {
+    errorMessage.value = ''
+  }
   try {
     const response = await fetchModuleSnapshotJenkinsTasks(props.snapshot.id, {
       date: filters.date || 'today',

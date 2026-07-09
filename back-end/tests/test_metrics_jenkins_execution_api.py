@@ -8,6 +8,7 @@ from django.apps import apps
 from django.utils import timezone
 
 from metrics.jenkins_service import JenkinsServiceError
+from metrics.views import discover_jenkins_builds
 from tests.p3_metrics_helpers import create_case_result, create_p3_metric_context
 
 
@@ -341,6 +342,29 @@ def test_module_jenkins_tasks_list_rejects_invalid_task_type(admin_client, p5_co
 
     assert response.status_code == 422
     assert response.data["error"]["code"] == "validation_error"
+
+
+def test_bulk_sync_discovers_daily_builds_with_active_daily_job_names(admin_client, p5_context):
+    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-test_gbif_case")
+
+    with patch("metrics.views.discover_jenkins_builds") as discover_builds:
+        discover_builds.return_value = []
+        response = admin_client.post("/api/v1/jenkins-tasks/sync", {"discover_daily": True}, format="json")
+
+    assert response.status_code == 200
+    discover_builds.assert_called_once_with(
+        job_full_names=["AiApiTest-DWP-Daily-Full-Module-test_gbif_case"],
+        date=None,
+    )
+
+
+def test_daily_discovery_wrapper_accepts_explicit_job_names():
+    with patch("metrics.views.discover_jenkins_builds_from_jenkins") as discover_from_jenkins:
+        discover_from_jenkins.return_value = [{"build_number": 12}]
+        result = discover_jenkins_builds(job_full_names=["daily/job-a"], date="2026-07-09")
+
+    assert result == [{"build_number": 12}]
+    discover_from_jenkins.assert_called_once_with(job_full_names=["daily/job-a"], date="2026-07-09")
 
 
 def test_sync_queued_task_without_build_keeps_queued_and_lock(admin_client, p5_context):
