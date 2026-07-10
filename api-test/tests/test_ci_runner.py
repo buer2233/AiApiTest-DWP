@@ -2,11 +2,13 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 
 import pytest
 
 from tools import ci_runner
+from tools.sensitive_data import redact_sensitive_text
 
 
 def write_lastfailed(api_test_root, payload):
@@ -14,6 +16,13 @@ def write_lastfailed(api_test_root, payload):
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     return cache_file
+
+
+def write_case_results(run_dir, payload):
+    output_path = run_dir / "case_results.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return output_path
 
 
 def test_build_pytest_command_for_module_run(tmp_path):
@@ -31,8 +40,14 @@ def test_build_pytest_command_for_module_run(tmp_path):
         "python",
         "-m",
         "pytest",
+        "-vv",
         "test_case/test_gbif_case",
         f"--alluredir={allure_results_dir}",
+        "-p",
+        "tools.pytest_case_reporter",
+        f"--ci-case-results={allure_results_dir.parent / 'case_results.json'}",
+        "-o",
+        f"cache_dir={allure_results_dir.parent / '.pytest_cache'}",
         "--clean-alluredir",
     ]
 
@@ -56,8 +71,14 @@ def test_build_pytest_command_for_selected_nodeids_with_rerun_count(tmp_path):
         "python",
         "-m",
         "pytest",
+        "-vv",
         *nodeids,
         f"--alluredir={allure_results_dir}",
+        "-p",
+        "tools.pytest_case_reporter",
+        f"--ci-case-results={allure_results_dir.parent / 'case_results.json'}",
+        "-o",
+        f"cache_dir={allure_results_dir.parent / '.pytest_cache'}",
         "--reruns",
         "2",
     ]
@@ -82,11 +103,11 @@ def test_run_ci_tests_defaults_to_current_python_interpreter(tmp_path, monkeypat
     )
     calls = {}
 
-    def fake_run(command, **kwargs):
+    def fake_stream(command, **kwargs):
         calls["command"] = command
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner, "run_pytest_streaming", fake_stream)
     monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
 
     ci_runner.run_ci_tests(request)
@@ -106,6 +127,41 @@ def test_resolve_all_failed_targets_reads_pytest_lastfailed_cache(tmp_path):
     )
 
     assert ci_runner.resolve_pytest_targets(request) == [first, second]
+
+
+def test_resolve_all_failed_targets_prefers_latest_ci_run_artifact(tmp_path):
+    stale = "test_case/test_old.py::test_old"
+    latest = "test_case/test_latest.py::test_latest"
+    write_lastfailed(tmp_path, {stale: True})
+    old_run = tmp_path / "runtime" / "ci-runs" / "old"
+    latest_run = tmp_path / "runtime" / "ci-runs" / "latest"
+    ci_runner.write_nodeids([stale], old_run / "failed_nodeids.json")
+    ci_runner.write_nodeids([latest], latest_run / "failed_nodeids.json")
+    now = time.time()
+    os.utime(old_run, (now - 10, now - 10))
+    os.utime(latest_run, (now, now))
+    request = ci_runner.RunRequest(
+        api_test_root=tmp_path,
+        run_dir=tmp_path / "runtime" / "ci-runs" / "next",
+        retry_mode="all-failed",
+    )
+
+    assert ci_runner.resolve_pytest_targets(request) == [latest]
+
+
+def test_resolve_all_failed_targets_accepts_empty_latest_ci_run_artifact(tmp_path):
+    """最新执行已全通过时，不得回退读取共享根 cache 中的历史失败项。"""
+    stale = "test_case/test_old.py::test_old"
+    write_lastfailed(tmp_path, {stale: True})
+    latest_run = tmp_path / "runtime" / "ci-runs" / "latest-passed"
+    ci_runner.write_nodeids([], latest_run / "failed_nodeids.json")
+    request = ci_runner.RunRequest(
+        api_test_root=tmp_path,
+        run_dir=tmp_path / "runtime" / "ci-runs" / "next",
+        retry_mode="all-failed",
+    )
+
+    assert ci_runner.resolve_pytest_targets(request) == []
 
 
 def test_resolve_selected_targets_uses_explicit_nodeids(tmp_path):
@@ -242,6 +298,23 @@ def test_cleanup_old_ci_runs_removes_only_runs_older_than_retention(tmp_path):
     assert non_run_file.exists()
 
 
+def test_cleanup_old_ci_runs_tolerates_concurrent_deletion(tmp_path, monkeypatch):
+    old_run = tmp_path / "runtime" / "ci-runs" / "old"
+    current_run = tmp_path / "runtime" / "ci-runs" / "current"
+    old_run.mkdir(parents=True)
+    current_run.mkdir(parents=True)
+    now = time.time()
+    os.utime(old_run, (now - 40 * 24 * 60 * 60, now - 40 * 24 * 60 * 60))
+
+    def already_removed(path):
+        path.rmdir()
+        raise FileNotFoundError(path)
+
+    monkeypatch.setattr(ci_runner.shutil, "rmtree", already_removed)
+
+    assert ci_runner.cleanup_old_ci_runs(tmp_path, current_run, retention_days=30, now=now) == []
+
+
 def test_parse_args_preserves_local_open_report_option():
     """本地命令行显式 --open-report 仍保留，限制只作用于 Jenkins env 模式。"""
     args = ci_runner.parse_args(["--open-report"])
@@ -271,6 +344,7 @@ def test_write_summary_creates_required_summary_json(tmp_path):
         "allure_report_dir": str(run_dir / "allure-report"),
         "allure_report_status": "unknown",
         "allure_report_message": "",
+        "case_results": [],
     }
     assert summary == expected
     assert json.loads((run_dir / "summary.json").read_text(encoding="utf-8")) == expected
@@ -300,7 +374,7 @@ def test_run_ci_tests_writes_count_fields_into_summary(tmp_path, monkeypatch):
         clean=True,
     )
 
-    def fake_run(command, **kwargs):
+    def fake_stream(command, **kwargs):
         return subprocess.CompletedProcess(
             command,
             1,
@@ -308,7 +382,7 @@ def test_run_ci_tests_writes_count_fields_into_summary(tmp_path, monkeypatch):
             stderr="",
         )
 
-    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner, "run_pytest_streaming", fake_stream)
     monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
 
     summary = ci_runner.run_ci_tests(request, python_executable="python")
@@ -329,7 +403,7 @@ def test_run_ci_tests_writes_failure_summary_when_pytest_times_out(tmp_path, mon
         clean=True,
     )
 
-    def fake_run(command, **kwargs):
+    def fake_stream(command, **kwargs):
         raise subprocess.TimeoutExpired(
             command,
             timeout=kwargs.get("timeout"),
@@ -337,7 +411,7 @@ def test_run_ci_tests_writes_failure_summary_when_pytest_times_out(tmp_path, mon
             stderr="pytest partial stderr",
         )
 
-    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner, "run_pytest_streaming", fake_stream)
     monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
 
     summary = ci_runner.run_ci_tests(request, python_executable="python")
@@ -364,12 +438,15 @@ def test_run_ci_tests_records_failed_allure_report_when_generation_times_out(tmp
     )
     calls = []
 
+    def fake_stream(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, stdout="1 passed in 0.01s", stderr="")
+
     def fake_run(command, **kwargs):
         calls.append((command, kwargs))
-        if command[0] == "python":
-            return subprocess.CompletedProcess(command, 0, stdout="1 passed in 0.01s", stderr="")
         raise subprocess.TimeoutExpired(command, timeout=kwargs.get("timeout"), output="", stderr="")
 
+    monkeypatch.setattr(ci_runner, "run_pytest_streaming", fake_stream)
     monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
     monkeypatch.setattr(ci_runner.shutil, "which", lambda name: "allure")
 
@@ -397,13 +474,25 @@ def test_run_ci_tests_executes_pytest_and_writes_artifacts(tmp_path, monkeypatch
     )
     calls = {}
 
-    def fake_run(command, **kwargs):
+    def fake_stream(command, **kwargs):
         calls["command"] = command
         calls["kwargs"] = kwargs
-        write_lastfailed(tmp_path, {nodeid: True})
+        write_case_results(
+            request.run_dir,
+            [
+                {
+                    "node_id": nodeid,
+                    "case_name": "test_species_search_by_keyword",
+                    "execution_status": "failed",
+                    "duration_seconds": 0.1,
+                    "error_type": "AssertionError",
+                    "error_message_summary": "expected species",
+                }
+            ],
+        )
         return subprocess.CompletedProcess(command, 1, stdout="pytest stdout", stderr="pytest stderr")
 
-    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner, "run_pytest_streaming", fake_stream)
     monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
 
     summary = ci_runner.run_ci_tests(request, python_executable="python")
@@ -412,8 +501,14 @@ def test_run_ci_tests_executes_pytest_and_writes_artifacts(tmp_path, monkeypatch
         "python",
         "-m",
         "pytest",
+        "-vv",
         nodeid,
         f"--alluredir={request.run_dir / 'allure-results'}",
+        "-p",
+        "tools.pytest_case_reporter",
+        f"--ci-case-results={request.run_dir / 'case_results.json'}",
+        "-o",
+        f"cache_dir={request.run_dir / '.pytest_cache'}",
         "--clean-alluredir",
     ]
     assert calls["kwargs"]["cwd"] == str(tmp_path)
@@ -422,9 +517,10 @@ def test_run_ci_tests_executes_pytest_and_writes_artifacts(tmp_path, monkeypatch
     assert summary["status"] == "failed"
     assert summary["return_code"] == 1
     assert summary["failed_nodeids"] == [nodeid]
+    assert summary["case_results"][0]["execution_status"] == "failed"
 
 
-def test_run_ci_tests_clears_stale_lastfailed_before_current_pytest_run(tmp_path, monkeypatch):
+def test_run_ci_tests_ignores_shared_stale_lastfailed_after_current_pytest_run(tmp_path, monkeypatch):
     stale_nodeid = "test_case/old_case/test_old_api.py::TestOldAPI::test_old_failure"
     write_lastfailed(tmp_path, {stale_nodeid: True})
     request = ci_runner.RunRequest(
@@ -435,10 +531,11 @@ def test_run_ci_tests_clears_stale_lastfailed_before_current_pytest_run(tmp_path
         clean=True,
     )
 
-    def fake_run(command, **kwargs):
+    def fake_stream(command, **kwargs):
+        write_case_results(request.run_dir, [])
         return subprocess.CompletedProcess(command, 0, stdout="pytest stdout", stderr="")
 
-    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner, "run_pytest_streaming", fake_stream)
     monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
 
     summary = ci_runner.run_ci_tests(request, python_executable="python")
@@ -457,14 +554,14 @@ def test_run_ci_tests_records_skipped_allure_report_when_cli_is_missing(tmp_path
         clean=True,
     )
 
-    def fake_run(command, **kwargs):
+    def fake_stream(command, **kwargs):
         (request.run_dir / "allure-results" / "result.json").write_text(
             "{}",
             encoding="utf-8",
         )
         return subprocess.CompletedProcess(command, 0, stdout="pytest stdout", stderr="")
 
-    monkeypatch.setattr(ci_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(ci_runner, "run_pytest_streaming", fake_stream)
     monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
 
     summary = ci_runner.run_ci_tests(request, python_executable="python")
@@ -472,6 +569,298 @@ def test_run_ci_tests_records_skipped_allure_report_when_cli_is_missing(tmp_path
     assert summary["status"] == "passed"
     assert summary["allure_report_status"] == "skipped"
     assert "Allure CLI" in summary["allure_report_message"]
+
+
+def test_run_pytest_streaming_writes_first_line_before_process_finishes(tmp_path, capsys):
+    """pytest 子进程尚未结束时，首行输出已进入 console.log 和当前控制台。"""
+    run_dir = tmp_path / "runtime" / "ci-runs" / "streaming"
+    run_dir.mkdir(parents=True)
+    result_holder = {}
+
+    def invoke_runner():
+        result_holder["result"] = ci_runner.run_pytest_streaming(
+            [
+                sys.executable,
+                "-c",
+                "import time; print('first-line', flush=True); time.sleep(0.5); print('second-line', flush=True)",
+            ],
+            cwd=tmp_path,
+            run_dir=run_dir,
+            timeout=5,
+        )
+
+    thread = threading.Thread(target=invoke_runner)
+    thread.start()
+    console_path = run_dir / "console.log"
+    deadline = time.time() + 2
+    while time.time() < deadline:
+        if console_path.exists() and "first-line" in console_path.read_text(encoding="utf-8"):
+            break
+        time.sleep(0.02)
+
+    assert thread.is_alive()
+    assert "first-line" in console_path.read_text(encoding="utf-8")
+    thread.join(timeout=3)
+    assert not thread.is_alive()
+    assert result_holder["result"].returncode == 0
+    assert "second-line" in result_holder["result"].stdout
+    assert "first-line" in capsys.readouterr().out
+
+
+def test_run_pytest_streaming_forces_unbuffered_child_output(tmp_path, monkeypatch):
+    """pytest 写入管道时必须禁用 Python 缓冲，保证 Jenkins 能及时收到逐行输出。"""
+    captured = {}
+
+    class EmptyStdout:
+        def readline(self):
+            return ""
+
+    class FakeProcess:
+        stdout = EmptyStdout()
+
+        def wait(self, timeout=None):
+            return 0
+
+    def fake_popen(command, **kwargs):
+        captured.update(kwargs)
+        return FakeProcess()
+
+    monkeypatch.setattr(ci_runner.subprocess, "Popen", fake_popen)
+
+    result = ci_runner.run_pytest_streaming(
+        [sys.executable, "-m", "pytest"],
+        cwd=tmp_path,
+        run_dir=tmp_path / "run",
+        timeout=5,
+    )
+
+    assert result.returncode == 0
+    assert captured["env"]["PYTHONUNBUFFERED"] == "1"
+
+
+def test_run_pytest_streaming_closes_stdout_when_reader_survives_process_exit(tmp_path, monkeypatch):
+    """pytest 主进程退出后仍有写端存活时，必须清理进程组并关闭读取管道。"""
+    terminated = []
+    join_calls = []
+
+    class BlockingStdout:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    class FakeProcess:
+        stdout = BlockingStdout()
+        pid = 321
+
+        def wait(self, timeout=None):
+            return 0
+
+        def kill(self):
+            return None
+
+    class FakeReader:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def start(self):
+            return None
+
+        def join(self, timeout=None):
+            join_calls.append(timeout)
+
+        def is_alive(self):
+            return not process.stdout.closed
+
+    process = FakeProcess()
+    monkeypatch.setattr(ci_runner.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(ci_runner.threading, "Thread", FakeReader)
+    monkeypatch.setattr(ci_runner, "_terminate_process_tree", lambda value: terminated.append(value))
+
+    result = ci_runner.run_pytest_streaming(
+        [sys.executable, "-m", "pytest"],
+        cwd=tmp_path,
+        run_dir=tmp_path / "run-reader-cleanup",
+        timeout=5,
+    )
+
+    assert result.returncode == 0
+    assert terminated == [process]
+    assert process.stdout.closed is True
+    assert len(join_calls) == 2
+
+
+def test_run_pytest_streaming_terminates_process_tree_on_timeout(tmp_path, monkeypatch):
+    terminated = []
+
+    class EmptyStdout:
+        def readline(self):
+            return ""
+
+        def close(self):
+            return None
+
+    class FakeProcess:
+        stdout = EmptyStdout()
+        pid = 123
+        wait_count = 0
+
+        def wait(self, timeout=None):
+            self.wait_count += 1
+            if self.wait_count == 1:
+                raise subprocess.TimeoutExpired(["pytest"], timeout)
+            return 1
+
+        def kill(self):
+            return None
+
+    process = FakeProcess()
+    monkeypatch.setattr(ci_runner.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(ci_runner, "_terminate_process_tree", lambda value: terminated.append(value))
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        ci_runner.run_pytest_streaming(
+            [sys.executable, "-m", "pytest"],
+            cwd=tmp_path,
+            run_dir=tmp_path / "run-timeout-tree",
+            timeout=1,
+        )
+
+    assert terminated == [process]
+
+
+def test_run_pytest_streaming_redacts_sensitive_console_values(tmp_path):
+    secret = "correct horse battery staple"
+    result = ci_runner.run_pytest_streaming(
+        [
+            sys.executable,
+            "-c",
+            (
+                "print('Authorization: Bearer " + secret + "', flush=True); "
+                "print('Cookie: session=" + secret + "', flush=True); "
+                "print('{\"password\": \"" + secret + "\"}', flush=True)"
+            ),
+        ],
+        cwd=tmp_path,
+        run_dir=tmp_path / "run-redacted",
+        timeout=5,
+    )
+
+    console = (tmp_path / "run-redacted" / "console.log").read_text(encoding="utf-8")
+    assert secret not in result.stdout
+    assert secret not in console
+    assert "[REDACTED]" in console
+
+
+@pytest.mark.parametrize(
+    "raw_value",
+    [
+        'password="correct horse battery staple"',
+        "'password': 'correct horse battery staple'",
+        r'password=\"correct horse battery staple\"',
+        r'{"password": "correct \"horse\" battery staple"}',
+        "api_token=stage10-secret-value",
+    ],
+)
+def test_redact_sensitive_text_removes_complete_sensitive_values(raw_value):
+    redacted = redact_sensitive_text(raw_value)
+
+    assert "correct" not in redacted
+    assert "battery" not in redacted
+    assert "stage10-secret-value" not in redacted
+    assert "[REDACTED]" in redacted
+
+
+@pytest.mark.parametrize("run_id", ["../escape", "a/b", "a\\b", "C:\\absolute", "."])
+def test_build_run_dir_rejects_unsafe_run_id(tmp_path, run_id):
+    with pytest.raises(ValueError, match="run_id"):
+        ci_runner.build_run_dir(tmp_path, run_id)
+
+
+def test_run_ci_tests_rejects_duplicate_run_directory(tmp_path):
+    run_dir = tmp_path / "runtime" / "ci-runs" / "duplicate"
+    run_dir.mkdir(parents=True)
+    request = ci_runner.RunRequest(
+        api_test_root=tmp_path,
+        run_dir=run_dir,
+        retry_mode="module",
+        case_path="test_case",
+    )
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        ci_runner.run_ci_tests(request)
+
+
+def test_run_ci_tests_collects_complete_case_results_from_real_pytest(tmp_path, monkeypatch):
+    """真实 pytest 执行必须输出 passed/failed/skipped/error 的最终 node id 明细。"""
+    test_file = tmp_path / "test_case_results_sample.py"
+    test_file.write_text(
+        """
+import pytest
+
+@pytest.fixture
+def broken_fixture():
+    raise RuntimeError("fixture boom")
+
+def test_passed():
+    assert True
+
+def test_failed():
+    assert False, "expected failure"
+
+@pytest.mark.skip(reason="not ready")
+def test_skipped():
+    pass
+
+def test_error(broken_fixture):
+    pass
+
+@pytest.fixture
+def teardown_fixture():
+    yield
+    raise RuntimeError("teardown boom")
+
+def test_teardown_error(teardown_fixture):
+    assert True
+""".strip(),
+        encoding="utf-8",
+    )
+    collection_skip_file = tmp_path / "test_collection_skip_sample.py"
+    collection_skip_file.write_text(
+        'import pytest\npytest.importorskip("stage10_missing_optional_dependency")\n',
+        encoding="utf-8",
+    )
+    request = ci_runner.RunRequest(
+        api_test_root=tmp_path,
+        run_dir=tmp_path / "runtime" / "ci-runs" / "real-case-results",
+        retry_mode="module",
+        case_path=".",
+        clean=True,
+    )
+    monkeypatch.setattr(ci_runner.shutil, "which", lambda name: None)
+
+    summary = ci_runner.run_ci_tests(request, python_executable=sys.executable)
+
+    by_name = {item["case_name"]: item for item in summary["case_results"]}
+    assert {item["execution_status"] for item in summary["case_results"]} == {
+        "passed",
+        "failed",
+        "skipped",
+        "error",
+    }
+    assert summary["total_count"] == 6
+    assert summary["failed_count"] == 3
+    assert summary["passed_count"] == 1
+    assert summary["skipped_count"] == 2
+    assert by_name["test_failed"]["node_id"].endswith("::test_failed")
+    assert by_name["test_error"]["error_type"] == "RuntimeError"
+    assert by_name["test_teardown_error"]["execution_status"] == "error"
+    assert any(item["execution_status"] == "skipped" and "collection_skip" in item["node_id"] for item in summary["case_results"])
+    assert set(summary["failed_nodeids"]) == {
+        by_name["test_failed"]["node_id"],
+        by_name["test_error"]["node_id"],
+        by_name["test_teardown_error"]["node_id"],
+    }
 
 
 def test_main_returns_success_for_pytest_failures_in_jenkins_env(tmp_path, monkeypatch):

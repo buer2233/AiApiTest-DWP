@@ -20,6 +20,33 @@ def metric_model(model_name: str):
     return apps.get_model("metrics", model_name)
 
 
+MODULE_SUMMARY_FIELDS = (
+    "total_count",
+    "failed_count",
+    "passed_count",
+    "skipped_count",
+    "pass_rate",
+    "completed_at",
+    "duration_seconds",
+    "latest_run_id",
+)
+ENVIRONMENT_SUMMARY_FIELDS = (
+    "total_count",
+    "failed_count",
+    "passed_count",
+    "skipped_count",
+    "pass_rate",
+    "finished_at",
+    "duration_seconds",
+    "latest_run_id",
+)
+
+
+def model_field_state(instance, fields: tuple[str, ...]) -> tuple:
+    instance.refresh_from_db()
+    return tuple(getattr(instance, field) for field in fields)
+
+
 @pytest.fixture
 def p5_context(db) -> dict:
     context = create_p3_metric_context(suffix="-p5")
@@ -342,9 +369,31 @@ def test_module_jenkins_tasks_list_derives_jenkins_and_allure_links(admin_client
     assert response.status_code == 200
     row = response.data["data"][0]
     assert row["jenkins_build_url"] == "http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/9/"
-    assert row["allure_report_url"] == "http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/allure/"
+    assert row["allure_report_url"] == "http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/9/allure/"
     assert row["actions"]["view_report"] is True
     assert row["actions"]["view_jenkins_task"] is True
+
+
+def test_module_jenkins_tasks_list_normalizes_legacy_artifact_report_link(admin_client, p5_context):
+    """历史任务保存的 artifact HTML 地址也必须按具体 build 规范化到 Allure 插件入口。"""
+    snapshot = p5_context["module_snapshot"]
+    task = create_task(
+        p5_context,
+        status="success",
+        build_number=19,
+        job_full_name="AiApiTest-DWP-Failed-Rerun",
+    )
+    task.allure_report_url = (
+        "http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/19/artifact/"
+        "api-test/runtime/ci-runs/legacy/allure-report/index.html"
+    )
+    task.save(update_fields=["allure_report_url", "updated_at"])
+
+    response = admin_client.get(f"/api/v1/module-snapshots/{snapshot.id}/jenkins-tasks", {"date": "today"})
+
+    assert response.status_code == 200
+    row = response.data["data"][0]
+    assert row["allure_report_url"] == "http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/19/allure/"
 
 
 def test_module_jenkins_tasks_list_does_not_derive_report_link_before_build(admin_client, p5_context, monkeypatch):
@@ -580,12 +629,46 @@ def test_sync_module_rerun_archives_old_failed_cases_and_writes_history(admin_cl
             "jenkins_result": "SUCCESS",
             "summary": {
                 "status": "failed",
-                "total_count": 100,
-                "failed_count": 1,
-                "passed_count": 97,
-                "skipped_count": 2,
+                "total_count": 4,
+                "failed_count": 2,
+                "passed_count": 1,
+                "skipped_count": 1,
                 "duration_seconds": 42.5,
                 "failed_nodeids": ["test_case/test_gbif_case/test_species.py::test_new_failure"],
+                "case_results": [
+                    {
+                        "node_id": "test_case/test_gbif_case/test_species.py::test_new_passed",
+                        "case_name": "test_new_passed",
+                        "execution_status": "passed",
+                        "duration_seconds": 0.1,
+                        "error_type": "",
+                        "error_message_summary": "",
+                    },
+                    {
+                        "node_id": "test_case/test_gbif_case/test_species.py::test_new_failure",
+                        "case_name": "test_new_failure",
+                        "execution_status": "failed",
+                        "duration_seconds": 0.2,
+                        "error_type": "AssertionError",
+                        "error_message_summary": "expected 200 but got 500",
+                    },
+                    {
+                        "node_id": "test_case/test_gbif_case/test_species.py::test_new_skipped",
+                        "case_name": "test_new_skipped",
+                        "execution_status": "skipped",
+                        "duration_seconds": 0.0,
+                        "error_type": "",
+                        "error_message_summary": "environment not ready",
+                    },
+                    {
+                        "node_id": "test_case/test_gbif_case/test_species.py::test_new_error",
+                        "case_name": "test_new_error",
+                        "execution_status": "error",
+                        "duration_seconds": 0.05,
+                        "error_type": "RuntimeError",
+                        "error_message_summary": "setup failed",
+                    },
+                ],
                 "allure_report_status": "generated",
             },
             "failed_nodeids": ["test_case/test_gbif_case/test_species.py::test_new_failure"],
@@ -596,13 +679,204 @@ def test_sync_module_rerun_archives_old_failed_cases_and_writes_history(admin_cl
     assert response.status_code == 200
     snapshot.refresh_from_db()
     old_failed.refresh_from_db()
-    assert snapshot.failed_count == 1
+    assert snapshot.failed_count == 2
     assert snapshot.duration_seconds == Decimal("42.5")
     assert old_failed.is_current is False
     new_failed = metric_model("TestCaseResult").objects.get(node_id="test_case/test_gbif_case/test_species.py::test_new_failure")
     assert new_failed.is_current is True
     assert new_failed.source_run_id == task.run_id
+    current_cases = metric_model("TestCaseResult").objects.filter(module_snapshot=snapshot, is_current=True)
+    assert set(current_cases.values_list("execution_status", "display_status")) == {
+        ("passed", "passed"),
+        ("failed", "failed"),
+        ("skipped", "skipped"),
+        ("error", "failed"),
+    }
     assert metric_model("ModuleRunHistory").objects.filter(source_run=task.run, run_type="module_rerun").exists()
+
+
+def test_sync_module_rerun_without_case_results_preserves_current_cases(admin_client, p5_context):
+    """旧版或损坏 summary 没有完整明细时，不得归档清空现有用例。"""
+    snapshot = p5_context["module_snapshot"]
+    environment_snapshot = p5_context["environment_snapshot"]
+    snapshot_before = model_field_state(snapshot, MODULE_SUMMARY_FIELDS)
+    environment_before = model_field_state(environment_snapshot, ENVIRONMENT_SUMMARY_FIELDS)
+    history_count_before = metric_model("ModuleRunHistory").objects.count()
+    current_ids = set(
+        metric_model("TestCaseResult")
+        .objects.filter(module_snapshot=snapshot, is_current=True)
+        .values_list("id", flat=True)
+    )
+    task = create_task(p5_context, status="running", task_type="module_rerun")
+
+    with patch("metrics.views.fetch_jenkins_task_result") as fetch_result:
+        fetch_result.return_value = {
+            "jenkins_result": "SUCCESS",
+            "summary": {
+                "status": "passed",
+                "total_count": 3,
+                "failed_count": 0,
+                "passed_count": 3,
+                "skipped_count": 0,
+                "duration_seconds": 1.2,
+                "failed_nodeids": [],
+                "allure_report_status": "generated",
+            },
+            "failed_nodeids": [],
+            "finished_at": timezone.now(),
+        }
+        response = admin_client.post(f"/api/v1/jenkins-tasks/{task.id}/sync", {}, format="json")
+
+    assert response.status_code == 200
+    remaining_ids = set(
+        metric_model("TestCaseResult")
+        .objects.filter(module_snapshot=snapshot, is_current=True)
+        .values_list("id", flat=True)
+    )
+    assert remaining_ids == current_ids
+    assert model_field_state(snapshot, MODULE_SUMMARY_FIELDS) == snapshot_before
+    assert model_field_state(environment_snapshot, ENVIRONMENT_SUMMARY_FIELDS) == environment_before
+    assert metric_model("ModuleRunHistory").objects.count() == history_count_before
+
+
+def test_sync_module_rerun_with_inconsistent_case_counts_preserves_current_cases(admin_client, p5_context):
+    """明细状态数与 summary 统计不一致时，不得替换当前用例。"""
+    snapshot = p5_context["module_snapshot"]
+    environment_snapshot = p5_context["environment_snapshot"]
+    snapshot_before = model_field_state(snapshot, MODULE_SUMMARY_FIELDS)
+    environment_before = model_field_state(environment_snapshot, ENVIRONMENT_SUMMARY_FIELDS)
+    history_count_before = metric_model("ModuleRunHistory").objects.count()
+    current_ids = set(
+        metric_model("TestCaseResult")
+        .objects.filter(module_snapshot=snapshot, is_current=True)
+        .values_list("id", flat=True)
+    )
+    task = create_task(p5_context, status="running", task_type="module_rerun")
+
+    with patch("metrics.views.fetch_jenkins_task_result") as fetch_result:
+        fetch_result.return_value = {
+            "jenkins_result": "SUCCESS",
+            "summary": {
+                "status": "passed",
+                "total_count": 1,
+                "failed_count": 0,
+                "passed_count": 1,
+                "skipped_count": 0,
+                "case_results": [
+                    {
+                        "node_id": "test_case/test_gbif_case/test_species.py::test_inconsistent",
+                        "case_name": "test_inconsistent",
+                        "execution_status": "failed",
+                        "error_type": "AssertionError",
+                        "error_message_summary": "failed despite passed summary",
+                    }
+                ],
+                "allure_report_status": "generated",
+            },
+            "finished_at": timezone.now(),
+        }
+        response = admin_client.post(f"/api/v1/jenkins-tasks/{task.id}/sync", {}, format="json")
+
+    assert response.status_code == 200
+    task.refresh_from_db()
+    remaining_ids = set(
+        metric_model("TestCaseResult")
+        .objects.filter(module_snapshot=snapshot, is_current=True)
+        .values_list("id", flat=True)
+    )
+    assert remaining_ids == current_ids
+    assert model_field_state(snapshot, MODULE_SUMMARY_FIELDS) == snapshot_before
+    assert model_field_state(environment_snapshot, ENVIRONMENT_SUMMARY_FIELDS) == environment_before
+    assert metric_model("ModuleRunHistory").objects.count() == history_count_before
+    assert "count" in task.error_summary.lower()
+
+
+def test_sync_module_rerun_with_invalid_summary_counts_preserves_all_current_metrics(admin_client, p5_context):
+    """统计字段不可解析时应安全降级，不得产生 500 或部分更新。"""
+    snapshot = p5_context["module_snapshot"]
+    environment_snapshot = p5_context["environment_snapshot"]
+    snapshot_before = model_field_state(snapshot, MODULE_SUMMARY_FIELDS)
+    environment_before = model_field_state(environment_snapshot, ENVIRONMENT_SUMMARY_FIELDS)
+    history_count_before = metric_model("ModuleRunHistory").objects.count()
+    current_ids = set(
+        metric_model("TestCaseResult").objects.filter(module_snapshot=snapshot, is_current=True).values_list("id", flat=True)
+    )
+    task = create_task(p5_context, status="running", task_type="module_rerun")
+
+    with patch("metrics.views.fetch_jenkins_task_result") as fetch_result:
+        fetch_result.return_value = {
+            "jenkins_result": "SUCCESS",
+            "summary": {
+                "status": "passed",
+                "total_count": "invalid",
+                "failed_count": 0,
+                "passed_count": 0,
+                "skipped_count": 0,
+                "case_results": [],
+                "allure_report_status": "generated",
+            },
+            "finished_at": timezone.now(),
+        }
+        response = admin_client.post(f"/api/v1/jenkins-tasks/{task.id}/sync", {}, format="json")
+
+    assert response.status_code == 200
+    task.refresh_from_db()
+    remaining_ids = set(
+        metric_model("TestCaseResult").objects.filter(module_snapshot=snapshot, is_current=True).values_list("id", flat=True)
+    )
+    assert remaining_ids == current_ids
+    assert model_field_state(snapshot, MODULE_SUMMARY_FIELDS) == snapshot_before
+    assert model_field_state(environment_snapshot, ENVIRONMENT_SUMMARY_FIELDS) == environment_before
+    assert metric_model("ModuleRunHistory").objects.count() == history_count_before
+    assert "invalid" in task.error_summary.lower()
+
+
+@pytest.mark.parametrize("invalid_summary", [["invalid"], "invalid"])
+def test_sync_module_rerun_with_non_object_summary_fails_safely_and_releases_lock(
+    admin_client,
+    p5_context,
+    invalid_summary,
+):
+    """summary 顶层不是对象时也必须结束任务、释放锁并保留当前指标。"""
+    snapshot = p5_context["module_snapshot"]
+    environment_snapshot = p5_context["environment_snapshot"]
+    snapshot_before = model_field_state(snapshot, MODULE_SUMMARY_FIELDS)
+    environment_before = model_field_state(environment_snapshot, ENVIRONMENT_SUMMARY_FIELDS)
+    history_count_before = metric_model("ModuleRunHistory").objects.count()
+    current_ids = set(
+        metric_model("TestCaseResult").objects.filter(module_snapshot=snapshot, is_current=True).values_list("id", flat=True)
+    )
+    task = create_task(p5_context, status="running", task_type="module_rerun")
+    execution_lock = metric_model("ModuleExecutionLock").objects.create(
+        environment=p5_context["environment"],
+        module=p5_context["module"],
+        task=task,
+        lock_type="module_execution",
+        status="active",
+        locked_at=timezone.now(),
+    )
+
+    with patch("metrics.views.fetch_jenkins_task_result") as fetch_result:
+        fetch_result.return_value = {
+            "jenkins_result": "SUCCESS",
+            "summary": invalid_summary,
+            "finished_at": timezone.now(),
+        }
+        response = admin_client.post(f"/api/v1/jenkins-tasks/{task.id}/sync", {}, format="json")
+
+    assert response.status_code == 200
+    task.refresh_from_db()
+    execution_lock.refresh_from_db()
+    remaining_ids = set(
+        metric_model("TestCaseResult").objects.filter(module_snapshot=snapshot, is_current=True).values_list("id", flat=True)
+    )
+    assert task.status == "failed"
+    assert "invalid" in task.error_summary.lower()
+    assert execution_lock.status == "released"
+    assert remaining_ids == current_ids
+    assert model_field_state(snapshot, MODULE_SUMMARY_FIELDS) == snapshot_before
+    assert model_field_state(environment_snapshot, ENVIRONMENT_SUMMARY_FIELDS) == environment_before
+    assert metric_model("ModuleRunHistory").objects.count() == history_count_before
 
 
 def test_module_snapshot_actions_include_disabled_reasons(admin_client, p5_context):
@@ -652,12 +926,29 @@ def test_bulk_sync_discovers_daily_build_and_updates_snapshot(admin_client, p5_c
                 "jenkins_result": "SUCCESS",
                 "summary": {
                     "status": "passed",
-                    "total_count": 100,
+                    "total_count": 3,
                     "failed_count": 0,
-                    "passed_count": 98,
-                    "skipped_count": 2,
+                    "passed_count": 2,
+                    "skipped_count": 1,
                     "duration_seconds": 60,
                     "failed_nodeids": [],
+                    "case_results": [
+                        {
+                            "node_id": "test_case/test_gbif_case/test_daily.py::test_daily_passed_one",
+                            "case_name": "test_daily_passed_one",
+                            "execution_status": "passed",
+                        },
+                        {
+                            "node_id": "test_case/test_gbif_case/test_daily.py::test_daily_passed_two",
+                            "case_name": "test_daily_passed_two",
+                            "execution_status": "passed",
+                        },
+                        {
+                            "node_id": "test_case/test_gbif_case/test_daily.py::test_daily_skipped",
+                            "case_name": "test_daily_skipped",
+                            "execution_status": "skipped",
+                        },
+                    ],
                     "allure_report_status": "generated",
                 },
                 "failed_nodeids": [],

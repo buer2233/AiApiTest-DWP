@@ -5,11 +5,13 @@
 import jenkins.model.Jenkins
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition
 import org.jenkinsci.plugins.workflow.job.WorkflowJob
+import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty
 
 def jenkins = Jenkins.get()
 def localWorkspaceMode = System.getenv('LOCAL_WORKSPACE_REPO') ?: 'false'
 def mountedWorkspace = System.getenv('AIAPITEST_LOCAL_WORKSPACE') ?: '/workspace/AiApiTest-DWP'
 def replaceExistingLocalJobs = System.getenv('AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS') ?: 'false'
+def genericPipelineJobName = System.getenv('JENKINS_GENERIC_PIPELINE_JOB_NAME') ?: 'AiApiTest-DWP-Pipeline'
 def failedRerunJobName = System.getenv('JENKINS_FAILED_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Failed-Rerun'
 def moduleRerunJobName = System.getenv('JENKINS_MODULE_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Module-Rerun'
 def dailyFullJobPrefix = System.getenv('JENKINS_DAILY_FULL_JOB_PREFIX') ?: 'AiApiTest-DWP-Daily-Full-Module'
@@ -80,6 +82,12 @@ def jobConfigs = dailyModuleConfigs.collect { module ->
 
 jobConfigs.addAll([
     [
+        name: genericPipelineJobName,
+        description: "${managedMarker} Stage10 本地通用执行 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
+        scriptPath: 'jenkins/scripts/api-test-pipeline.groovy',
+        envVars: ['LOCAL_WORKSPACE_REPO=true']
+    ],
+    [
         name: failedRerunJobName,
         description: "${managedMarker} Stage8 本地失败用例重试 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
         scriptPath: 'jenkins/scripts/failed-rerun-pipeline.groovy',
@@ -115,6 +123,8 @@ def pipelineScript = """node {
 
         job.setDescription(config.description)
         job.setDefinition(new CpsFlowDefinition(pipelineScript, true))
+        // 平台依靠模块锁控制同模块互斥，Jenkins Job 本身必须允许不同模块并发。
+        job.removeProperty(DisableConcurrentBuildsJobProperty)
         job.save()
         println "[AiApiTest-DWP] Configured local mounted Jenkins Job: ${config.name}"
     }

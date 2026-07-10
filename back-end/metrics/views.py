@@ -473,20 +473,126 @@ def refresh_environment_snapshot(environment) -> None:
     )
 
 
-def apply_module_summary(task: JenkinsTask, summary: dict) -> None:
+def normalize_module_case_results(summary: dict, total_count: int) -> tuple[list[dict], str | None]:
+    """校验模块全量用例明细；契约不完整时返回警告并禁止替换旧结果。"""
+    raw_case_results = summary.get("case_results")
+    if not isinstance(raw_case_results, list):
+        return [], "Jenkins summary case_results is missing or invalid; current case details were preserved."
+
+    normalized_by_node_id: dict[str, dict] = {}
+    allowed_statuses = {choice for choice, _ in TestCaseResult.ExecutionStatus.choices}
+    for raw_case in raw_case_results:
+        if not isinstance(raw_case, dict):
+            return [], "Jenkins summary case_results contains a non-object item; current case details were preserved."
+        node_id = str(raw_case.get("node_id") or "").strip()
+        execution_status = str(raw_case.get("execution_status") or "").strip()
+        if not node_id or len(node_id) > 1024 or execution_status not in allowed_statuses:
+            return [], "Jenkins summary case_results contains an invalid node id or status; current case details were preserved."
+        if node_id in normalized_by_node_id:
+            return [], "Jenkins summary case_results contains duplicate node ids; current case details were preserved."
+        normalized_by_node_id[node_id] = {
+            "node_id": node_id,
+            "case_name": str(raw_case.get("case_name") or case_name_from_nodeid(node_id))[:256],
+            "execution_status": execution_status,
+            "error_type": str(raw_case.get("error_type") or "")[:128],
+            "error_message_summary": str(raw_case.get("error_message_summary") or "")[:512],
+        }
+
+    normalized = list(normalized_by_node_id.values())
+    if len(normalized) != total_count:
+        return [], "Jenkins summary case_results count does not match total_count; current case details were preserved."
+    status_counts = {
+        "failed_count": sum(
+            item["execution_status"] in {TestCaseResult.ExecutionStatus.FAILED, TestCaseResult.ExecutionStatus.ERROR}
+            for item in normalized
+        ),
+        "passed_count": sum(item["execution_status"] == TestCaseResult.ExecutionStatus.PASSED for item in normalized),
+        "skipped_count": sum(item["execution_status"] == TestCaseResult.ExecutionStatus.SKIPPED for item in normalized),
+    }
+    for field_name, actual_count in status_counts.items():
+        expected_count = int(summary.get(field_name, 0) or 0)
+        if actual_count != expected_count:
+            return [], f"Jenkins summary {field_name} does not match case_results count; current case details were preserved."
+    return normalized, None
+
+
+def normalize_module_summary(summary: dict) -> tuple[dict | None, str | None]:
+    """先校验模块统计和完整明细，避免降级路径产生部分数据更新。"""
+    if not isinstance(summary, dict):
+        return None, "Jenkins summary is invalid; current module metrics were preserved."
+
+    normalized_counts: dict[str, int] = {}
+    for field_name in ("total_count", "failed_count", "skipped_count"):
+        raw_value = summary.get(field_name, 0 if field_name == "skipped_count" else None)
+        try:
+            if raw_value is None or isinstance(raw_value, bool):
+                raise ValueError
+            parsed_value = int(raw_value)
+            if parsed_value < 0 or (isinstance(raw_value, float) and not raw_value.is_integer()):
+                raise ValueError
+        except (TypeError, ValueError, OverflowError):
+            return None, f"Jenkins summary {field_name} is invalid; current module metrics were preserved."
+        normalized_counts[field_name] = parsed_value
+
+    default_passed = (
+        normalized_counts["total_count"]
+        - normalized_counts["failed_count"]
+        - normalized_counts["skipped_count"]
+    )
+    raw_passed = summary.get("passed_count", default_passed)
+    try:
+        if isinstance(raw_passed, bool):
+            raise ValueError
+        passed_count = int(raw_passed)
+        if passed_count < 0 or (isinstance(raw_passed, float) and not raw_passed.is_integer()):
+            raise ValueError
+    except (TypeError, ValueError, OverflowError):
+        return None, "Jenkins summary passed_count is invalid; current module metrics were preserved."
+    normalized_counts["passed_count"] = passed_count
+
+    if sum(normalized_counts[field] for field in ("failed_count", "passed_count", "skipped_count")) != normalized_counts[
+        "total_count"
+    ]:
+        return None, "Jenkins summary status counts do not match total_count; current module metrics were preserved."
+
+    raw_duration = summary.get("duration_seconds")
+    duration_seconds = None
+    if raw_duration is not None:
+        try:
+            duration_seconds = Decimal(str(raw_duration))
+            if not duration_seconds.is_finite() or duration_seconds < 0:
+                raise InvalidOperation
+        except (InvalidOperation, TypeError, ValueError):
+            return None, "Jenkins summary duration_seconds is invalid; current module metrics were preserved."
+
+    normalized_summary = {**summary, **normalized_counts}
+    case_results, warning = normalize_module_case_results(normalized_summary, normalized_counts["total_count"])
+    if warning:
+        return None, warning
+    return {
+        **normalized_counts,
+        "duration_seconds": duration_seconds,
+        "case_results": case_results,
+    }, None
+
+
+def apply_module_summary(task: JenkinsTask, summary: dict) -> str | None:
     if task.task_type not in {TestRun.RunType.MODULE_RERUN, TestRun.RunType.DAILY_FULL}:
-        return
-    total_count = summary.get("total_count")
-    failed_count = summary.get("failed_count")
-    if total_count is None or failed_count is None:
-        return
-    skipped_count = int(summary.get("skipped_count", 0) or 0)
-    passed_count = int(summary.get("passed_count", int(total_count) - int(failed_count) - skipped_count))
+        return None
+    normalized_summary, case_sync_warning = normalize_module_summary(summary)
+    if case_sync_warning:
+        return case_sync_warning
+
+    total_count = normalized_summary["total_count"]
+    failed_count = normalized_summary["failed_count"]
+    passed_count = normalized_summary["passed_count"]
+    skipped_count = normalized_summary["skipped_count"]
+    case_results = normalized_summary["case_results"]
     completed_at = timezone.now()
-    duration_seconds = summary.get("duration_seconds")
+    duration_seconds = normalized_summary["duration_seconds"]
     snapshot = ModuleSnapshot.objects.select_for_update().get(environment=task.environment, module=task.module)
-    snapshot.total_count = int(total_count)
-    snapshot.failed_count = int(failed_count)
+    snapshot.total_count = total_count
+    snapshot.failed_count = failed_count
     snapshot.passed_count = passed_count
     snapshot.skipped_count = skipped_count
     snapshot.pass_rate = calculate_pass_rate(snapshot.total_count, snapshot.failed_count)
@@ -517,19 +623,26 @@ def apply_module_summary(task: JenkinsTask, summary: dict) -> None:
         confirmation_result="全量执行归档",
         updated_at=timezone.now(),
     )
-    failed_nodeids = sorted({node_id for node_id in (summary.get("failed_nodeids") or []) if node_id})
-    for node_id in failed_nodeids:
+    for case_result in case_results:
+        execution_status = case_result["execution_status"]
+        display_status = (
+            TestCaseResult.DisplayStatus.FAILED
+            if execution_status in {TestCaseResult.ExecutionStatus.FAILED, TestCaseResult.ExecutionStatus.ERROR}
+            else execution_status
+        )
         TestCaseResult.objects.create(
             environment=task.environment,
             module=task.module,
             module_snapshot=snapshot,
             source_run=task.run,
-            node_id=node_id,
-            case_name=case_name_from_nodeid(node_id),
-            case_summary="Jenkins 同步失败用例",
-            execution_status=TestCaseResult.ExecutionStatus.FAILED,
-            display_status=TestCaseResult.DisplayStatus.FAILED,
-            error_message_summary="Jenkins summary 标记失败",
+            node_id=case_result["node_id"],
+            case_name=case_result["case_name"],
+            case_summary="Jenkins 模块执行同步",
+            execution_status=execution_status,
+            display_status=display_status,
+            error_type=case_result["error_type"],
+            error_message_summary=case_result["error_message_summary"],
+            confirmation_result="模块执行同步",
             occurred_at=completed_at,
         )
     history_completed_at = task.finished_at or completed_at
@@ -550,6 +663,7 @@ def apply_module_summary(task: JenkinsTask, summary: dict) -> None:
         },
     )
     refresh_environment_snapshot(task.environment)
+    return None
 
 
 def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
@@ -596,10 +710,11 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
             task.save(update_fields=["build_number", "jenkins_build_url", "status", "last_synced_at", "updated_at"])
             return task
 
-        summary = result.get("summary")
+        raw_summary = result.get("summary")
+        summary = raw_summary if isinstance(raw_summary, dict) else None
         failed_nodeids = list(result.get("failed_nodeids") or (summary or {}).get("failed_nodeids") or [])
         task.jenkins_result = result.get("jenkins_result") or task.jenkins_result
-        task.summary_json = summary
+        task.summary_json = raw_summary
         task.failed_nodeids_json = failed_nodeids
         task.artifact_base_url = result.get("artifact_base_url", task.artifact_base_url)
         task.summary_artifact_url = result.get("summary_artifact_url", task.summary_artifact_url)
@@ -611,6 +726,9 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
 
         if result.get("canceled") or task.jenkins_result == "ABORTED":
             task.status = TestRun.Status.CANCELED
+        elif raw_summary is not None and summary is None:
+            task.status = TestRun.Status.FAILED
+            task.error_summary = "Jenkins summary artifact is invalid."
         elif not summary:
             task.status = TestRun.Status.FAILED
             if not task.error_summary:
@@ -629,7 +747,9 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
         if task.task_type == TestRun.RunType.FAILED_RERUN and task.status in {TestRun.Status.SUCCESS, TestRun.Status.TEST_FAILED}:
             apply_failed_rerun_summary(task, failed_nodeids)
         elif task.status in {TestRun.Status.SUCCESS, TestRun.Status.TEST_FAILED}:
-            apply_module_summary(task, summary or {})
+            case_sync_warning = apply_module_summary(task, summary)
+            if case_sync_warning:
+                task.error_summary = case_sync_warning
 
         if task.run:
             task.run.status = task.status

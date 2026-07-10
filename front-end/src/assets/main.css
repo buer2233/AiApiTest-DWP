@@ -23,6 +23,9 @@
   --color-success: #5db872;
   --color-warning: #d4a017;
   --color-error: #c64545;
+  --color-disabled-bg: #e7e7e3;
+  --color-disabled-border: #cecec8;
+  --color-disabled-text: #85857f;
 }
 
 * {

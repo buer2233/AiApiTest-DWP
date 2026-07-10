@@ -96,6 +96,8 @@ api-test/runtime/ci-runs/<run_id>/
 └── allure-report/
 ```
 
+`summary.json` 还包含 `case_results`，按 pytest 最终 node id 输出 `passed`、`failed`、`skipped`、`error` 状态。Jenkins 执行时 pytest 使用 `-vv`，逐用例过程输出会脱敏后实时进入 Jenkins console，同时写入当前 run 的 `console.log`；pytest cache 位于当前 `runtime/ci-runs/<run_id>/.pytest_cache`，避免并发任务共享根缓存。`RUN_ID` 仅允许字母、数字、点、下划线和短横线，且已存在的 run 目录不会被覆盖。
+
 Jenkins 环境变量模式默认读取 `CI_RUN_RETENTION_DAYS`，未配置时保留 30 天。
 每次 CI 执行只会删除 `runtime/ci-runs/` 下超过保留期的历史 run 目录，
 不会删除本次运行目录，也不会清理 30 天内的报告。
