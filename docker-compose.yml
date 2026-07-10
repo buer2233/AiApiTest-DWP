@@ -34,6 +34,8 @@ services:
       TZ: ${TZ:-Asia/Shanghai}
       JENKINS_OPTS: ${JENKINS_OPTS:-}
       JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}
+      JENKINS_EXECUTORS: ${JENKINS_EXECUTORS:-40}
+      JENKINS_GENERIC_PIPELINE_JOB_NAME: ${JENKINS_GENERIC_PIPELINE_JOB_NAME:-AiApiTest-DWP-Pipeline}
       JENKINS_FAILED_RERUN_JOB_NAME: ${JENKINS_FAILED_RERUN_JOB_NAME:-AiApiTest-DWP-Failed-Rerun}
       JENKINS_MODULE_RERUN_JOB_NAME: ${JENKINS_MODULE_RERUN_JOB_NAME:-AiApiTest-DWP-Module-Rerun}
       JENKINS_DAILY_FULL_JOB_PREFIX: ${JENKINS_DAILY_FULL_JOB_PREFIX:-AiApiTest-DWP-Daily-Full-Module}
@@ -49,6 +51,7 @@ services:
       - "${JENKINS_AGENT_PORT:-50001}:50000"
     volumes:
       - aiapitest-jenkins-home:/var/jenkins_home
+      - ./jenkins/scripts/configure-executors.groovy:/var/jenkins_home/init.groovy.d/20-aiapitest-executors.groovy:ro
       - ./jenkins/scripts/99-aiapitest-local-api-token.groovy:/var/jenkins_home/init.groovy.d/99-aiapitest-local-api-token.groovy:ro
       - ${PROJECT_WORKSPACE:-.}:/workspace/AiApiTest-DWP
     depends_on:

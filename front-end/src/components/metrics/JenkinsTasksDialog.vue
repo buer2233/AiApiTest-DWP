@@ -307,7 +307,7 @@ onUnmounted(clearPollTimer)
                   <button
                     class="secondary-button"
                     type="button"
-                    :disabled="!task.actions.cancel || cancelingTaskId === task.id"
+                    :disabled="!task.actions.cancel || cancelingTaskId !== null"
                     @click="cancelTask(task)"
                   >
                     {{ cancelingTaskId === task.id ? '取消中' : '取消任务' }}
@@ -374,7 +374,7 @@ onUnmounted(clearPollTimer)
             <button
               class="secondary-button"
               type="button"
-              :disabled="!task.actions.cancel || cancelingTaskId === task.id"
+              :disabled="!task.actions.cancel || cancelingTaskId !== null"
               @click="cancelTask(task)"
             >
               {{ cancelingTaskId === task.id ? '取消中' : '取消任务' }}
@@ -549,6 +549,15 @@ onUnmounted(clearPollTimer)
   border: 1px solid var(--color-hairline);
   background: var(--color-canvas);
   color: var(--color-body);
+}
+
+.secondary-button:disabled,
+.secondary-button:disabled:hover {
+  border-color: var(--color-disabled-border);
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .secondary-link {

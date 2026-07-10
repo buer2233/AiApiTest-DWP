@@ -83,7 +83,7 @@ def test_fetch_task_result_returns_public_artifact_urls(monkeypatch):
         "https://ci.example.test/job/AiApiTest-DWP-Module-Rerun/12/artifact/api-test/runtime/ci-runs/module-rerun-12"
     )
     assert result["summary_artifact_url"].startswith("https://ci.example.test/")
-    assert result["allure_report_url"].startswith("https://ci.example.test/")
+    assert result["allure_report_url"] == "https://ci.example.test/job/AiApiTest-DWP-Module-Rerun/12/allure/"
 
 
 def test_fetch_task_result_marks_queue_pending_when_no_executable(monkeypatch):

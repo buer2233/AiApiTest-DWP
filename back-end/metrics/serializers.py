@@ -267,7 +267,7 @@ class JenkinsTaskSerializer(serializers.ModelSerializer):
 
     def get_jenkins_build_url(self, obj: JenkinsTask) -> str:
         if obj.jenkins_build_url:
-            return obj.jenkins_build_url
+            return f"{obj.jenkins_build_url.rstrip('/')}/"
         if not obj.build_number:
             return ""
         public_base_url = self._public_base_url()
@@ -276,14 +276,13 @@ class JenkinsTaskSerializer(serializers.ModelSerializer):
         return f"{public_base_url}/{self._job_path(obj.job_full_name)}/{obj.build_number}/"
 
     def get_allure_report_url(self, obj: JenkinsTask) -> str:
-        if obj.allure_report_url:
-            return obj.allure_report_url
         if not obj.build_number:
             return ""
-        public_base_url = self._public_base_url()
-        if not public_base_url:
+        build_url = self.get_jenkins_build_url(obj)
+        if not build_url:
             return ""
-        return f"{public_base_url}/{self._job_path(obj.job_full_name)}/allure/"
+        # 历史任务可能保存了 artifact HTML 地址，统一按具体 build 规范化到 Allure 插件入口。
+        return f"{build_url.rstrip('/')}/allure/"
 
     def get_actions(self, obj: JenkinsTask) -> dict[str, bool]:
         request = self.context.get("request")

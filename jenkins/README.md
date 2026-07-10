@@ -95,6 +95,8 @@ Publish Allure
 
 `Run API Tests` 阶段由 Jenkins `timeout(time: 60, unit: 'MINUTES')` 包裹，避免 pytest、Allure 或外部依赖异常挂起时长期占用执行器。`ci_runner` 内部也对 pytest 子进程设置 45 分钟超时，对 Allure HTML 生成设置 10 分钟超时，给 summary、failed node ids 和 console 诊断留出落盘缓冲；pytest 或 Allure 超时会写入 `summary.json` 和 `console.log`，便于平台同步诊断。
 
+Compose Jenkins 默认通过 `JENKINS_EXECUTORS=40` 提供 40 个 controller executors，使四个现有平台 Job 均具备至少 10 个并发任务的容量。`configure-executors.groovy` 会在启动时移除这些 Job 的禁止并发属性；共享挂载仓库下，Pipeline 会把 Python 虚拟环境隔离到 `${JENKINS_PYTHON_VENV_DIR}/executor-<EXECUTOR_NUMBER>`，每次运行的 pytest cache 和 Allure 产物继续由 `RUN_ID` 隔离。
+
 ## 运行产物
 
 每次构建都会把 `api-test/runtime/ci-runs/<run_id>/` 作为归档根目录。该目录至少应包含：

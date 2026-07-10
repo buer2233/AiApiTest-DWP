@@ -359,6 +359,25 @@ def test_local_mounted_job_config_creates_daily_job_per_module():
     assert "test_case/test_gbif_case_module2" not in script
 
 
+def test_all_four_local_jobs_allow_concurrent_builds():
+    """四个本地 Pipeline Job 必须移除禁止并发属性。"""
+    script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
+
+    assert "JENKINS_GENERIC_PIPELINE_JOB_NAME" in script
+    assert "AiApiTest-DWP-Pipeline" in script
+    assert "DisableConcurrentBuildsJobProperty" in script
+    assert "removeProperty" in script
+
+
+def test_pipeline_uses_executor_scoped_virtualenv():
+    """共享挂载 workspace 并发执行时，虚拟环境必须按 executor 隔离。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+
+    assert "env.EXECUTOR_NUMBER" in pipeline
+    assert "executor-${executorNumber}" in pipeline
+    assert "JENKINS_PYTHON_VENV_DIR" in pipeline
+
+
 def test_daily_full_module_pipeline_is_scheduled_and_fixed_to_none_mode():
     """每日全量脚本必须配置凌晨 2 点 cron，并固定使用 RETRY_MODE=none。"""
     script = read_required_text(

@@ -47,12 +47,14 @@ def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
 
     for variable in [
         "JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}",
+        "JENKINS_GENERIC_PIPELINE_JOB_NAME: ${JENKINS_GENERIC_PIPELINE_JOB_NAME:-AiApiTest-DWP-Pipeline}",
         "JENKINS_FAILED_RERUN_JOB_NAME: ${JENKINS_FAILED_RERUN_JOB_NAME:-AiApiTest-DWP-Failed-Rerun}",
         "JENKINS_MODULE_RERUN_JOB_NAME: ${JENKINS_MODULE_RERUN_JOB_NAME:-AiApiTest-DWP-Module-Rerun}",
         "JENKINS_DAILY_FULL_JOB_PREFIX: ${JENKINS_DAILY_FULL_JOB_PREFIX:-AiApiTest-DWP-Daily-Full-Module}",
         "JENKINS_DEFAULT_CASE_PATH: ${JENKINS_DEFAULT_CASE_PATH:-test_case/test_gbif_case}",
         "JENKINS_API_TEST_DIR: ${JENKINS_API_TEST_DIR:-api-test}",
         "JENKINS_PYTHON_VENV_DIR: ${JENKINS_PYTHON_VENV_DIR:-.venv}",
+        "JENKINS_EXECUTORS: ${JENKINS_EXECUTORS:-40}",
         "LOCAL_WORKSPACE_REPO: ${LOCAL_WORKSPACE_REPO:-true}",
         "AIAPITEST_LOCAL_WORKSPACE: ${AIAPITEST_LOCAL_WORKSPACE:-/workspace/AiApiTest-DWP}",
         "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS: ${AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS:-false}",
@@ -74,7 +76,9 @@ def test_env_example_documents_required_values_without_real_secrets():
         "MYSQL_HOST=127.0.0.1",
         "JENKINS_HTTP_PORT=8080",
         "JENKINS_AGENT_PORT=50001",
+        "JENKINS_EXECUTORS=40",
         "JENKINS_PUBLIC_BASE_URL=http://localhost:8080",
+        "JENKINS_GENERIC_PIPELINE_JOB_NAME=AiApiTest-DWP-Pipeline",
         "LOCAL_WORKSPACE_REPO=true",
         "AIAPITEST_LOCAL_WORKSPACE=/workspace/AiApiTest-DWP",
         "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS=false",
@@ -126,6 +130,20 @@ def test_env_example_documents_required_values_without_real_secrets():
         assert forbidden_variable not in content
     for forbidden_secret in ["admin123456", "change-me-", "eyJ", "ghp_", "sk-", "xoxb-"]:
         assert forbidden_secret not in content
+
+
+def test_compose_configures_forty_jenkins_executors_via_init_script():
+    """Compose Jenkins 应通过可配置 init Groovy 将 controller executors 设置为 40。"""
+    compose = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+    init_script_path = ROOT_DIR / "jenkins" / "scripts" / "configure-executors.groovy"
+
+    assert "JENKINS_EXECUTORS: ${JENKINS_EXECUTORS:-40}" in compose
+    assert "configure-executors.groovy:/var/jenkins_home/init.groovy.d/20-aiapitest-executors.groovy:ro" in compose
+    assert init_script_path.exists()
+    script = init_script_path.read_text(encoding="utf-8")
+    assert "JENKINS_EXECUTORS" in script
+    assert "setNumExecutors" in script
+    assert "jenkins.save()" in script
 
 
 def test_local_env_file_is_git_ignored():

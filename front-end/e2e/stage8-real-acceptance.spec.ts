@@ -97,7 +97,7 @@ test('AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽
     const reportPopupPromise = page.waitForEvent('popup')
     await viewReportLink.click()
     const reportPopup = await reportPopupPromise
-    await expect(reportPopup).toHaveURL(/\/job\/.+\/allure\/?$/)
+    await expect(reportPopup).toHaveURL(/\/job\/.+\/\d+\/allure\/?$/)
     await reportPopup.close()
   }
   const viewJenkinsLink = jenkinsDialog.getByRole('link', { name: '查看 Jenkins 任务' }).first()

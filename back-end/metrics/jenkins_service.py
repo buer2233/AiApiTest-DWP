@@ -231,5 +231,5 @@ def fetch_jenkins_task_result(task) -> dict[str, Any]:
         "artifact_base_url": public_artifact_base,
         "summary_artifact_url": f"{public_artifact_base}/summary.json",
         "failed_nodeids_artifact_url": f"{public_artifact_base}/failed_nodeids.json",
-        "allure_report_url": f"{public_artifact_base}/allure-report/index.html",
+        "allure_report_url": f"{public_build_url.rstrip('/')}/allure/",
     }

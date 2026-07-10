@@ -105,7 +105,10 @@ def call(Map config = [:]) {
     properties(jobProperties)
 
     def apiTestDir = env.JENKINS_API_TEST_DIR ?: 'api-test'
-    def pythonVenvDir = env.JENKINS_PYTHON_VENV_DIR ?: '.venv'
+    def pythonVenvRoot = env.JENKINS_PYTHON_VENV_DIR ?: '.venv'
+    def executorNumber = env.EXECUTOR_NUMBER ?: 'local'
+    // 固定挂载 workspace 会被并发构建共享，虚拟环境必须按 executor 隔离。
+    def pythonVenvDir = "${pythonVenvRoot}/executor-${executorNumber}"
     def unixPython = "${pythonVenvDir}/bin/python"
     def windowsPython = "${pythonVenvDir}\\Scripts\\python"
     def runId = params.RUN_ID?.trim() ?: env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"
