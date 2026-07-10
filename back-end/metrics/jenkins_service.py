@@ -24,8 +24,10 @@ class JenkinsConfig:
 
 
 def _read_config() -> JenkinsConfig:
-    api_base_url = os.environ.get("JENKINS_API_BASE_URL", "").rstrip("/")
-    public_base_url = os.environ.get("JENKINS_PUBLIC_BASE_URL", api_base_url).rstrip("/")
+    public_base_url = os.environ.get("JENKINS_PUBLIC_BASE_URL", "").rstrip("/")
+    api_base_url = os.environ.get("JENKINS_API_BASE_URL", public_base_url).rstrip("/")
+    if not public_base_url:
+        public_base_url = api_base_url
     timeout = int(os.environ.get("JENKINS_REQUEST_TIMEOUT_SECONDS", "15") or "15")
     return JenkinsConfig(
         api_base_url=api_base_url,

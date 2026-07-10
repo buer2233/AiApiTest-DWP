@@ -212,7 +212,7 @@ async function mockStage8Api(page: Page, options: Stage8MockOptions = {}): Promi
     if (options.lockedRetry) {
       await route.fulfill({
         status: 409,
-        json: { error: { code: 'module_execution_locked', message: '已经有正在的本模块用例' } },
+        json: { error: { code: 'module_execution_locked', message: '本模块已经有真正执行的重试!' } },
       })
       return
     }
@@ -224,7 +224,7 @@ async function mockStage8Api(page: Page, options: Stage8MockOptions = {}): Promi
     if (options.lockedRetry) {
       await route.fulfill({
         status: 409,
-        json: { error: { code: 'module_execution_locked', message: '已经有正在的本模块用例' } },
+        json: { error: { code: 'module_execution_locked', message: '本模块已经有真正执行的重试!' } },
       })
       return
     }
@@ -489,12 +489,12 @@ test.describe('Stage8 模块通过率筛选与 Jenkins 趋势接入前端 RED', 
 
     await failedRetryButton.click()
     await expect.poll(() => api.failedRetryPayloads).toEqual([{ retry_scope: 'all_failed' }])
-    await expect(page.getByText('已经有正在的本模块用例')).toBeVisible()
+    await expect(page.getByText('本模块已经有真正执行的重试!')).toBeVisible()
 
     await moduleRerunButton.click()
     await page.getByRole('dialog', { name: /确认模块重试/ }).getByRole('button', { name: '确认模块重试' }).click()
     await expect.poll(() => api.moduleRerunPayloads).toEqual([{}])
-    await expect(page.getByRole('dialog', { name: /确认模块重试/ }).getByText('已经有正在的本模块用例')).toBeVisible()
+    await expect(page.getByRole('dialog', { name: /确认模块重试/ }).getByText('本模块已经有真正执行的重试!')).toBeVisible()
   })
 
   test('保存 Stage8 模块筛选与 Jenkins 弹窗关键截图', async ({ page }) => {
