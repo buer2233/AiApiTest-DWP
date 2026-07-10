@@ -5,6 +5,10 @@
 """
 
 from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -93,6 +97,8 @@ def test_env_example_documents_required_values_without_real_secrets():
         "MYSQL_DATABASE=",
         "MYSQL_ROOT_PASSWORD=",
         "MYSQL_PASSWORD=",
+        "JENKINS_USERNAME=",
+        "JENKINS_API_TOKEN=",
         "DJANGO_SETTINGS_MODULE=",
         "DJANGO_SECRET_KEY=",
         "DJANGO_DEBUG=",
@@ -129,6 +135,13 @@ def test_local_env_file_is_git_ignored():
     assert "\n.env\n" in f"\n{content}\n"
 
 
+def test_runtime_temp_directory_is_git_ignored():
+    """本地调试脚本和运行日志目录不得被误提交。"""
+    content = (ROOT_DIR / ".gitignore").read_text(encoding="utf-8")
+
+    assert "\n.tmp/\n" in f"\n{content}\n"
+
+
 def test_one_click_scripts_start_compose_services():
     """PowerShell 和 Bash 一键脚本都必须复制 env 模板并启动核心服务。"""
     powershell_script = ROOT_DIR / "scripts" / "deploy-docker.ps1"
@@ -148,6 +161,79 @@ def test_one_click_scripts_start_compose_services():
     assert "JENKINS_PUBLIC_BASE_URL" in sh_content
     assert "MYSQL_BIND_HOST" in ps_content
     assert "MYSQL_BIND_HOST" in sh_content
+
+
+def test_one_click_scripts_inject_local_jenkins_api_credentials_to_private_env():
+    """本地 Jenkins API token 只能写入私有 .env，避免后端重启后再次匿名触发失败。"""
+    powershell_script = ROOT_DIR / "scripts" / "deploy-docker.ps1"
+    bash_script = ROOT_DIR / "scripts" / "deploy-docker.sh"
+
+    ps_content = powershell_script.read_text(encoding="utf-8")
+    sh_content = bash_script.read_text(encoding="utf-8")
+
+    for content in [ps_content, sh_content]:
+        assert "aiapitest-local-api-token.txt" in content
+        assert "JENKINS_USERNAME" in content
+        assert "JENKINS_API_TOKEN" in content
+        assert ".env" in content
+
+    assert "Write-Host $jenkinsApiToken" not in ps_content
+    assert 'echo "$JENKINS_API_TOKEN"' not in sh_content
+
+
+def test_default_compose_bootstraps_local_jenkins_api_token_on_clean_volume():
+    """默认 Compose 必须把受版本控制的 token 初始化脚本带入干净 Jenkins 数据卷。"""
+    compose_content = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+    init_script = ROOT_DIR / "jenkins" / "scripts" / "99-aiapitest-local-api-token.groovy"
+
+    assert init_script.exists()
+    assert (
+        "./jenkins/scripts/99-aiapitest-local-api-token.groovy:"
+        "/var/jenkins_home/init.groovy.d/99-aiapitest-local-api-token.groovy:ro"
+    ) in compose_content
+
+    script_content = init_script.read_text(encoding="utf-8")
+    assert "generateNewToken" in script_content
+    assert "/var/jenkins_home/aiapitest-local-api-token.txt" in script_content
+    assert "plainValue" in script_content
+    assert "setSecurityRealm" not in script_content
+    assert "new HudsonPrivateSecurityRealm" not in script_content
+    assert "findMatchingToken" in script_content
+    assert "getTokenListSortedByName" in script_content
+    assert "revokeToken" in script_content
+    assert "ATOMIC_MOVE" in script_content
+    assert 'PosixFilePermissions.fromString("rw-------")' in script_content
+
+
+def test_powershell_private_env_writer_uses_utf8_without_bom():
+    """Windows PowerShell 5.1 重写 .env 时不得给首个键添加 UTF-8 BOM。"""
+    content = (ROOT_DIR / "scripts" / "deploy-docker.ps1").read_text(encoding="utf-8")
+
+    assert "New-Object System.Text.UTF8Encoding($false)" in content
+    assert "[System.IO.File]::WriteAllLines" in content
+    assert "Set-Content -LiteralPath $Path" not in content
+
+
+def test_powershell_deploy_script_is_parseable_by_windows_powershell():
+    """Windows PowerShell 5.1 必须能解析脚本，避免 UTF-8 注释被误判为语法。"""
+    if not shutil.which("powershell.exe"):
+        pytest.skip("powershell.exe is not available on this platform")
+
+    script = ROOT_DIR / "scripts" / "deploy-docker.ps1"
+    command = (
+        "$tokens=$null; $errors=$null; "
+        f"[System.Management.Automation.Language.Parser]::ParseFile('{script}', [ref]$tokens, [ref]$errors) | Out-Null; "
+        "if ($errors.Count -gt 0) { $errors | ForEach-Object { $_.Message }; exit 1 }"
+    )
+
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-Command", command],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
 
 
 def test_optional_jenkins_tools_override_builds_custom_image():

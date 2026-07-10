@@ -24,9 +24,46 @@ if [ ! -f ".env" ]; then
   echo "Created .env from .env.example. Fill private secrets in .env before starting shared services."
 fi
 
+set_private_env_value() {
+  local key="$1"
+  local value="$2"
+  local tmp_file
+
+  if grep -Eq "^[[:space:]]*${key}=" .env; then
+    tmp_file="$(mktemp)"
+    awk -v key="${key}" -v value="${value}" '
+      BEGIN { replacement = key "=" value }
+      $0 ~ "^[[:space:]]*" key "=" { $0 = replacement }
+      { print }
+    ' .env >"${tmp_file}"
+    mv "${tmp_file}" .env
+  else
+    printf '\n%s=%s\n' "${key}" "${value}" >>.env
+  fi
+}
+
 # 只启动平台依赖的 MySQL 和 Jenkins，保留已有数据卷。
 docker compose up -d mysql jenkins
 docker compose ps
+
+# 本地 Jenkins init 脚本会生成运行时 API token；写入私有 .env，后端重启后才能携带 crumb 触发 Job。
+JENKINS_API_CREDENTIAL=""
+for _ in $(seq 1 30); do
+  JENKINS_API_CREDENTIAL="$(docker exec aiapitest-jenkins sh -lc 'cat /var/jenkins_home/aiapitest-local-api-token.txt 2>/dev/null || true' | tr -d '\r' || true)"
+  if printf '%s' "${JENKINS_API_CREDENTIAL}" | grep -Eq '^[^:]+:.+'; then
+    break
+  fi
+  sleep 1
+done
+if printf '%s' "${JENKINS_API_CREDENTIAL}" | grep -Eq '^[^:]+:.+'; then
+  JENKINS_API_USERNAME="${JENKINS_API_CREDENTIAL%%:*}"
+  JENKINS_API_TOKEN="${JENKINS_API_CREDENTIAL#*:}"
+  set_private_env_value "JENKINS_USERNAME" "${JENKINS_API_USERNAME}"
+  set_private_env_value "JENKINS_API_TOKEN" "${JENKINS_API_TOKEN}"
+  echo "Injected local Jenkins API credentials into private .env. Restart the backend to reload them."
+else
+  echo "Local Jenkins API token was not ready. Re-run this script after Jenkins finishes startup." >&2
+fi
 
 # 从 .env 读取端口并输出访问提示；读取不到时回退到 Compose 默认端口。
 JENKINS_PUBLIC_BASE_URL="$(grep -E '^JENKINS_PUBLIC_BASE_URL=' .env | cut -d= -f2- || true)"

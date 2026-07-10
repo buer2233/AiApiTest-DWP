@@ -49,6 +49,7 @@ services:
       - "${JENKINS_AGENT_PORT:-50001}:50000"
     volumes:
       - aiapitest-jenkins-home:/var/jenkins_home
+      - ./jenkins/scripts/99-aiapitest-local-api-token.groovy:/var/jenkins_home/init.groovy.d/99-aiapitest-local-api-token.groovy:ro
       - ${PROJECT_WORKSPACE:-.}:/workspace/AiApiTest-DWP
     depends_on:
       mysql:

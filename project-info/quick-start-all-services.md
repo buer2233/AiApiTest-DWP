@@ -51,7 +51,7 @@ Copy-Item .env.example .env
 - `INITIAL_ADMIN_DISPLAY_NAME`
 - `INITIAL_ADMIN_PASSWORD`
 
-`MYSQL_DATABASE`、`DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET`、`AUTH_COOKIE_*`、`INITIAL_ADMIN_*` 等属于固定默认项或私有配置，不写入 `.env.example`，但本地验收 `.env` 必须包含实际值。
+`MYSQL_DATABASE`、`DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET`、`AUTH_COOKIE_*`、`INITIAL_ADMIN_*`、`JENKINS_USERNAME`、`JENKINS_API_TOKEN` 等属于固定默认项或私有配置，不写入 `.env.example`，但本地验收 `.env` 必须包含实际值。
 
 ## 启动后不建议修改的配置
 
@@ -81,6 +81,8 @@ Windows PowerShell：
 ```powershell
 docker compose up -d mysql jenkins
 ```
+
+默认 Compose 会把版本化的 `jenkins/scripts/99-aiapitest-local-api-token.groovy` 挂载到 Jenkins 初始化目录。干净 Jenkins 数据卷首次启动时，该脚本会在容器内生成仅用于本机验收的 API token。`deploy-docker` 脚本会读取该运行时 token，并把 `JENKINS_USERNAME`、`JENKINS_API_TOKEN` 写入被 git 忽略的私有 `.env`，不会打印 token 内容。若脚本提示 token 尚未就绪，等待 Jenkins 完成启动后重新运行一次脚本。
 
 查看服务状态：
 
@@ -126,6 +128,8 @@ python manage.py init_admin
 ```powershell
 python manage.py runserver
 ```
+
+如果后端在执行 `deploy-docker` 之前已经启动，需要停止并重新执行 `python manage.py runserver`，让后端重新读取 `.env` 中的 `JENKINS_USERNAME`、`JENKINS_API_TOKEN`。否则平台触发 Jenkins Job 时会以匿名请求访问 Jenkins，可能返回 403 并被后端表现为 `503 jenkins_unavailable`。
 
 后端接口文档地址由 `.env` 中 `BACKEND_SERVICE_URL` 派生：
 
