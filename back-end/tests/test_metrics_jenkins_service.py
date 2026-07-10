@@ -39,6 +39,23 @@ def test_trigger_build_uses_internal_api_url_but_returns_public_queue_url(monkey
     assert result["queue_id"] == "99"
 
 
+def test_trigger_build_falls_back_to_public_url_when_internal_api_url_missing(monkeypatch):
+    monkeypatch.delenv("JENKINS_API_BASE_URL", raising=False)
+    monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "http://localhost:8080")
+    requested_urls: list[str] = []
+
+    def fake_urlopen(request, timeout):
+        requested_urls.append(request.full_url)
+        return FakeJenkinsResponse(headers={"Location": "http://localhost:8080/queue/item/101/"})
+
+    monkeypatch.setattr("metrics.jenkins_service.urllib.request.urlopen", fake_urlopen)
+
+    result = trigger_jenkins_build(job_full_name="AiApiTest-DWP-Failed-Rerun", parameters={"RETRY_MODE": "selected"})
+
+    assert requested_urls == ["http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/buildWithParameters"]
+    assert result["queue_id"] == "101"
+
+
 def test_fetch_task_result_returns_public_artifact_urls(monkeypatch):
     monkeypatch.setenv("JENKINS_API_BASE_URL", "http://jenkins:8080")
     monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "https://ci.example.test")

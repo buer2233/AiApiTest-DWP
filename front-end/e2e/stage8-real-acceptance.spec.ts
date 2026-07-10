@@ -8,7 +8,7 @@ type FilterOptionPayload = {
 }
 
 const evidencePath = resolve(process.cwd(), 'tests/evidence/screenshots/stage8-real-acceptance-modules-20260707.png')
-const expectedLockedMessage = '已经有正在的本模块用例'
+const expectedLockedMessage = '本模块已经有真正执行的重试!'
 
 function readLocalEnv(): EnvMap {
   const envPath = resolve(process.cwd(), '..', '.env')

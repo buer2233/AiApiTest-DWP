@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
@@ -156,7 +157,7 @@ def test_active_lock_blocks_module_rerun(admin_client, p5_context):
 
     assert response.status_code == 409
     assert response.data["error"]["code"] == "module_execution_locked"
-    assert response.data["error"]["message"] == "已经有正在的本模块用例"
+    assert response.data["error"]["message"] == "本模块已经有真正执行的重试!"
 
 
 @pytest.mark.parametrize(
@@ -191,12 +192,79 @@ def test_active_jenkins_task_without_lock_blocks_new_retry_tasks(
 
     assert failed_response.status_code == 409
     assert failed_response.data["error"]["code"] == "module_execution_locked"
-    assert failed_response.data["error"]["message"] == "已经有正在的本模块用例"
+    assert failed_response.data["error"]["message"] == "本模块已经有真正执行的重试!"
     assert module_response.status_code == 409
     assert module_response.data["error"]["code"] == "module_execution_locked"
-    assert module_response.data["error"]["message"] == "已经有正在的本模块用例"
+    assert module_response.data["error"]["message"] == "本模块已经有真正执行的重试!"
     assert metric_model("JenkinsTask").objects.count() == 1
     trigger_build.assert_not_called()
+
+
+def test_stale_jenkins_queue_task_is_released_before_failed_retry(admin_client, p5_context):
+    snapshot = p5_context["module_snapshot"]
+    stale_task = create_task(p5_context, status="queued", queue_id="stale-queue", build_number=None)
+    stale_lock = metric_model("ModuleExecutionLock").objects.create(
+        environment=p5_context["environment"],
+        module=p5_context["module"],
+        task=stale_task,
+        lock_type="module_execution",
+        status="active",
+        active_lock_key=f"env:{p5_context['environment'].id}:module:{p5_context['module'].id}",
+        locked_at=timezone.now(),
+    )
+    create_job_binding(p5_context, "failed_rerun")
+
+    with patch("metrics.views.fetch_jenkins_task_result") as fetch_result, patch("metrics.views.trigger_jenkins_build") as trigger_build:
+        fetch_result.side_effect = JenkinsServiceError("HTTP Error 404: Not Found")
+        trigger_build.return_value = {"queue_id": "2002", "queue_url": "http://localhost:8080/queue/item/2002/"}
+        response = admin_client.post(
+            f"/api/v1/module-snapshots/{snapshot.id}/failed-case-retries",
+            {"retry_scope": "all_failed"},
+            format="json",
+        )
+
+    assert response.status_code == 202
+    stale_task.refresh_from_db()
+    stale_lock.refresh_from_db()
+    assert stale_task.status == "failed"
+    assert "not found" in stale_task.error_summary.lower()
+    assert stale_lock.status == "released"
+    assert metric_model("JenkinsTask").objects.filter(status="queued").count() == 1
+    trigger_build.assert_called_once()
+
+
+def test_expired_local_rerun_task_is_released_when_jenkins_cannot_be_checked(admin_client, p5_context):
+    snapshot = p5_context["module_snapshot"]
+    expired_at = timezone.now() - timedelta(hours=3)
+    expired_task = create_task(p5_context, status="queued", queue_id="expired-queue", build_number=None)
+    metric_model("JenkinsTask").objects.filter(id=expired_task.id).update(created_at=expired_at, updated_at=expired_at)
+    expired_lock = metric_model("ModuleExecutionLock").objects.create(
+        environment=p5_context["environment"],
+        module=p5_context["module"],
+        task=expired_task,
+        lock_type="module_execution",
+        status="active",
+        active_lock_key=f"env:{p5_context['environment'].id}:module:{p5_context['module'].id}",
+        locked_at=expired_at,
+    )
+    create_job_binding(p5_context, "failed_rerun")
+
+    with patch("metrics.views.fetch_jenkins_task_result") as fetch_result, patch("metrics.views.trigger_jenkins_build") as trigger_build:
+        fetch_result.side_effect = JenkinsServiceError("HTTP Error 403: Forbidden")
+        trigger_build.return_value = {"queue_id": "2003", "queue_url": "http://localhost:8080/queue/item/2003/"}
+        response = admin_client.post(
+            f"/api/v1/module-snapshots/{snapshot.id}/failed-case-retries",
+            {"retry_scope": "all_failed"},
+            format="json",
+        )
+
+    assert response.status_code == 202
+    expired_task.refresh_from_db()
+    expired_lock.refresh_from_db()
+    assert expired_task.status == "failed"
+    assert "expired" in expired_task.error_summary.lower()
+    assert expired_lock.status == "expired"
+    trigger_build.assert_called_once()
 
 
 def test_admin_triggers_module_rerun_with_case_path(admin_client, p5_context):

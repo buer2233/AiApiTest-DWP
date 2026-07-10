@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ImproperlyConfigured
@@ -170,7 +171,7 @@ def is_admin(user) -> bool:
     return getattr(user, "role", None) == UserAccount.Role.ADMIN
 
 
-LOCKED_MESSAGE = "已经有正在的本模块用例"
+LOCKED_MESSAGE = "本模块已经有真正执行的重试!"
 TERMINAL_TASK_STATUSES = {
     TestRun.Status.SUCCESS,
     TestRun.Status.TEST_FAILED,
@@ -186,6 +187,7 @@ RERUN_TASK_TYPES = {
     TestRun.RunType.FAILED_RERUN,
     TestRun.RunType.MODULE_RERUN,
 }
+STALE_ACTIVE_TASK_AGE = timedelta(hours=2)
 
 
 def get_active_snapshot(snapshot_id: int) -> ModuleSnapshot | None:
@@ -231,6 +233,89 @@ def is_jenkins_task_not_found_error(exc: JenkinsServiceError) -> bool:
     return "http error 404" in message or "not found" in message
 
 
+def mark_jenkins_task_missing(task: JenkinsTask, reason: str) -> JenkinsTask:
+    """Jenkins 已找不到任务时释放本地互斥锁，避免历史 queued 任务长期阻塞重试。"""
+    with transaction.atomic():
+        locked_task = JenkinsTask.objects.select_for_update().select_related("run").get(id=task.id)
+        if locked_task.status in TERMINAL_TASK_STATUSES:
+            release_task_lock(locked_task, "task already terminal")
+            return locked_task
+        locked_task.status = TestRun.Status.FAILED
+        locked_task.error_summary = f"Jenkins task not found while refreshing module lock: {reason}"
+        locked_task.finished_at = timezone.now()
+        locked_task.last_synced_at = locked_task.finished_at
+        locked_task.save(update_fields=["status", "error_summary", "finished_at", "last_synced_at", "updated_at"])
+        if locked_task.run:
+            locked_task.run.status = TestRun.Status.FAILED
+            locked_task.run.finished_at = locked_task.finished_at
+            locked_task.run.save(update_fields=["status", "finished_at", "updated_at"])
+        release_task_lock(locked_task, "jenkins task not found")
+        return locked_task
+
+
+def expire_stale_jenkins_task(task: JenkinsTask, reason: str) -> JenkinsTask:
+    """本地任务超过最大保留时长仍未终结时过期锁，防止残留状态永久阻塞。"""
+    with transaction.atomic():
+        locked_task = JenkinsTask.objects.select_for_update().select_related("run").get(id=task.id)
+        if locked_task.status in TERMINAL_TASK_STATUSES:
+            release_task_lock(locked_task, "task already terminal")
+            return locked_task
+        locked_task.status = TestRun.Status.FAILED
+        locked_task.error_summary = f"Local Jenkins task lock expired: {reason}"
+        locked_task.finished_at = timezone.now()
+        locked_task.last_synced_at = locked_task.finished_at
+        locked_task.save(update_fields=["status", "error_summary", "finished_at", "last_synced_at", "updated_at"])
+        if locked_task.run:
+            locked_task.run.status = TestRun.Status.FAILED
+            locked_task.run.finished_at = locked_task.finished_at
+            locked_task.run.save(update_fields=["status", "finished_at", "updated_at"])
+        locks = ModuleExecutionLock.objects.select_for_update().filter(
+            task=locked_task,
+            status=ModuleExecutionLock.Status.ACTIVE,
+        )
+        for lock in locks:
+            lock.status = ModuleExecutionLock.Status.EXPIRED
+            lock.released_at = timezone.now()
+            lock.release_reason = "local active task expired"
+            lock.save(update_fields=["status", "active_lock_key", "released_at", "release_reason", "updated_at"])
+        return locked_task
+
+
+def jenkins_task_is_stale(task: JenkinsTask) -> bool:
+    return task.created_at <= timezone.now() - STALE_ACTIVE_TASK_AGE
+
+
+def refresh_module_execution_state(snapshot: ModuleSnapshot) -> None:
+    """触发新任务前刷新本模块运行状态，只在 Jenkins 明确不存在任务时释放锁。"""
+    active_locks = ModuleExecutionLock.objects.select_related("task").filter(
+        environment=snapshot.environment,
+        module=snapshot.module,
+        status=ModuleExecutionLock.Status.ACTIVE,
+    )
+    for lock in active_locks:
+        if lock.task.status in TERMINAL_TASK_STATUSES:
+            with transaction.atomic():
+                release_task_lock(lock.task, "terminal task cleanup")
+
+    active_tasks = JenkinsTask.objects.filter(
+        environment=snapshot.environment,
+        module=snapshot.module,
+        task_type__in=RERUN_TASK_TYPES,
+        status__in=ACTIVE_TASK_STATUSES,
+    ).order_by("created_at", "id")
+    for task in active_tasks:
+        if jenkins_task_is_stale(task):
+            expire_stale_jenkins_task(task, f"status={task.status}, task_id={task.id}")
+            continue
+        try:
+            result = fetch_jenkins_task_result(task)
+        except JenkinsServiceError as exc:
+            if is_jenkins_task_not_found_error(exc):
+                mark_jenkins_task_missing(task, str(exc))
+            continue
+        sync_task_with_result(task, result)
+
+
 def jenkins_task_response(task: JenkinsTask, request, response_status: int = status.HTTP_200_OK) -> Response:
     return Response({"data": JenkinsTaskSerializer(task, context={"request": request}).data}, status=response_status)
 
@@ -244,6 +329,7 @@ def create_queued_jenkins_task(
     parameters: dict[str, str],
     requested_nodeids: list[str] | None = None,
 ) -> JenkinsTask | Response:
+    refresh_module_execution_state(snapshot)
     if module_execution_is_busy(snapshot):
         return api_error_response("module_execution_locked", LOCKED_MESSAGE, status.HTTP_409_CONFLICT)
 
