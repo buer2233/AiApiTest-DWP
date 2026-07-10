@@ -30,21 +30,52 @@ const series = computed(() => trend.value?.series ?? [])
 
 const hasSeries = computed(() => series.value.length > 0)
 
+const chartBounds = {
+  left: 48,
+  right: 448,
+  top: 24,
+  bottom: 136,
+}
+
+function roundCoordinate(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+const chartPoints = computed(() =>
+  series.value.map((item, index) => {
+    const numericRate = Number(item.pass_rate)
+    const rate = Number.isFinite(numericRate) ? Math.min(Math.max(numericRate, 0), 1) : 0
+    const x = chartBounds.left + (index * (chartBounds.right - chartBounds.left)) / Math.max(series.value.length - 1, 1)
+    const y = chartBounds.bottom - rate * (chartBounds.bottom - chartBounds.top)
+    return {
+      ...item,
+      x: roundCoordinate(x),
+      y: roundCoordinate(y),
+      label: `${item.run_date} ${item.run_type} ${formatPercent(item.pass_rate)}`,
+      shortDate: item.run_date.slice(5),
+    }
+  }),
+)
+
 const polylinePoints = computed(() => {
-  if (!hasSeries.value) {
-    return ''
+  return chartPoints.value.map((point) => `${point.x},${point.y}`).join(' ')
+})
+
+const yAxisLabels = [
+  { label: '100%', y: chartBounds.top },
+  { label: '50%', y: (chartBounds.top + chartBounds.bottom) / 2 },
+  { label: '0%', y: chartBounds.bottom },
+]
+
+const xAxisLabels = computed(() => {
+  if (chartPoints.value.length <= 7) {
+    return chartPoints.value
   }
-  const rates = series.value.map((item) => Number(item.pass_rate))
-  const min = Math.min(...rates)
-  const max = Math.max(...rates)
-  const range = max - min || 0.01
-  return series.value
-    .map((item, index) => {
-      const x = 32 + (index * 416) / Math.max(series.value.length - 1, 1)
-      const y = 128 - ((Number(item.pass_rate) - min) / range) * 88
-      return `${x},${y}`
-    })
-    .join(' ')
+  const labelCount = 6
+  const indexes = Array.from({ length: labelCount }, (_, index) =>
+    Math.round((index * (chartPoints.value.length - 1)) / (labelCount - 1)),
+  )
+  return [...new Set(indexes)].map((index) => chartPoints.value[index])
 })
 
 const firstRate = computed(() => formatPercent(series.value[0]?.pass_rate))
@@ -118,26 +149,52 @@ watch(
         <p class="trend-dialog__summary">
           区间通过率从 {{ firstRate }} 到 {{ lastRate }}，趋势数据来自后端历史模块运行记录。
         </p>
-        <svg class="trend-dialog__chart" viewBox="0 0 480 160" aria-label="通过率趋势折线图" role="img">
-          <line x1="32" y1="136" x2="448" y2="136" />
-          <line x1="32" y1="24" x2="32" y2="136" />
+        <svg class="trend-dialog__chart" viewBox="0 0 480 176" aria-label="通过率趋势折线图" role="group">
+          <g v-for="tick in yAxisLabels" :key="tick.label">
+            <line
+              class="trend-dialog__grid-line"
+              :x1="chartBounds.left"
+              :y1="tick.y"
+              :x2="chartBounds.right"
+              :y2="tick.y"
+            />
+            <text class="trend-dialog__axis-label trend-dialog__axis-label--y" x="8" :y="tick.y + 4">
+              {{ tick.label }}
+            </text>
+          </g>
+          <line :x1="chartBounds.left" :y1="chartBounds.top" :x2="chartBounds.left" :y2="chartBounds.bottom" />
           <polyline :points="polylinePoints" fill="none" />
           <circle
-            v-for="point in polylinePoints.split(' ')"
-            :key="point"
-            :cx="Number(point.split(',')[0])"
-            :cy="Number(point.split(',')[1])"
+            v-for="point in chartPoints"
+            :key="`${point.run_date}-${point.run_type}`"
+            :cx="point.x"
+            :cy="point.y"
             r="4"
-          />
+            role="img"
+            tabindex="0"
+            :aria-label="point.label"
+          >
+            <title>{{ point.label }}</title>
+          </circle>
+          <text
+            v-for="point in xAxisLabels"
+            :key="`axis-${point.run_date}`"
+            class="trend-dialog__axis-label trend-dialog__axis-label--x"
+            :x="point.x"
+            y="158"
+            text-anchor="middle"
+          >
+            {{ point.shortDate }}
+          </text>
         </svg>
       </template>
 
-      <div v-else-if="!loading" class="trend-dialog__empty">
+      <div v-else-if="!loading && !errorMessage" class="trend-dialog__empty">
         <strong>暂无趋势数据</strong>
         <span>当前模块在所选窗口内没有历史运行记录。</span>
       </div>
 
-      <div class="trend-dialog__table-frame">
+      <div v-if="!errorMessage" class="trend-dialog__table-frame">
         <table class="trend-dialog__table">
           <thead>
             <tr>
@@ -195,6 +252,7 @@ watch(
 .trend-dialog__chart {
   width: 100%;
   max-height: 240px;
+  aspect-ratio: 480 / 176;
   border: 1px solid var(--color-hairline);
   border-radius: 8px;
   background: var(--color-canvas);
@@ -203,6 +261,11 @@ watch(
 .trend-dialog__chart line {
   stroke: var(--color-hairline);
   stroke-width: 2;
+}
+
+.trend-dialog__chart .trend-dialog__grid-line {
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
 }
 
 .trend-dialog__chart polyline {
@@ -216,6 +279,18 @@ watch(
   fill: var(--color-primary);
   stroke: var(--color-canvas);
   stroke-width: 2;
+}
+
+.trend-dialog__chart circle:focus {
+  outline: none;
+  stroke: var(--color-ink);
+  stroke-width: 3;
+}
+
+.trend-dialog__axis-label {
+  fill: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .trend-dialog__empty {
@@ -273,5 +348,11 @@ watch(
   background: var(--color-canvas);
   color: var(--color-body);
   font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .trend-dialog__axis-label {
+    font-size: 15px;
+  }
 }
 </style>

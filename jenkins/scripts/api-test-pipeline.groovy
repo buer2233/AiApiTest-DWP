@@ -160,9 +160,10 @@ def call(Map config = [:]) {
         }
 
         stage('Install API Test Requirements') {
-            // 复用 api-test 目录下的虚拟环境；脚本只安装缺失或版本不一致的依赖，避免每次全量安装。
+            // 仅工具镜像 Linux agent 继承预装依赖；其它 agent 保持隔离 venv。
+            def unixVenvOptions = env.AIAPITEST_PREINSTALLED_REQUIREMENTS == '1' ? '--system-site-packages ' : ''
             runCommand(
-                "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && ${unixPython} -m tools.install_missing_requirements requirements.txt",
+                "cd ${apiTestDir} && python -m venv ${unixVenvOptions}${pythonVenvDir} && ${unixPython} -m tools.install_missing_requirements requirements.txt",
                 "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && ${windowsPython} -m tools.install_missing_requirements requirements.txt"
             )
         }

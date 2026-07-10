@@ -315,7 +315,7 @@ test.describe('Stage4 P3 用例详情、状态审计与趋势数据 RED', () => 
     await expect.poll(() => api.trendRequests.at(-1)?.searchParams.get('days')).toBe('7')
     await expect(dialog.locator('svg[aria-label="通过率趋势折线图"]')).toBeVisible()
     await expect(dialog.getByRole('columnheader', { name: '日期' })).toBeVisible()
-    await expect(dialog.getByText('2026-07-02')).toBeVisible()
+    await expect(dialog.getByRole('cell', { name: '2026-07-02' })).toBeVisible()
     await expect(dialog.getByRole('cell', { name: '97.00%' })).toBeVisible()
     await dialog.getByRole('button', { name: '关闭' }).click()
 
