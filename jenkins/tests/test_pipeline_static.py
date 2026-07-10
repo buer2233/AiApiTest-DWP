@@ -186,6 +186,8 @@ def test_pipeline_uses_python_virtual_environment_for_dependencies():
 
     assert "JENKINS_API_TEST_DIR" in pipeline
     assert "JENKINS_PYTHON_VENV_DIR" in pipeline
+    assert "env.AIAPITEST_PREINSTALLED_REQUIREMENTS == '1'" in pipeline
+    assert "python -m venv ${unixVenvOptions}${pythonVenvDir}" in pipeline
     assert "python -m venv ${pythonVenvDir}" in pipeline
     assert "python -m venv .venv" not in pipeline
     assert "/bin/python" in pipeline
@@ -200,7 +202,7 @@ def test_pipeline_installs_only_missing_api_test_requirements():
     install_stage = pipeline[install_stage_start:run_stage_start]
 
     unix_install_command = (
-        "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && "
+        "cd ${apiTestDir} && python -m venv ${unixVenvOptions}${pythonVenvDir} && "
         "${unixPython} -m tools.install_missing_requirements requirements.txt"
     )
     windows_install_command = (
@@ -210,6 +212,7 @@ def test_pipeline_installs_only_missing_api_test_requirements():
 
     assert unix_install_command in install_stage
     assert windows_install_command in install_stage
+    assert "'--system-site-packages ' : ''" in install_stage
     assert install_stage.count("-m tools.install_missing_requirements requirements.txt") == 2
     assert "-m pip install" not in install_stage
     assert "pip install -r" not in install_stage

@@ -281,6 +281,18 @@ def test_jenkins_image_installs_pipeline_runtime_tools():
     assert "allure-commandline" in content
 
 
+def test_jenkins_tools_image_preinstalls_api_test_requirements():
+    """executor venv 应继承镜像依赖，使模块重跑首次执行也能跳过重复安装。"""
+    dockerfile = ROOT_DIR / "docker" / "jenkins" / "Dockerfile"
+    content = dockerfile.read_text(encoding="utf-8")
+
+    assert "COPY api-test/requirements.txt" in content
+    assert "python -m pip install" in content
+    assert "--break-system-packages" in content
+    assert "api-test-requirements.txt" in content
+    assert "AIAPITEST_PREINSTALLED_REQUIREMENTS=1" in content
+
+
 def test_jenkins_tools_image_installs_allure_jenkins_plugin():
     """Jenkins 工具链镜像必须预装 Allure 插件，才能在 Jenkins 内展示报告。"""
     dockerfile = ROOT_DIR / "docker" / "jenkins" / "Dockerfile"

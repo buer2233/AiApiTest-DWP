@@ -26,6 +26,16 @@ RUN apt-get update \
     && chown jenkins:jenkins /workspace \
     && rm -rf /tmp/allure-commandline.zip /var/lib/apt/lists/*
 
+# 预装 api-test 依赖，executor 级 venv 通过 system-site-packages 只读复用；
+# requirements 更新时，Pipeline 的缺失检测仍会在当前 executor venv 内补齐差异。
+COPY api-test/requirements.txt /tmp/api-test-requirements.txt
+RUN python -m pip install \
+        --no-cache-dir \
+        --break-system-packages \
+        -r /tmp/api-test-requirements.txt \
+    && rm -f /tmp/api-test-requirements.txt
+ENV AIAPITEST_PREINSTALLED_REQUIREMENTS=1
+
 # 预装 Jenkins Allure 插件，使 Pipeline 中的 allure(...) 步骤能在 Jenkins 内展示报告。
 RUN jenkins-plugin-cli --plugins allure-jenkins-plugin
 

@@ -146,8 +146,16 @@ docker compose -f docker-compose.yml -f docker-compose.jenkins-tools.yml up -d m
 - `git`
 - Allure CLI
 - Jenkins Allure 插件
+- `api-test/requirements.txt` 中当前 Linux 环境适用的 Python 依赖
 
-工具链镜像还会初始化 `/workspace` 目录权限，保证 Jenkins 用户能创建 `@tmp` 控制目录，并通过 init 脚本把镜像内 Allure CLI 注册为 Jenkins 全局工具 `Allure Commandline`。
+工具链镜像还会初始化 `/workspace` 目录权限，保证 Jenkins 用户能创建 `@tmp` 控制目录，并通过 init 脚本把镜像内 Allure CLI 注册为 Jenkins 全局工具 `Allure Commandline`。镜像通过 `AIAPITEST_PREINSTALLED_REQUIREMENTS=1` 标识预装依赖；仅该 Linux 工具镜像的 executor venv 使用 `--system-site-packages` 只读复用镜像依赖。其它 Linux/Windows agent 保持隔离 venv，所有环境运行时仍会检查 requirements，版本落后时仅在当前 executor venv 补差异。
+
+修改 `api-test/requirements.txt` 后需要重建 Jenkins 工具镜像，才能让新的 executor 首次运行也直接复用最新依赖：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.jenkins-tools.yml build jenkins
+docker compose -f docker-compose.yml -f docker-compose.jenkins-tools.yml up -d --no-deps jenkins
+```
 
 注意：该构建需要访问 Debian 软件源、Allure 下载地址和 Jenkins 插件更新中心，网络较慢时可能耗时较长。默认快速部署不依赖该构建。
 

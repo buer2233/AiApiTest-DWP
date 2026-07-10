@@ -1476,6 +1476,36 @@ class JenkinsTaskListView(APIView):
         return Response({"data": serializer.data, "meta": {"total": total, "page": page, "per_page": per_page, "total_pages": total_pages}})
 
 
+def select_daily_trend_rows(rows) -> list[ModuleRunHistory]:
+    """每天优选一条趋势：模块重试优先，同类型取最后完成记录。"""
+    selected: dict = {}
+    for row in rows:
+        current = selected.get(row.run_date)
+        if current is None:
+            selected[row.run_date] = row
+            continue
+
+        row_is_module_rerun = row.run_type == TestRun.RunType.MODULE_RERUN
+        current_is_module_rerun = current.run_type == TestRun.RunType.MODULE_RERUN
+        if row_is_module_rerun != current_is_module_rerun:
+            if row_is_module_rerun:
+                selected[row.run_date] = row
+            continue
+
+        if current.completed_at is None:
+            is_later = row.completed_at is not None or row.id > current.id
+        elif row.completed_at is None:
+            is_later = False
+        elif row.completed_at == current.completed_at:
+            is_later = row.id > current.id
+        else:
+            is_later = row.completed_at > current.completed_at
+        if is_later:
+            selected[row.run_date] = row
+
+    return [selected[run_date] for run_date in sorted(selected)]
+
+
 class ModuleSnapshotTrendView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
@@ -1483,7 +1513,10 @@ class ModuleSnapshotTrendView(APIView):
     @extend_schema(
         tags=["通过率"],
         summary="查询模块通过率趋势",
-        description="登录用户查询指定模块近 7 天或 30 天通过率趋势。days 不是 7 或 30 时返回校验错误。",
+        description=(
+            "登录用户查询指定模块近 7 天或 30 天通过率趋势。每个日期最多返回一条；"
+            "同日模块重试优先并选择最后完成记录。days 不是 7 或 30 时返回校验错误。"
+        ),
         parameters=[
             OpenApiParameter("snapshot_id", OpenApiTypes.INT, OpenApiParameter.PATH, description="模块快照 ID"),
             OpenApiParameter("days", OpenApiTypes.INT, OpenApiParameter.QUERY, required=True, enum=[7, 30], description="统计窗口，只支持 7 或 30"),
@@ -1510,17 +1543,18 @@ class ModuleSnapshotTrendView(APIView):
         if days not in {7, 30}:
             return validation_error("days 只能为 7 或 30。")
 
-        window_end = snapshot.completed_at.date() if snapshot.completed_at else timezone.localdate()
+        window_end = timezone.localtime(snapshot.completed_at).date() if snapshot.completed_at else timezone.localdate()
         window_start = window_end - timezone.timedelta(days=days - 1)
-        series = (
+        history_rows = (
             ModuleRunHistory.objects.filter(
                 environment=snapshot.environment,
                 module=snapshot.module,
                 run_date__gte=window_start,
                 run_date__lte=window_end,
             )
-            .order_by("run_date", "id")[:30]
+            .order_by("run_date", "completed_at", "id")
         )
+        series = select_daily_trend_rows(history_rows)
         data = {
             "module": {
                 "snapshot_id": snapshot.id,
