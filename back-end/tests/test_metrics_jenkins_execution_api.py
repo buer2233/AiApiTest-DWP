@@ -309,7 +309,8 @@ def test_cancel_running_task_enters_canceling_and_keeps_lock(admin_client, p5_co
     cancel_task.assert_called_once_with(task)
 
 
-def test_module_jenkins_tasks_list_returns_actions(admin_client, p5_context):
+def test_module_jenkins_tasks_list_returns_actions(admin_client, p5_context, monkeypatch):
+    monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "http://localhost:8080")
     snapshot = p5_context["module_snapshot"]
     task = create_task(p5_context, status="running")
 

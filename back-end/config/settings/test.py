@@ -1,3 +1,15 @@
+import os
+
+
+# pytest 必须与根目录私有 Jenkins 配置隔离，避免测试误连本地或真实服务。
+for key in (
+    "JENKINS_API_BASE_URL",
+    "JENKINS_PUBLIC_BASE_URL",
+    "JENKINS_USERNAME",
+    "JENKINS_API_TOKEN",
+):
+    os.environ[key] = ""
+
 from .base import *  # noqa: F401,F403
 
 
