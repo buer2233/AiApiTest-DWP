@@ -1,0 +1,5 @@
+Jenkins final idempotency restart: PASS
+AiApiTest-DWP-Daily-Full-Module|timer_count=0|specs=
+AiApiTest-DWP-Daily-Full-Module-test_gbif_case|timer_count=1|specs=0 2 * * *
+AiApiTest-DWP-Daily-Full-Module-test_gbif_case_module2|timer_count=1|specs=0 2 * * *
+Result: [AiApiTest-DWP-Daily-Full-Module, AiApiTest-DWP-Daily-Full-Module-test_gbif_case, AiApiTest-DWP-Daily-Full-Module-test_gbif_case_module2]

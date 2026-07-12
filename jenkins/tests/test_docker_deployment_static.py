@@ -146,6 +146,16 @@ def test_compose_configures_forty_jenkins_executors_via_init_script():
     assert "jenkins.save()" in script
 
 
+def test_compose_bootstraps_local_module_jobs_via_versioned_init_script():
+    """Compose 启动必须自动创建与后端 binding 一致的分模块 Daily Job。"""
+    compose = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+
+    assert (
+        "./jenkins/scripts/configure-local-mounted-jobs.groovy:"
+        "/var/jenkins_home/init.groovy.d/30-aiapitest-local-jobs.groovy:ro"
+    ) in compose
+
+
 def test_local_env_file_is_git_ignored():
     """本地 .env 必须被 git 忽略，避免私有密码进入仓库。"""
     content = (ROOT_DIR / ".gitignore").read_text(encoding="utf-8")

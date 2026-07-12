@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import signal
 from io import StringIO
+from unittest.mock import patch
 
 import pytest
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import override_settings
 
 from metrics.models import (
@@ -183,6 +186,118 @@ def test_sync_jenkins_job_bindings_skips_empty_job_names(monkeypatch):
     assert not JenkinsJobBinding.objects.filter(task_type=MetricRun.RunType.DAILY_FULL).exists()
     assert "failed_rerun skipped" in stdout.getvalue()
     assert "daily_full skipped" in stdout.getvalue()
+
+
+def test_sync_jenkins_results_once_runs_one_cycle_and_reports_counts():
+    stdout = StringIO()
+
+    with patch("metrics.management.commands.sync_jenkins_results.run_jenkins_sync_cycle") as run_cycle:
+        run_cycle.return_value = {
+            "active_processed": 2,
+            "daily_discovered": 2,
+            "synced": 4,
+            "failed": 0,
+            "skipped": 1,
+        }
+        call_command("sync_jenkins_results", once=True, stdout=stdout)
+
+    run_cycle.assert_called_once_with()
+    output = stdout.getvalue()
+    assert "active_processed=2" in output
+    assert "daily_discovered=2" in output
+    assert "synced=4" in output
+
+
+def test_sync_jenkins_results_watch_rejects_non_positive_interval():
+    with pytest.raises(CommandError, match="interval"):
+        call_command("sync_jenkins_results", watch=True, interval=0)
+
+
+def test_sync_jenkins_results_rejects_interval_without_watch():
+    with pytest.raises(CommandError, match="watch"):
+        call_command("sync_jenkins_results", interval=5)
+
+
+def test_sync_jenkins_results_invalid_environment_interval_warns_and_uses_default(monkeypatch):
+    monkeypatch.setenv("JENKINS_BUILD_POLL_INTERVAL_SECONDS", "invalid")
+    stdout = StringIO()
+    stderr = StringIO()
+    stats = {
+        "active_processed": 0,
+        "daily_discovered": 0,
+        "synced": 0,
+        "failed": 0,
+        "skipped": 0,
+    }
+
+    with patch(
+        "metrics.management.commands.sync_jenkins_results.run_jenkins_sync_cycle",
+        side_effect=[stats, KeyboardInterrupt],
+    ), patch("metrics.management.commands.sync_jenkins_results.time.sleep") as sleep:
+        call_command("sync_jenkins_results", watch=True, stdout=stdout, stderr=stderr)
+
+    sleep.assert_called_once_with(10)
+    assert "JENKINS_BUILD_POLL_INTERVAL_SECONDS" in stderr.getvalue()
+    assert "10" in stderr.getvalue()
+
+
+def test_sync_jenkins_results_sigterm_stops_watch_cleanly():
+    stdout = StringIO()
+    stats = {
+        "active_processed": 0,
+        "daily_discovered": 0,
+        "synced": 0,
+        "failed": 0,
+        "skipped": 0,
+    }
+    registered_handlers = {}
+
+    def fake_signal(signum, handler):
+        previous = registered_handlers.get(signum)
+        registered_handlers[signum] = handler
+        return previous
+
+    def request_stop(_interval):
+        registered_handlers[signal.SIGTERM](signal.SIGTERM, None)
+
+    with patch(
+        "metrics.management.commands.sync_jenkins_results.run_jenkins_sync_cycle",
+        return_value=stats,
+    ) as run_cycle, patch(
+        "metrics.management.commands.sync_jenkins_results.signal.getsignal",
+        return_value=signal.SIG_DFL,
+    ), patch(
+        "metrics.management.commands.sync_jenkins_results.signal.signal",
+        side_effect=fake_signal,
+    ), patch(
+        "metrics.management.commands.sync_jenkins_results.time.sleep",
+        side_effect=request_stop,
+    ):
+        call_command("sync_jenkins_results", watch=True, interval=1, stdout=stdout)
+
+    run_cycle.assert_called_once_with()
+    assert "worker stopped" in stdout.getvalue()
+
+
+def test_sync_jenkins_results_watch_repeats_until_interrupted():
+    stdout = StringIO()
+    stats = {
+        "active_processed": 0,
+        "daily_discovered": 0,
+        "synced": 0,
+        "failed": 0,
+        "skipped": 0,
+    }
+
+    with patch(
+        "metrics.management.commands.sync_jenkins_results.run_jenkins_sync_cycle",
+        side_effect=[stats, KeyboardInterrupt],
+    ) as run_cycle, patch("metrics.management.commands.sync_jenkins_results.time.sleep") as sleep:
+        call_command("sync_jenkins_results", watch=True, interval=1, stdout=stdout)
+
+    assert run_cycle.call_count == 2
+    sleep.assert_called_once_with(1)
+    assert "worker stopped" in stdout.getvalue()
 
 
 @pytest.mark.django_db

@@ -127,6 +127,21 @@ Jenkins 初始化后，创建 Pipeline job 时可使用仓库中的：
 jenkins/Jenkinsfile
 ```
 
+默认 Compose 会把版本化的 `jenkins/scripts/configure-local-mounted-jobs.groovy` 挂载到 `init.groovy.d`。Jenkins 启动后自动创建或修复各模块 Daily Job、配置凌晨 2 点定时器，并停用遗留共享 Daily Job 的定时器；无需在 Script Console 手工粘贴脚本。模块配置变化后可用以下命令重新加载初始化脚本，保留 Jenkins home 数据卷：
+
+```bash
+docker compose up -d --no-deps --force-recreate jenkins
+```
+
+当前 Compose 尚不包含后端容器，Jenkins 同步 worker 在宿主机后端目录独立运行：
+
+```bash
+cd back-end
+python manage.py sync_jenkins_results --watch
+```
+
+worker 从仓库根 `.env` 读取数据库与 Jenkins 配置。后续后端容器化时，应复用同一 backend 镜像新增 `jenkins-sync-worker` service，命令保持不变，容器内部通过 `mysql:3306` 和 `jenkins:8080` 访问依赖，不绑定宿主机固定端口。
+
 ## 可选 Jenkins 工具链镜像
 
 默认 `docker-compose.yml` 使用官方 Jenkins 镜像，启动最快。

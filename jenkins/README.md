@@ -39,7 +39,7 @@ jenkins/
 | 失败重试 | `jenkins/Jenkinsfile.failed-rerun` | `jenkins/scripts/failed-rerun-pipeline.groovy` | 手工触发；后续由 DRF 触发 | `RETRY_MODE=selected` | 否 |
 | 模块重试 | `jenkins/Jenkinsfile.module-rerun` | `jenkins/scripts/module-rerun-pipeline.groovy` | 手工触发；后续由 DRF 触发 | `RETRY_MODE=module` | 是 |
 
-每日全量按“一个模块一个 Jenkins Job”配置。每个模块创建一个独立 Pipeline Job，使用同一个 `Jenkinsfile.daily-full-module`，并在该 Job 的环境变量中设置 `JENKINS_MODULE_CASE_PATH` 作为本模块的 `CASE_PATH` 默认值。脚本会通过 Jenkins `properties` 配置 `0 2 * * *` 定时触发；首次创建 Job 后建议先手工 Build 一次，使参数和定时配置生效。未配置 `JENKINS_MODULE_CASE_PATH` 且未手工填写 `CASE_PATH` 时，构建会明确失败，避免 cron 跑到示例模块。
+每日全量按“一个模块一个 Jenkins Job”配置。每个模块创建一个独立 Pipeline Job，使用同一个 `Jenkinsfile.daily-full-module`，并在该 Job 的环境变量中设置 `JENKINS_MODULE_CASE_PATH` 作为本模块的 `CASE_PATH` 默认值。初始化脚本会直接配置 `0 2 * * *` 定时触发，初始化完成后即生效；手工 Build 仅用于验收执行链路，不是 cron 生效条件。未配置 `JENKINS_MODULE_CASE_PATH` 且未手工填写 `CASE_PATH` 时，构建会明确失败，避免 cron 跑到示例模块。
 
 失败重试只有一条执行链路。平台下一阶段的“勾选失败用例后失败重试”和“一键失败重试”都应把目标失败用例 node id 列表传给 `PYTEST_NODE_IDS`；一键失败重试只是快速选择当前模块全部失败用例，不使用 `all-failed` 模式。
 
@@ -133,13 +133,15 @@ Jenkins 内展示 Allure 报告依赖 Allure Jenkins 插件。默认官方 Jenki
 
 Stage8 起，本地脚本会读取挂载仓库内的 `api-test/utils/package_module.yaml`，按 `JENKINS_DAILY_FULL_JOB_PREFIX-<package_name>` 创建每个模块的 Daily Job，并为每个 Job 注入 `JENKINS_MODULE_CASE_PATH=test_case/<package_name>`。该命名规则必须与后端 `sync_jenkins_job_bindings` 管理命令保持一致；否则 Daily discovery 会扫描到不存在的 Job。
 
+默认 `docker-compose.yml` 已把 `configure-local-mounted-jobs.groovy` 只读挂载到 Jenkins `init.groovy.d`。Jenkins 重启时会幂等创建或修复分模块 Daily Job，为每个 Job 配置唯一的 `0 2 * * *` 定时器，并移除遗留共享 Daily Job 的定时器但保留历史构建。修改模块 YAML 或 Job 前缀后，需要重启 Jenkins 并再次运行后端 `sync_jenkins_job_bindings`，确保 Jenkins Job 与数据库 binding 同名。
+
 ### 远端 Jenkins
 
 远端 Jenkins 可以继续使用 SCM / Pipeline script path 加载 `jenkins/Jenkinsfile.*`，但远端网络、凭据和仓库地址必须由 Jenkins 自身配置维护，不写入本仓库。远端环境不要执行本地挂载 Job 配置脚本，除非同时配置了可用的 `AIAPITEST_LOCAL_WORKSPACE`。
 
 1. 本地 Compose 环境优先运行 `jenkins/scripts/configure-local-mounted-jobs.groovy`，生成或修正每日全量、失败重试、模块重试三条本地 Job。
 2. 如需手工创建本地内联 Pipeline，必须直接使用 `/workspace/AiApiTest-DWP`，不得先访问远端 Git。
-3. 在该 Job 环境变量中设置 `JENKINS_MODULE_CASE_PATH=<当前模块 pytest 路径>`，先手工 Build 一次，确认参数和 `0 2 * * *` 定时触发生效。
+3. 在该 Job 环境变量中设置 `JENKINS_MODULE_CASE_PATH=<当前模块 pytest 路径>`，重载初始化脚本后确认参数和 `0 2 * * *` 定时器已写入 Job 配置；可再手工 Build 验证实际执行链路。
 4. 检查 console log、artifact 和 Allure 报告入口。
 5. 创建失败重试 Job，Pipeline script path 使用 `jenkins/Jenkinsfile.failed-rerun`。
 6. 空提交 `PYTEST_NODE_IDS`，确认构建明确失败。

@@ -1,0 +1,4 @@
+17 objects imported automatically (use -v 2 for details).
+
+SYNC build=20 task=59 status=test_failed finished_at=2026-07-10T18:00:52.256000+00:00
+SYNC build=21 task=60 status=test_failed finished_at=2026-07-11T18:00:33.722000+00:00
