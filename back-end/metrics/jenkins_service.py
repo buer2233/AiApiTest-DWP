@@ -3,15 +3,34 @@ from __future__ import annotations
 import base64
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone as datetime_timezone
 from typing import Any
+
+from django.utils import timezone as django_timezone
 
 
 class JenkinsServiceError(RuntimeError):
-    """Jenkins 调用失败时抛出，视图层统一转换为 503。"""
+    """Jenkins 调用或响应契约失败时抛出的基础异常。"""
+
+    def __init__(self, message: str, *, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class JenkinsBuildMatchError(JenkinsServiceError):
+    """Jenkins 构建恢复出现多个精确匹配，必须由调用方人工诊断。"""
+
+    def __init__(self, *, match_kind: str, match_value: str, match_count: int):
+        self.match_kind = match_kind
+        self.match_value = match_value
+        self.match_count = match_count
+        super().__init__(
+            f"Multiple Jenkins builds matched {match_kind}={match_value}, matches={match_count}"
+        )
 
 
 @dataclass(frozen=True)
@@ -66,8 +85,42 @@ def _request(
     request = urllib.request.Request(url, data=data, method=method, headers=request_headers)
     try:
         return urllib.request.urlopen(request, timeout=config.timeout_seconds)
+    except urllib.error.HTTPError as exc:
+        raise JenkinsServiceError(str(exc), status_code=exc.code) from exc
     except Exception as exc:  # pragma: no cover - 真实 Jenkins 网络异常由集成环境覆盖
         raise JenkinsServiceError(str(exc)) from exc
+
+
+def _read_json_response(response, *, expect_object: bool = False) -> Any:
+    """统一封装 Jenkins 的 JSON 解码和顶层对象类型错误。"""
+    try:
+        payload = json.loads(response.read().decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise JenkinsServiceError("Jenkins returned invalid JSON") from exc
+    if expect_object and not isinstance(payload, dict):
+        raise JenkinsServiceError("Jenkins returned an invalid JSON object")
+    return payload
+
+
+def _parse_build_number(value: Any) -> int:
+    if isinstance(value, bool):
+        raise JenkinsServiceError("Jenkins build number is invalid")
+    if isinstance(value, int):
+        build_number = value
+    elif isinstance(value, str) and value.strip().isdigit():
+        build_number = int(value.strip())
+    else:
+        raise JenkinsServiceError("Jenkins build number is invalid")
+    if build_number < 1:
+        raise JenkinsServiceError("Jenkins build number is invalid")
+    return build_number
+
+
+def _read_builds(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_builds = payload.get("builds") or []
+    if not isinstance(raw_builds, list) or any(not isinstance(build, dict) for build in raw_builds):
+        raise JenkinsServiceError("Jenkins returned an invalid build list")
+    return raw_builds
 
 
 def _jenkins_crumb_headers(config: JenkinsConfig) -> dict[str, str]:
@@ -76,7 +129,7 @@ def _jenkins_crumb_headers(config: JenkinsConfig) -> dict[str, str]:
     url = f"{config.api_base_url}/crumbIssuer/api/json"
     try:
         with _request(config, "GET", url) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+            payload = _read_json_response(response, expect_object=True)
     except JenkinsServiceError:
         return {}
     field = payload.get("crumbRequestField") or "Jenkins-Crumb"
@@ -130,9 +183,72 @@ def _timestamp_matches_date(timestamp_ms: int | None, date: str | None) -> bool:
     if not date or timestamp_ms is None:
         return True
     try:
-        return datetime.fromtimestamp(int(timestamp_ms) / 1000).date().isoformat() == date
+        timestamp = datetime.fromtimestamp(int(timestamp_ms) / 1000, tz=datetime_timezone.utc)
+        return django_timezone.localtime(timestamp).date().isoformat() == date
     except (OSError, TypeError, ValueError):
         return False
+
+
+def _build_parameter(build: dict[str, Any], name: str) -> str:
+    actions = build.get("actions") or []
+    if not isinstance(actions, list):
+        raise JenkinsServiceError("Jenkins returned an invalid JSON object")
+    for action in actions:
+        if not isinstance(action, dict):
+            raise JenkinsServiceError("Jenkins returned an invalid JSON object")
+        parameters = action.get("parameters") or []
+        if not isinstance(parameters, list):
+            raise JenkinsServiceError("Jenkins returned an invalid JSON object")
+        for parameter in parameters:
+            if not isinstance(parameter, dict):
+                raise JenkinsServiceError("Jenkins returned an invalid JSON object")
+            if parameter.get("name") == name:
+                return str(parameter.get("value") or "")
+    return ""
+
+
+def _recover_build_from_expired_queue(config: JenkinsConfig, task) -> dict[str, Any] | None:
+    """queue item 被 Jenkins 清理后，按 queueId 或 RUN_ID 精确恢复对应 build。"""
+    url = (
+        f"{config.api_base_url}/{_job_path(task.job_full_name)}/api/json"
+        "?tree=builds[number,queueId,url,result,building,timestamp,duration,actions[parameters[name,value]]]{0,50}"
+    )
+    with _request(config, "GET", url) as response:
+        payload = _read_json_response(response, expect_object=True)
+    builds = _read_builds(payload)
+    queue_id = str(task.queue_id or "")
+    queue_matches = [build for build in builds if queue_id and str(build.get("queueId") or "") == queue_id]
+    if len(queue_matches) > 1:
+        raise JenkinsBuildMatchError(match_kind="queue_id", match_value=queue_id, match_count=len(queue_matches))
+    if queue_matches:
+        return queue_matches[0]
+
+    run_key = str(task.run.run_key if task.run else "")
+    run_matches = [build for build in builds if run_key and _build_parameter(build, "RUN_ID") == run_key]
+    if len(run_matches) > 1:
+        raise JenkinsBuildMatchError(match_kind="run_id", match_value=run_key, match_count=len(run_matches))
+    return run_matches[0] if run_matches else None
+
+
+def _build_times(build_payload: dict[str, Any]) -> tuple[datetime | None, datetime | None]:
+    raw_timestamp = build_payload.get("timestamp")
+    try:
+        started_at = datetime.fromtimestamp(int(raw_timestamp) / 1000, tz=datetime_timezone.utc)
+    except (OSError, TypeError, ValueError, OverflowError):
+        return None, None
+    if build_payload.get("building"):
+        return started_at, None
+    raw_duration = build_payload.get("duration")
+    try:
+        duration_ms = int(raw_duration)
+    except (TypeError, ValueError, OverflowError):
+        return started_at, None
+    if duration_ms < 0:
+        return started_at, None
+    try:
+        return started_at, started_at + timedelta(milliseconds=duration_ms)
+    except OverflowError:
+        return started_at, None
 
 
 def discover_jenkins_builds(*, job_full_names: list[str], date: str | None = None) -> list[dict[str, Any]]:
@@ -152,11 +268,12 @@ def discover_jenkins_builds(*, job_full_names: list[str], date: str | None = Non
             "?tree=builds[number,url,result,building,timestamp]{0,50}"
         )
         with _request(config, "GET", url) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        for build in payload.get("builds") or []:
+            payload = _read_json_response(response, expect_object=True)
+        for build in _read_builds(payload):
             build_number = build.get("number")
             if build_number is None or not _timestamp_matches_date(build.get("timestamp"), date):
                 continue
+            build_number = _parse_build_number(build_number)
             builds.append(
                 {
                     "job_full_name": job_full_name,
@@ -164,7 +281,7 @@ def discover_jenkins_builds(*, job_full_names: list[str], date: str | None = Non
                     "jenkins_build_url": _to_public_url(config, build.get("url", "")),
                     "jenkins_result": build.get("result") or "",
                     "building": bool(build.get("building")),
-                    "run_id": _build_tag_run_id(job_full_name, int(build_number)),
+                    "run_id": _build_tag_run_id(job_full_name, build_number),
                 }
             )
     return builds
@@ -178,32 +295,46 @@ def fetch_jenkins_task_result(task) -> dict[str, Any]:
     config = _read_config()
     if not config.api_base_url:
         raise JenkinsServiceError("JENKINS_API_BASE_URL is not configured")
-    if not task.build_number:
+    build_number = task.build_number
+    recovered_build_url = ""
+    if not build_number:
         queue_url = f"{config.api_base_url}/queue/item/{urllib.parse.quote(str(task.queue_id))}/api/json"
-        with _request(config, "GET", queue_url) as response:
-            queue_payload = json.loads(response.read().decode("utf-8"))
-        if queue_payload.get("cancelled") or queue_payload.get("canceled"):
-            return {"canceled": True}
-        executable = queue_payload.get("executable") or {}
-        if not executable.get("number"):
-            return {"queue_pending": True}
-        return {
-            "build_number": executable.get("number"),
-            "jenkins_build_url": _to_public_url(config, executable.get("url", "")),
-        }
+        try:
+            with _request(config, "GET", queue_url) as response:
+                queue_payload = _read_json_response(response, expect_object=True)
+        except JenkinsServiceError as exc:
+            if exc.status_code != 404:
+                raise
+            recovered = _recover_build_from_expired_queue(config, task)
+            if recovered is None:
+                return {"queue_pending": True, "recovery_pending": True}
+            build_number = _parse_build_number(recovered.get("number"))
+            recovered_build_url = recovered.get("url", "")
+        else:
+            if queue_payload.get("cancelled") or queue_payload.get("canceled"):
+                return {"canceled": True}
+            executable = queue_payload.get("executable") or {}
+            if not isinstance(executable, dict):
+                raise JenkinsServiceError("Jenkins returned an invalid JSON object")
+            if not executable.get("number"):
+                return {"queue_pending": True}
+            build_number = _parse_build_number(executable.get("number"))
+            recovered_build_url = executable.get("url", "")
 
-    build_url = f"{config.api_base_url}/{_job_path(task.job_full_name)}/{task.build_number}"
+    build_url = f"{config.api_base_url}/{_job_path(task.job_full_name)}/{build_number}"
     public_build_url = _to_public_url(config, build_url)
     with _request(config, "GET", f"{build_url}/api/json") as response:
-        build_payload = json.loads(response.read().decode("utf-8"))
+        build_payload = _read_json_response(response, expect_object=True)
+    started_at, finished_at = _build_times(build_payload)
+    public_build_url = _to_public_url(config, recovered_build_url) or public_build_url
 
     if build_payload.get("building"):
         return {
-            "build_number": task.build_number,
+            "build_number": build_number,
             "jenkins_result": None,
             "jenkins_build_url": public_build_url,
             "building": True,
-            "started_at": None,
+            "started_at": started_at,
             "finished_at": None,
         }
 
@@ -213,18 +344,24 @@ def fetch_jenkins_task_result(task) -> dict[str, Any]:
     failed_url = f"{artifact_base}/failed_nodeids.json"
     try:
         with _request(config, "GET", summary_url) as response:
-            summary = json.loads(response.read().decode("utf-8"))
+            summary = _read_json_response(response)
         with _request(config, "GET", failed_url) as response:
-            failed_nodeids = json.loads(response.read().decode("utf-8"))
+            failed_nodeids = _read_json_response(response)
     except JenkinsServiceError as exc:
         return {
+            "build_number": build_number,
+            "jenkins_build_url": public_build_url,
             "jenkins_result": build_payload.get("result"),
             "summary": None,
             "failed_nodeids": [],
             "error_summary": f"Jenkins artifact missing or unreadable: {exc}",
+            "started_at": started_at,
+            "finished_at": finished_at,
         }
 
     return {
+        "build_number": build_number,
+        "jenkins_build_url": public_build_url,
         "jenkins_result": build_payload.get("result"),
         "summary": summary,
         "failed_nodeids": failed_nodeids,
@@ -232,4 +369,6 @@ def fetch_jenkins_task_result(task) -> dict[str, Any]:
         "summary_artifact_url": f"{public_artifact_base}/summary.json",
         "failed_nodeids_artifact_url": f"{public_artifact_base}/failed_nodeids.json",
         "allure_report_url": f"{public_build_url.rstrip('/')}/allure/",
+        "started_at": started_at,
+        "finished_at": finished_at,
     }

@@ -43,8 +43,9 @@ def create_history_row(context, *, run_date, run_type, completed_at, failed_coun
 
 
 @pytest.fixture
-def trend_context(db) -> dict:
+def trend_context(db, monkeypatch) -> dict:
     context = create_p3_metric_context(suffix="-trend")
+    monkeypatch.setattr("metrics.views.timezone.localdate", lambda: context["now"].date())
     create_trend_row(context, day_offset=2, failed_count=6)
     create_trend_row(context, day_offset=1, failed_count=3)
     create_trend_row(context, day_offset=1, failed_count=1, module_key="other_module")
@@ -82,8 +83,9 @@ def test_trend_30d_accepts_window_and_limits_to_snapshot_module(admin_client, tr
 
 
 @pytest.mark.parametrize("days", [7, 30])
-def test_trend_deduplicates_each_date_and_prefers_latest_module_rerun(admin_client, db, days):
+def test_trend_deduplicates_each_date_and_prefers_latest_module_rerun(admin_client, db, days, monkeypatch):
     context = create_p3_metric_context(suffix=f"-trend-dedup-{days}")
+    monkeypatch.setattr("metrics.views.timezone.localdate", lambda: context["now"].date())
     today = context["now"].date()
     yesterday = today - timedelta(days=1)
 
@@ -143,8 +145,9 @@ def test_trend_deduplicates_each_date_and_prefers_latest_module_rerun(admin_clie
     assert series[1]["failed_count"] == latest_module.failed_count
 
 
-def test_trend_uses_latest_id_when_module_rerun_completion_times_are_missing(admin_client, db):
+def test_trend_uses_latest_id_when_module_rerun_completion_times_are_missing(admin_client, db, monkeypatch):
     context = create_p3_metric_context(suffix="-trend-null-completed")
+    monkeypatch.setattr("metrics.views.timezone.localdate", lambda: context["now"].date())
     run_date = context["now"].date()
     create_history_row(
         context,
@@ -187,6 +190,33 @@ def test_trend_window_uses_local_date_for_snapshot_completion(admin_client, db):
 
     assert response.status_code == 200
     assert [row["run_date"] for row in response.data["data"]["series"]] == [str(local_run_date)]
+
+
+def test_trend_window_ends_today_when_snapshot_completion_is_stale(admin_client, db, monkeypatch):
+    context = create_p3_metric_context(suffix="-trend-stale-snapshot")
+    local_today = datetime(2026, 7, 12, 12, 0, tzinfo=datetime_timezone.utc).astimezone().date()
+    stale_completed_at = datetime(2026, 7, 10, 12, 0, tzinfo=datetime_timezone.utc)
+    snapshot = context["module_snapshot"]
+    snapshot.completed_at = stale_completed_at
+    snapshot.save(update_fields=["completed_at", "updated_at"])
+    monkeypatch.setattr("metrics.views.timezone.localdate", lambda: local_today)
+    for offset in (1, 0):
+        run_date = local_today - timedelta(days=offset)
+        create_history_row(
+            context,
+            run_date=run_date,
+            run_type="daily_full",
+            completed_at=datetime.combine(run_date, datetime.min.time(), tzinfo=datetime_timezone.utc),
+            failed_count=offset,
+        )
+
+    response = admin_client.get(f"/api/v1/module-snapshots/{snapshot.id}/trend", {"days": 30})
+
+    assert response.status_code == 200
+    assert [row["run_date"] for row in response.data["data"]["series"]] == [
+        str(local_today - timedelta(days=1)),
+        str(local_today),
+    ]
 
 
 def test_trend_without_history_returns_empty_series(admin_client, db):

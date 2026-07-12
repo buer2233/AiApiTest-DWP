@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -19,6 +20,7 @@ from common.exceptions import api_error_response
 from common.pagination import parse_pagination
 from common.serializers import ApiErrorResponseSerializer
 from metrics.jenkins_service import (
+    JenkinsBuildMatchError,
     JenkinsServiceError,
     cancel_jenkins_task,
     discover_jenkins_builds as discover_jenkins_builds_from_jenkins,
@@ -46,6 +48,8 @@ from metrics.serializers import (
     EnvironmentSummarySerializer,
     EnvironmentSummaryResponseSerializer,
     JenkinsTaskListResponseSerializer,
+    JenkinsTaskBulkSyncRequestSerializer,
+    JenkinsTaskBulkSyncResponseSerializer,
     JenkinsTaskResponseSerializer,
     JenkinsTaskSerializer,
     ModuleSnapshotFilterOptionsResponseSerializer,
@@ -67,6 +71,7 @@ SORT_FIELDS = {
     "-failed_count",
 }
 CASE_STATUSES = {"failed", "passed", "skipped"}
+logger = logging.getLogger(__name__)
 
 
 
@@ -304,20 +309,30 @@ def refresh_module_execution_state(snapshot: ModuleSnapshot) -> None:
         status__in=ACTIVE_TASK_STATUSES,
     ).order_by("created_at", "id")
     for task in active_tasks:
-        if jenkins_task_is_stale(task):
-            expire_stale_jenkins_task(task, f"status={task.status}, task_id={task.id}")
-            continue
         try:
             result = fetch_jenkins_task_result(task)
         except JenkinsServiceError as exc:
             if is_jenkins_task_not_found_error(exc):
                 mark_jenkins_task_missing(task, str(exc))
             continue
+        if result.get("queue_pending") and jenkins_task_is_stale(task):
+            expire_stale_jenkins_task(task, f"status={task.status}, task_id={task.id}")
+            continue
         sync_task_with_result(task, result)
 
 
 def jenkins_task_response(task: JenkinsTask, request, response_status: int = status.HTTP_200_OK) -> Response:
     return Response({"data": JenkinsTaskSerializer(task, context={"request": request}).data}, status=response_status)
+
+
+def record_jenkins_build_match_error(task: JenkinsTask, exc: JenkinsBuildMatchError) -> JenkinsTask:
+    """记录构建匹配歧义，但不推进任务、TestRun 或互斥锁状态。"""
+    with transaction.atomic():
+        locked_task = JenkinsTask.objects.select_for_update().get(id=task.id)
+        locked_task.error_summary = str(exc)
+        locked_task.last_synced_at = timezone.now()
+        locked_task.save(update_fields=["error_summary", "last_synced_at", "updated_at"])
+        return locked_task
 
 
 def create_queued_jenkins_task(
@@ -588,9 +603,30 @@ def apply_module_summary(task: JenkinsTask, summary: dict) -> str | None:
     passed_count = normalized_summary["passed_count"]
     skipped_count = normalized_summary["skipped_count"]
     case_results = normalized_summary["case_results"]
-    completed_at = timezone.now()
+    completed_at = task.finished_at or timezone.now()
     duration_seconds = normalized_summary["duration_seconds"]
     snapshot = ModuleSnapshot.objects.select_for_update().get(environment=task.environment, module=task.module)
+    history_duration = Decimal(str(duration_seconds)) if duration_seconds is not None else None
+    history_pass_rate = calculate_pass_rate(total_count, failed_count)
+    ModuleRunHistory.objects.update_or_create(
+        environment=task.environment,
+        module=task.module,
+        source_run=task.run,
+        run_date=timezone.localtime(completed_at).date(),
+        run_type=task.task_type,
+        defaults={
+            "completed_at": completed_at,
+            "duration_seconds": history_duration,
+            "total_count": total_count,
+            "failed_count": failed_count,
+            "passed_count": passed_count,
+            "skipped_count": skipped_count,
+            "pass_rate": history_pass_rate,
+        },
+    )
+    if snapshot.completed_at and completed_at < snapshot.completed_at:
+        return None
+
     snapshot.total_count = total_count
     snapshot.failed_count = failed_count
     snapshot.passed_count = passed_count
@@ -645,23 +681,6 @@ def apply_module_summary(task: JenkinsTask, summary: dict) -> str | None:
             confirmation_result="模块执行同步",
             occurred_at=completed_at,
         )
-    history_completed_at = task.finished_at or completed_at
-    ModuleRunHistory.objects.update_or_create(
-        environment=task.environment,
-        module=task.module,
-        source_run=task.run,
-        run_date=timezone.localtime(history_completed_at).date(),
-        run_type=task.task_type,
-        defaults={
-            "completed_at": history_completed_at,
-            "duration_seconds": snapshot.duration_seconds,
-            "total_count": snapshot.total_count,
-            "failed_count": snapshot.failed_count,
-            "passed_count": snapshot.passed_count,
-            "skipped_count": snapshot.skipped_count,
-            "pass_rate": snapshot.pass_rate,
-        },
-    )
     refresh_environment_snapshot(task.environment)
     return None
 
@@ -679,17 +698,19 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
             task.save(update_fields=["last_synced_at", "updated_at"])
             return task
 
+        identity_update_fields: list[str] = []
+        if result.get("build_number") and result["build_number"] != task.build_number:
+            task.build_number = result["build_number"]
+            identity_update_fields.append("build_number")
+        if result.get("jenkins_build_url") and result["jenkins_build_url"] != task.jenkins_build_url:
+            task.jenkins_build_url = result["jenkins_build_url"]
+            identity_update_fields.append("jenkins_build_url")
+        if result.get("started_at") and result["started_at"] != task.started_at:
+            task.started_at = result["started_at"]
+            identity_update_fields.append("started_at")
+
         if result.get("building"):
-            update_fields = ["status", "last_synced_at", "updated_at"]
-            if result.get("build_number") and result["build_number"] != task.build_number:
-                task.build_number = result["build_number"]
-                update_fields.append("build_number")
-            if result.get("jenkins_build_url"):
-                task.jenkins_build_url = result["jenkins_build_url"]
-                update_fields.append("jenkins_build_url")
-            if result.get("started_at"):
-                task.started_at = result["started_at"]
-                update_fields.append("started_at")
+            update_fields = ["status", "last_synced_at", "updated_at", *identity_update_fields]
             task.status = TestRun.Status.RUNNING
             task.last_synced_at = timezone.now()
             if task.run:
@@ -699,15 +720,16 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
             task.save(update_fields=sorted(set(update_fields)))
             return task
 
-        if result.get("build_number") and not task.build_number:
-            task.build_number = result["build_number"]
-            task.jenkins_build_url = result.get("jenkins_build_url", task.jenkins_build_url)
+        if identity_update_fields and not any(
+            key in result for key in ("summary", "jenkins_result", "canceled", "finished_at")
+        ):
             task.status = TestRun.Status.RUNNING
             if task.run:
                 task.run.status = TestRun.Status.RUNNING
-                task.run.save(update_fields=["status", "updated_at"])
+                task.run.started_at = task.started_at
+                task.run.save(update_fields=["status", "started_at", "updated_at"])
             task.last_synced_at = timezone.now()
-            task.save(update_fields=["build_number", "jenkins_build_url", "status", "last_synced_at", "updated_at"])
+            task.save(update_fields=sorted(set([*identity_update_fields, "status", "last_synced_at", "updated_at"])))
             return task
 
         raw_summary = result.get("summary")
@@ -721,7 +743,13 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
         task.failed_nodeids_artifact_url = result.get("failed_nodeids_artifact_url", task.failed_nodeids_artifact_url)
         task.allure_report_url = result.get("allure_report_url", task.allure_report_url)
         task.error_summary = result.get("error_summary", task.error_summary)
-        task.finished_at = result.get("finished_at") or timezone.now()
+        task.finished_at = result.get("finished_at")
+        if task.finished_at is None:
+            task.finished_at = timezone.now()
+            logger.warning(
+                "Jenkins completion time unavailable; using sync time fallback: task_id=%s",
+                task.id,
+            )
         task.last_synced_at = timezone.now()
 
         if result.get("canceled") or task.jenkins_result == "ABORTED":
@@ -754,8 +782,9 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
         if task.run:
             task.run.status = task.status
             task.run.summary_json = task.summary_json
+            task.run.started_at = task.started_at
             task.run.finished_at = task.finished_at
-            task.run.save(update_fields=["status", "summary_json", "finished_at", "updated_at"])
+            task.run.save(update_fields=["status", "summary_json", "started_at", "finished_at", "updated_at"])
 
         task.save(
             update_fields=[
@@ -770,6 +799,7 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
                 "finished_at",
                 "last_synced_at",
                 "status",
+                *identity_update_fields,
                 "updated_at",
             ]
         )
@@ -803,25 +833,37 @@ def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_re
         return task, False
 
     run_key = build_result.get("run_id") or f"daily_full-{binding.environment_id}-{binding.module_id}-{build_number}"
-    run = TestRun.objects.create(
-        run_key=run_key,
-        run_type=TestRun.RunType.DAILY_FULL,
-        environment=binding.environment,
-        module=binding.module,
-        status=TestRun.Status.RUNNING,
-    )
-    task = JenkinsTask.objects.create(
-        run=run,
-        environment=binding.environment,
-        module=binding.module,
-        task_type=TestRun.RunType.DAILY_FULL,
-        trigger_source=JenkinsTask.TriggerSource.JENKINS_CRON,
-        job_full_name=binding.job_full_name,
-        build_number=build_number,
-        jenkins_build_url=build_result.get("jenkins_build_url", ""),
-        status=TestRun.Status.RUNNING,
-    )
-    return task, True
+    try:
+        with transaction.atomic():
+            run = TestRun.objects.create(
+                run_key=run_key,
+                run_type=TestRun.RunType.DAILY_FULL,
+                environment=binding.environment,
+                module=binding.module,
+                status=TestRun.Status.RUNNING,
+            )
+            task = JenkinsTask.objects.create(
+                run=run,
+                environment=binding.environment,
+                module=binding.module,
+                task_type=TestRun.RunType.DAILY_FULL,
+                trigger_source=JenkinsTask.TriggerSource.JENKINS_CRON,
+                job_full_name=binding.job_full_name,
+                build_number=build_number,
+                jenkins_build_url=build_result.get("jenkins_build_url", ""),
+                status=TestRun.Status.RUNNING,
+            )
+            return task, True
+    except IntegrityError:
+        # 另一 worker 可能已提交同一 run/build；事务回滚可避免留下孤立 TestRun。
+        task = (
+            JenkinsTask.objects.filter(job_full_name=binding.job_full_name, build_number=build_number)
+            .select_related("run")
+            .first()
+        )
+        if task is None:
+            raise
+        return task, False
 
 
 class TestEnvironmentListView(APIView):
@@ -1374,6 +1416,26 @@ class JenkinsTaskSyncView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
 
+    @extend_schema(
+        operation_id="jenkins_task_sync",
+        summary="同步单个 Jenkins 任务",
+        description="queue 404 时会按 queueId 或 RUN_ID 精确恢复 build；未找到且未超时则保持 queued。",
+        request=None,
+        responses={
+            200: JenkinsTaskResponseSerializer,
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
+            404: OpenApiResponse(ApiErrorResponseSerializer, description="Jenkins 任务不存在：jenkins_task_not_found"),
+            409: OpenApiResponse(
+                ApiErrorResponseSerializer,
+                description="多个 Jenkins build 精确匹配，任务状态保持不变：jenkins_build_ambiguous",
+            ),
+            503: OpenApiResponse(
+                ApiErrorResponseSerializer,
+                description="Jenkins 服务真实不可用：jenkins_unavailable；单个 queue 404 不属于此错误",
+            ),
+        },
+    )
     def post(self, request, task_id: int):
         if not is_admin(request.user):
             return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
@@ -1382,6 +1444,9 @@ class JenkinsTaskSyncView(APIView):
             return api_error_response("jenkins_task_not_found", "Jenkins 任务不存在。", status.HTTP_404_NOT_FOUND)
         try:
             result = fetch_jenkins_task_result(task)
+        except JenkinsBuildMatchError as exc:
+            record_jenkins_build_match_error(task, exc)
+            return api_error_response("jenkins_build_ambiguous", str(exc), status.HTTP_409_CONFLICT)
         except JenkinsServiceError as exc:
             return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
         synced = sync_task_with_result(task, result)
@@ -1392,13 +1457,36 @@ class JenkinsTaskBulkSyncView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
 
+    @extend_schema(
+        operation_id="jenkins_task_bulk_sync",
+        summary="发现并同步 Jenkins 每日全量任务",
+        description="按 active Daily Job 逐个发现构建，重复调用保持幂等。",
+        request=JenkinsTaskBulkSyncRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                JenkinsTaskBulkSyncResponseSerializer,
+                description="同步完成；单个 Job、build 失败或构建匹配歧义会被隔离并继续处理其它任务",
+            ),
+            401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
+            422: OpenApiResponse(ApiErrorResponseSerializer, description="请求参数非法：validation_error"),
+            503: OpenApiResponse(
+                ApiErrorResponseSerializer,
+                description="全部配置 Job 均不可访问或所有已发现 build 均同步失败：jenkins_unavailable",
+            ),
+        },
+    )
     def post(self, request):
         if not is_admin(request.user):
             return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
 
-        discover_daily = bool(request.data.get("discover_daily"))
-        if not discover_daily:
+        request_serializer = JenkinsTaskBulkSyncRequestSerializer(data=request.data)
+        if not request_serializer.is_valid():
+            return validation_error("discover_daily 或 date 参数非法。")
+        if request_serializer.validated_data["discover_daily"] is not True:
             return validation_error("discover_daily 必须为 true。")
+        requested_date = request_serializer.validated_data.get("date")
+        date = requested_date.isoformat() if requested_date else None
 
         created_count = 0
         updated_count = 0
@@ -1412,10 +1500,37 @@ class JenkinsTaskBulkSyncView(APIView):
             .values_list("job_full_name", flat=True)
             .distinct()
         )
-        try:
-            discovered = discover_jenkins_builds(job_full_names=daily_job_names, date=request.data.get("date"))
-        except JenkinsServiceError as exc:
-            return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
+        discovered = []
+        discovery_success_count = 0
+        first_discovery_error: JenkinsServiceError | None = None
+        for job_index, job_full_name in enumerate(daily_job_names, start=1):
+            try:
+                discovered.extend(
+                    discover_jenkins_builds(job_full_names=[job_full_name], date=date)
+                )
+                discovery_success_count += 1
+            except JenkinsBuildMatchError as exc:
+                logger.warning(
+                    "Jenkins Daily Job discovery ambiguous: job_index=%s error_type=%s",
+                    job_index,
+                    type(exc).__name__,
+                )
+            except JenkinsServiceError as exc:
+                first_discovery_error = first_discovery_error or exc
+                # 外部错误信息可能包含内部 URL，仅记录序号和异常类型。
+                logger.warning(
+                    "Jenkins Daily Job discovery failed: job_index=%s error_type=%s",
+                    job_index,
+                    type(exc).__name__,
+                )
+        if daily_job_names and discovery_success_count == 0:
+            return api_error_response(
+                "jenkins_unavailable",
+                str(first_discovery_error),
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        first_sync_error: JenkinsServiceError | None = None
         for build_result in discovered:
             job_full_name = build_result.get("job_full_name")
             build_number = build_result.get("build_number")
@@ -1438,10 +1553,31 @@ class JenkinsTaskBulkSyncView(APIView):
             else:
                 try:
                     sync_result = fetch_jenkins_task_result(task)
+                except JenkinsBuildMatchError as exc:
+                    record_jenkins_build_match_error(task, exc)
+                    logger.warning(
+                        "Jenkins Daily build sync ambiguous: task_id=%s error_type=%s",
+                        task.id,
+                        type(exc).__name__,
+                    )
+                    continue
                 except JenkinsServiceError as exc:
-                    return api_error_response("jenkins_unavailable", str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
+                    first_sync_error = first_sync_error or exc
+                    logger.warning(
+                        "Jenkins Daily build sync failed: task_id=%s error_type=%s",
+                        task.id,
+                        type(exc).__name__,
+                    )
+                    continue
             sync_task_with_result(task, sync_result)
             synced_count += 1
+
+        if discovered and synced_count == 0 and first_sync_error is not None:
+            return api_error_response(
+                "jenkins_unavailable",
+                str(first_sync_error),
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response(
             {
@@ -1515,7 +1651,8 @@ class ModuleSnapshotTrendView(APIView):
         summary="查询模块通过率趋势",
         description=(
             "登录用户查询指定模块近 7 天或 30 天通过率趋势。每个日期最多返回一条；"
-            "同日模块重试优先并选择最后完成记录。days 不是 7 或 30 时返回校验错误。"
+            "同日模块重试优先并选择最后完成记录。窗口结束于请求当天，仅返回真实历史，缺失日期不补零。"
+            "days 不是 7 或 30 时返回校验错误。"
         ),
         parameters=[
             OpenApiParameter("snapshot_id", OpenApiTypes.INT, OpenApiParameter.PATH, description="模块快照 ID"),
@@ -1543,7 +1680,7 @@ class ModuleSnapshotTrendView(APIView):
         if days not in {7, 30}:
             return validation_error("days 只能为 7 或 30。")
 
-        window_end = timezone.localtime(snapshot.completed_at).date() if snapshot.completed_at else timezone.localdate()
+        window_end = timezone.localdate()
         window_start = window_end - timezone.timedelta(days=days - 1)
         history_rows = (
             ModuleRunHistory.objects.filter(

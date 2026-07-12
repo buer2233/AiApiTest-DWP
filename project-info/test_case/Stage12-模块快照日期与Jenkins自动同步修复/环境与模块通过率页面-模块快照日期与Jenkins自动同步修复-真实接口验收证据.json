@@ -1,0 +1,32 @@
+{
+  "verified_at": "2026-07-12T17:41:58.1443047+08:00",
+  "module_snapshots_status": 200,
+  "module2": {
+    "id": 2,
+    "completed_at": "2026-07-12T15:08:12.048+08:00",
+    "duration_seconds": "7.41"
+  },
+  "trend_status": 200,
+  "trend_recent": [
+    {
+      "run_date": "2026-07-11",
+      "run_type": "daily_full",
+      "pass_rate": "0.900000",
+      "duration_seconds": "5.50"
+    },
+    {
+      "run_date": "2026-07-12",
+      "run_type": "module_rerun",
+      "pass_rate": "0.900000",
+      "duration_seconds": "7.41"
+    }
+  ],
+  "task_58_sync_status": 200,
+  "task_58": {
+    "id": 58,
+    "status": "test_failed",
+    "build_number": null,
+    "finished_at": "2026-07-12T15:08:42.402+08:00",
+    "error_summary": null
+  }
+}

@@ -362,6 +362,39 @@ def test_local_mounted_job_config_creates_daily_job_per_module():
     assert "test_case/test_gbif_case_module2" not in script
 
 
+def test_local_mounted_job_config_sets_daily_cron_and_disables_legacy_shared_cron():
+    """分模块 Daily Job 初始化即带 cron，遗留共享 Job 只保留历史构建。"""
+    script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
+
+    assert "TimerTrigger" in script
+    assert "0 2 * * *" in script
+    assert "legacyDailyJob" in script
+    assert "setTriggers" in script
+    assert "instanceof TimerTrigger" in script
+    assert "removeTrigger" not in script
+
+
+def test_local_mounted_job_config_preserves_legacy_cron_until_daily_jobs_are_ready():
+    """模块 YAML 或分模块 Job 不完整时必须保留 legacy cron，避免凌晨任务整体断档。"""
+    script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
+
+    assert "org.yaml.snakeyaml.Yaml" in script
+    assert "dailyConfigReady" in script
+    assert "configuredDailyJobNames" in script
+    assert "dailyCronMigrationReady" in script
+    assert "Preserved legacy Daily Job timer" in script
+    assert script.index("if (dailyCronMigrationReady)") < script.index("legacyDailyJob.setTriggers")
+
+
+def test_jenkins_readme_states_daily_cron_is_effective_after_initialization():
+    """初始化脚本已直接配置 cron，文档不得继续要求首次手工 Build 才生效。"""
+    readme = read_required_text(JENKINS_ROOT / "README.md")
+
+    assert "初始化完成后即生效" in readme
+    assert "首次创建 Job 后建议先手工 Build 一次" not in readme
+    assert "先手工 Build 一次，确认参数和 `0 2 * * *` 定时触发生效" not in readme
+
+
 def test_all_four_local_jobs_allow_concurrent_builds():
     """四个本地 Pipeline Job 必须移除禁止并发属性。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { parsePort, resolveFrontendEnv, resolvePlaywrightEnv } from '../config/env'
@@ -32,5 +35,15 @@ describe('frontend environment config', () => {
     expect(env.baseUrl).toBe('http://127.0.0.1:4300')
     expect(env.webServerUrl).toBe('http://127.0.0.1:4300/@vite/client')
     expect(env.permissionOrigin).toBe('http://127.0.0.1:4300')
+  })
+
+  it('keeps Stage12 real acceptance URL on the centralized Playwright baseURL', () => {
+    const source = readFileSync(
+      resolve(__dirname, '..', 'e2e', 'stage12-snapshot-date-jenkins-sync-real-acceptance.spec.ts'),
+      'utf-8',
+    )
+
+    expect(source).not.toContain('http://127.0.0.1:5173')
+    expect(source).toContain('baseURL')
   })
 })

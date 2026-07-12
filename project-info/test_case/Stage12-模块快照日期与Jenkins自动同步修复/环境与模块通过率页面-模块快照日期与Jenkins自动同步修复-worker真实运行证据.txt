@@ -1,0 +1,12 @@
+worker_process_id=31600
+worker_command=python manage.py sync_jenkins_results --watch --interval <configured>
+recent_success_cycles:
+active_processed=0 daily_discovered=0 synced=0 failed=0 skipped=0
+active_processed=0 daily_discovered=0 synced=0 failed=0 skipped=0
+active_processed=0 daily_discovered=0 synced=0 failed=0 skipped=0
+previous_jenkins_restart_isolation_observed:
+Jenkins Daily Job discovery failed: binding_id=5 error_type=JenkinsServiceError
+Jenkins Daily Job discovery failed: binding_id=6 error_type=JenkinsServiceError
+worker recovered automatically after Jenkins became ready
+final_restart_status=running
+final_recent_cycle=active_processed=0 daily_discovered=0 synced=0 failed=0 skipped=0

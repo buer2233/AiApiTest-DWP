@@ -306,6 +306,21 @@ class JenkinsTaskResponseSerializer(serializers.Serializer):
     data = JenkinsTaskSerializer()
 
 
+class JenkinsTaskBulkSyncRequestSerializer(serializers.Serializer):
+    discover_daily = serializers.BooleanField()
+    date = serializers.DateField(required=False)
+
+
+class JenkinsTaskBulkSyncDataSerializer(serializers.Serializer):
+    created_count = serializers.IntegerField(min_value=0)
+    updated_count = serializers.IntegerField(min_value=0)
+    synced_count = serializers.IntegerField(min_value=0)
+
+
+class JenkinsTaskBulkSyncResponseSerializer(serializers.Serializer):
+    data = JenkinsTaskBulkSyncDataSerializer()
+
+
 class CaseResultListResponseSerializer(serializers.Serializer):
     data = CaseResultSerializer(many=True)
     meta = PaginationMetaSerializer()

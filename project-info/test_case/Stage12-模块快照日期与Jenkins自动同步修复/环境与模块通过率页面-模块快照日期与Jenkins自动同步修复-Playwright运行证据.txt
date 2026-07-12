@@ -1,0 +1,5 @@
+
+Running 1 test using 1 worker
+
+[1/1] [chromium] › e2e\stage12-snapshot-date-jenkins-sync-real-acceptance.spec.ts:45:1 › Stage12 真实验收：模块日期、30 天趋势和 Jenkins 任务同步闭环
+  1 passed (12.8s)
