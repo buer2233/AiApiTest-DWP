@@ -1,0 +1,49 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+___ test_full_test_plan_uses_three_verified_images_without_runtime_install ____
+
+tmp_path = WindowsPath('C:/Users/admin/AppData/Local/Temp/pytest-of-admin/pytest-85/test_full_test_plan_uses_three0')
+
+    def test_full_test_plan_uses_three_verified_images_without_runtime_install(tmp_path):
+        context = make_context(tmp_path, run_full_tests=True)
+        plan = TestService.build_plan(context)
+    
+        assert plan.mode == "full"
+        serialized = "\n".join(" ".join(command.argv) for command in plan.commands)
+        for image in [
+            "aiapitest-backend:local",
+            "aiapitest-frontend-test:local",
+            "aiapitest-api-runner:local",
+        ]:
+            assert image in serialized
+        for expected in [
+            "python -m pytest tests",
+            "npm run test:unit",
+            "npm run build",
+            "npm run test:e2e",
+            "api-test/tests",
+            "jenkins/tests",
+        ]:
+            assert expected in serialized
+        for forbidden in [
+            "pip install",
+            "npm install",
+            "npm ci",
+            "npx playwright install",
+            "api-test/test_case",
+            "down",
+            "stop",
+        ]:
+            assert forbidden not in serialized
+        assert serialized.count("/tmp/platform-bootstrap-evidence") >= len(plan.commands)
+>       assert serialized.count("--network aiapitest-platform") == len(plan.commands)
+E       AssertionError: assert 0 == 5
+E        +  where 0 = <built-in method count of str object at 0x00000238AB7EC290>('--network aiapitest-platform')
+E        +    where <built-in method count of str object at 0x00000238AB7EC290> = 'docker create --name platform-bootstrap-testing-summary-unit-backend aiapitest-backend:local sh -c mkdir -p /tmp/plat...vidence && python -m pytest api-test/tests jenkins/tests --junitxml=/tmp/platform-bootstrap-evidence/tooling-junit.xml'.count
+E        +  and   5 = len((TestCommand(name='backend-pytest', argv=('docker', 'create', '--name', 'platform-bootstrap-testing-summary-unit-backe...ence && python -m pytest api-test/tests jenkins/tests --junitxml=/tmp/platform-bootstrap-evidence/tooling-junit.xml'))))
+E        +    where (TestCommand(name='backend-pytest', argv=('docker', 'create', '--name', 'platform-bootstrap-testing-summary-unit-backe...ence && python -m pytest api-test/tests jenkins/tests --junitxml=/tmp/platform-bootstrap-evidence/tooling-junit.xml'))) = TestPlan(mode='full', http_probes=(TestProbe(name='backend-live', endpoint='BACKEND_SERVICE_URL:/api/v1/health/live/')...nce && python -m pytest api-test/tests jenkins/tests --junitxml=/tmp/platform-bootstrap-evidence/tooling-junit.xml')))).commands
+
+jenkins\tests\test_platform_bootstrap_testing_summary.py:107: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_platform_bootstrap_testing_summary.py::test_full_test_plan_uses_three_verified_images_without_runtime_install
+1 failed in 0.46s

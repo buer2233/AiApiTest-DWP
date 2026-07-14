@@ -276,8 +276,8 @@ def test_optional_jenkins_tools_override_builds_custom_image():
     assert "aiapitest-jenkins:lts-jdk17-tools" in content
 
 
-def test_jenkins_image_installs_pipeline_runtime_tools():
-    """Jenkins 工具链镜像必须安装 Python、git 和 Allure CLI。"""
+def test_jenkins_image_installs_pipeline_control_tools():
+    """Jenkins 工具链镜像必须安装 Docker/Compose、轻量 Python、git 和 Allure CLI。"""
     dockerfile = ROOT_DIR / "docker" / "jenkins" / "Dockerfile"
 
     assert dockerfile.exists()
@@ -285,22 +285,27 @@ def test_jenkins_image_installs_pipeline_runtime_tools():
     content = dockerfile.read_text(encoding="utf-8")
     assert "FROM jenkins/jenkins:lts-jdk17" in content
     assert "python3" in content
-    assert "python3-venv" in content
     assert "python-is-python3" in content
     assert "git" in content
+    assert "docker-ce-cli" in content
+    assert "docker-buildx-plugin" in content
+    assert "docker-compose-plugin" in content
     assert "allure-commandline" in content
+    assert "python3-venv" not in content
 
 
-def test_jenkins_tools_image_preinstalls_api_test_requirements():
-    """executor venv 应继承镜像依赖，使模块重跑首次执行也能跳过重复安装。"""
+def test_api_test_requirements_only_exist_in_api_runner_image():
+    """controller 不预装业务依赖，api-runner 是唯一 pytest/Allure 运行环境。"""
     dockerfile = ROOT_DIR / "docker" / "jenkins" / "Dockerfile"
     content = dockerfile.read_text(encoding="utf-8")
+    runner_content = (ROOT_DIR / "api-test" / "Dockerfile").read_text(encoding="utf-8")
 
-    assert "COPY api-test/requirements.txt" in content
-    assert "python -m pip install" in content
-    assert "--break-system-packages" in content
-    assert "api-test-requirements.txt" in content
-    assert "AIAPITEST_PREINSTALLED_REQUIREMENTS=1" in content
+    assert "COPY api-test/requirements.txt" not in content
+    assert "AIAPITEST_PREINSTALLED_REQUIREMENTS" not in content
+    assert "python3-venv" not in content
+    assert "COPY api-test/requirements.txt" in runner_content
+    assert "python -m pip install" in runner_content
+    assert "api-test-requirements.txt" in runner_content
 
 
 def test_jenkins_tools_image_installs_allure_jenkins_plugin():

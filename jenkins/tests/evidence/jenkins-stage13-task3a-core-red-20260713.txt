@@ -1,0 +1,55 @@
+
+=================================== ERRORS ====================================
+_______ ERROR collecting jenkins/tests/test_platform_bootstrap_core.py ________
+ImportError while importing test module 'D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\jenkins\tests\test_platform_bootstrap_core.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+D:\Python3.12\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+jenkins\tests\test_platform_bootstrap_core.py:16: in <module>
+    from platform_bootstrap.adapters import SubprocessCommandRunner  # noqa: E402
+E   ModuleNotFoundError: No module named 'platform_bootstrap'
+_____ ERROR collecting jenkins/tests/test_platform_bootstrap_preflight.py _____
+ImportError while importing test module 'D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\jenkins\tests\test_platform_bootstrap_preflight.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+D:\Python3.12\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+jenkins\tests\test_platform_bootstrap_preflight.py:12: in <module>
+    from platform_bootstrap.evidence import EvidenceStore  # noqa: E402
+E   ModuleNotFoundError: No module named 'platform_bootstrap'
+___ ERROR collecting jenkins/tests/test_platform_bootstrap_dependencies.py ____
+ImportError while importing test module 'D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\jenkins\tests\test_platform_bootstrap_dependencies.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+D:\Python3.12\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+jenkins\tests\test_platform_bootstrap_dependencies.py:13: in <module>
+    from platform_bootstrap.dependencies import (  # noqa: E402
+E   ModuleNotFoundError: No module named 'platform_bootstrap'
+___ ERROR collecting jenkins/tests/test_platform_bootstrap_deploy_health.py ___
+ImportError while importing test module 'D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\jenkins\tests\test_platform_bootstrap_deploy_health.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+D:\Python3.12\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+jenkins\tests\test_platform_bootstrap_deploy_health.py:13: in <module>
+    from platform_bootstrap.deploy import DeployService  # noqa: E402
+E   ModuleNotFoundError: No module named 'platform_bootstrap'
+__ ERROR collecting jenkins/tests/test_platform_bootstrap_testing_summary.py __
+ImportError while importing test module 'D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\jenkins\tests\test_platform_bootstrap_testing_summary.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+D:\Python3.12\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+jenkins\tests\test_platform_bootstrap_testing_summary.py:13: in <module>
+    from platform_bootstrap.evidence import EvidenceStore  # noqa: E402
+E   ModuleNotFoundError: No module named 'platform_bootstrap'
+=========================== short test summary info ===========================
+ERROR jenkins/tests/test_platform_bootstrap_core.py
+ERROR jenkins/tests/test_platform_bootstrap_preflight.py
+ERROR jenkins/tests/test_platform_bootstrap_dependencies.py
+ERROR jenkins/tests/test_platform_bootstrap_deploy_health.py
+ERROR jenkins/tests/test_platform_bootstrap_testing_summary.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 5 errors during collection !!!!!!!!!!!!!!!!!!!
+5 errors in 0.29s

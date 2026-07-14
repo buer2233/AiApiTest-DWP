@@ -1,0 +1,23 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+___ test_bake_frontend_is_one_group_and_api_integrity_checks_pip_and_allure ___
+
+tmp_path = WindowsPath('C:/Users/admin/AppData/Local/Temp/pytest-of-admin/pytest-77/test_bake_frontend_is_one_grou0')
+
+    def test_bake_frontend_is_one_group_and_api_integrity_checks_pip_and_allure(tmp_path):
+        make_workspace(tmp_path)
+        bake_file = SCRIPTS_DIR / "platform-bootstrap-bake.hcl"
+        bake = bake_file.read_text(encoding="utf-8")
+        assert 'group "frontend"' in bake
+        assert 'targets = ["frontend-runtime", "frontend-test"]' in bake
+    
+        api_runner = default_domain_specs(tmp_path)[2].images[0]
+        integrity = " ".join(api_runner.integrity_argv)
+        assert "pip" in integrity and "check" in integrity
+>       assert "allure" in integrity and "--version" in integrity
+E       AssertionError: assert ('allure' in 'docker run --rm aiapitest-api-runner:local python -m pip check')
+
+jenkins\tests\test_platform_bootstrap_dependencies.py:195: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_platform_bootstrap_dependencies.py::test_bake_frontend_is_one_group_and_api_integrity_checks_pip_and_allure
+1 failed in 0.41s

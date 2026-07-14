@@ -1,0 +1,2 @@
+PASS: no credential, authorization, cookie, database URL, or hard-coded HTTP URL pattern found in Task 1 production files.
+EXIT_CODE=0

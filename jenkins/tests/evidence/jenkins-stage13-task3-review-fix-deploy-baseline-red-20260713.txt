@@ -1,0 +1,28 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+___ test_deploy_fails_when_bootstrap_container_id_changes_without_rollback ____
+
+tmp_path = WindowsPath('C:/Users/admin/AppData/Local/Temp/pytest-of-admin/pytest-111/test_deploy_fails_when_bootstr0')
+
+    def test_deploy_fails_when_bootstrap_container_id_changes_without_rollback(tmp_path):
+        context = make_context(tmp_path, False)
+        store = EvidenceStore(context.evidence_dir)
+        mark_dependencies_ready(store)
+        mark_preflight_ready(store)
+        runner = FakeRunner(
+            container_ids={
+                "aiapitest-jenkins": "jenkins-replaced",
+                "aiapitest-mysql": "mysql-id",
+            }
+        )
+    
+        result = DeployService(runner, store).run(context)
+    
+>       assert result.success is False
+E       AssertionError: assert True is False
+E        +  where True = StageResult(stage='deploy', success=True, details={'services': ['backend', 'frontend', 'jenkins-sync-worker'], 'mode': 'incremental'}, diagnostics=()).success
+
+jenkins\tests\test_platform_bootstrap_deploy_health.py:169: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_platform_bootstrap_deploy_health.py::test_deploy_fails_when_bootstrap_container_id_changes_without_rollback
+1 failed in 0.60s

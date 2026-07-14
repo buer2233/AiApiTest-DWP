@@ -1,0 +1,58 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+____ test_failed_and_aborted_builds_preserve_downloaded_structured_summary ____
+
+tmp_path = WindowsPath('C:/Users/admin/AppData/Local/Temp/pytest-of-admin/pytest-114/test_failed_and_aborted_builds0')
+
+    def test_failed_and_aborted_builds_preserve_downloaded_structured_summary(tmp_path):
+        _, job_api, trigger_url = job_urls()
+        artifact_path = "runtime/platform-bootstrap/42/platform-bootstrap-summary.json"
+        for terminal in ["FAILURE", "ABORTED"]:
+            routes = {
+                ("GET", job_api): [response(200, {"inQueue": False, "lastBuild": {"building": False}})],
+                ("POST", trigger_url): [response(201, headers={"Location": QUEUE_URL})],
+                ("GET", f"{QUEUE_URL}api/json"): [response(200, {"executable": {"url": BUILD_URL}})],
+                ("GET", f"{BUILD_URL}api/json"): [
+                    response(
+                        200,
+                        {
+                            "building": False,
+                            "result": terminal,
+                            "artifacts": [{"fileName": "platform-bootstrap-summary.json", "relativePath": artifact_path}],
+                        },
+                    )
+                ],
+                ("GET", f"{BUILD_URL}artifact/{artifact_path}"): [
+                    response(
+                        200,
+                        {
+                            "success": False,
+                            "diagnostics": [
+                                {
+                                    "stage": "health",
+                                    "code": "HEALTH_FAILED",
+                                    "target": "backend-ready",
+                                    "reason": "not ready",
+                                    "observed": "status=503",
+                                    "evidence": ["health.log"],
+                                    "suggestion": "repair database",
+                                    "rerun": "rerun build",
+                                }
+                            ],
+                        },
+                    )
+                ],
+            }
+            client, _, _, _ = make_client(tmp_path / terminal, routes)
+    
+            outcome = client.trigger(build_all=True, run_full_tests=False)
+    
+            assert outcome.success is False
+            assert outcome.status == terminal
+>           assert outcome.summary["success"] is False
+E           KeyError: 'success'
+
+jenkins\tests\test_platform_bootstrap_helper.py:311: KeyError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_platform_bootstrap_helper.py::test_failed_and_aborted_builds_preserve_downloaded_structured_summary
+1 failed in 0.61s

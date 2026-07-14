@@ -1,0 +1,16 @@
+CONFIG_QUIET_EXIT_CODE=0
+DEFAULT_SERVICES:
+mysql
+backend
+frontend
+jenkins
+jenkins-sync-worker
+DEFAULT_SERVICES_EXIT_CODE=0
+TOOLS_PROFILE_SERVICES:
+backend
+frontend
+mysql
+jenkins
+jenkins-sync-worker
+api-runner
+TOOLS_PROFILE_SERVICES_EXIT_CODE=0

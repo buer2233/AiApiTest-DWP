@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import os
 import signal
+import tempfile
 import time
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -10,6 +14,30 @@ from metrics.jenkins_sync import run_jenkins_sync_cycle
 
 
 DEFAULT_POLL_INTERVAL_SECONDS = 10
+HEARTBEAT_PATH_ENV = "JENKINS_SYNC_HEARTBEAT_PATH"
+
+
+def heartbeat_path() -> Path:
+    configured_path = os.getenv(HEARTBEAT_PATH_ENV, "").strip()
+    if configured_path:
+        return Path(configured_path)
+    return Path(tempfile.gettempdir()) / "aiapitest-dwp" / "jenkins-sync-worker.heartbeat"
+
+
+def write_heartbeat() -> None:
+    target_path = heartbeat_path()
+    temporary_path = target_path.with_name(f".{target_path.name}.{uuid4().hex}.tmp")
+    try:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        temporary_path.write_text(timestamp, encoding="utf-8")
+        os.replace(temporary_path, target_path)
+    except OSError as exc:
+        try:
+            temporary_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise CommandError("worker heartbeat write failed") from exc
 
 
 class Command(BaseCommand):
@@ -62,6 +90,7 @@ class Command(BaseCommand):
         try:
             while not stop_requested:
                 stats = run_jenkins_sync_cycle()
+                write_heartbeat()
                 self.stdout.write(" ".join(f"{key}={value}" for key, value in stats.items()))
                 if not watch:
                     return

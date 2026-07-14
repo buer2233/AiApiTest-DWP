@@ -1,3 +1,5 @@
+name: aiapitest-dwp
+
 services:
   mysql:
     image: mysql:8.4
@@ -25,7 +27,10 @@ services:
       - aiapitest-platform
 
   jenkins:
-    image: jenkins/jenkins:lts-jdk17
+    image: aiapitest-jenkins:lts-jdk17-tools
+    build:
+      context: .
+      dockerfile: docker/jenkins/Dockerfile
     labels:
       aiapitest.base-image: jenkins/jenkins:lts-jdk17
     container_name: aiapitest-jenkins
@@ -46,11 +51,14 @@ services:
       AIAPITEST_LOCAL_WORKSPACE: ${AIAPITEST_LOCAL_WORKSPACE:-/workspace/AiApiTest-DWP}
       AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS: ${AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS:-false}
       CI_RUN_RETENTION_DAYS: ${CI_RUN_RETENTION_DAYS:-30}
+    group_add:
+      - "${DOCKER_GID:-0}"
     ports:
       - "${JENKINS_HTTP_PORT:-8080}:8080"
       - "${JENKINS_AGENT_PORT:-50001}:50000"
     volumes:
       - aiapitest-jenkins-home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./jenkins/scripts/configure-executors.groovy:/var/jenkins_home/init.groovy.d/20-aiapitest-executors.groovy:ro
       - ./jenkins/scripts/configure-local-mounted-jobs.groovy:/var/jenkins_home/init.groovy.d/30-aiapitest-local-jobs.groovy:ro
       - ./jenkins/scripts/99-aiapitest-local-api-token.groovy:/var/jenkins_home/init.groovy.d/99-aiapitest-local-api-token.groovy:ro
@@ -58,6 +66,145 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    networks:
+      - aiapitest-platform
+
+  backend:
+    image: aiapitest-backend:local
+    build:
+      context: .
+      dockerfile: back-end/Dockerfile
+      args:
+        AIAPITEST_DEPENDENCY_HASH: ${BACKEND_DEPENDENCY_HASH:-unknown}
+        AIAPITEST_BUILD_INPUT_HASH: ${BACKEND_BUILD_INPUT_HASH:-unknown}
+        AIAPITEST_SOURCE_REVISION: ${AIAPITEST_SOURCE_REVISION:-unknown}
+    container_name: aiapitest-backend
+    restart: unless-stopped
+    command:
+      [
+        "gunicorn",
+        "config.wsgi:application",
+        "--bind",
+        "0.0.0.0:8000",
+        "--workers",
+        "3",
+        "--timeout",
+        "60",
+      ]
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-backend,localhost,127.0.0.1}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?Set AUTH_TOKEN_SECRET in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_api_test_platform}
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      JENKINS_API_BASE_URL: http://jenkins:8080
+      JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}
+      JENKINS_USERNAME: ${JENKINS_USERNAME:-}
+      JENKINS_API_TOKEN: ${JENKINS_API_TOKEN:-}
+    ports:
+      - "${BACKEND_BIND_HOST:-127.0.0.1}:${BACKEND_HOST_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready/', timeout=5).read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - aiapitest-platform
+
+  frontend:
+    image: aiapitest-frontend:local
+    build:
+      context: .
+      dockerfile: front-end/Dockerfile
+      target: runtime
+      args:
+        AIAPITEST_DEPENDENCY_HASH: ${FRONTEND_DEPENDENCY_HASH:-unknown}
+        AIAPITEST_BUILD_INPUT_HASH: ${FRONTEND_BUILD_INPUT_HASH:-unknown}
+        AIAPITEST_SOURCE_REVISION: ${AIAPITEST_SOURCE_REVISION:-unknown}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+        VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS:-10000}
+    container_name: aiapitest-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_BIND_HOST:-127.0.0.1}:${FRONTEND_HOST_PORT:-5173}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - aiapitest-platform
+
+  jenkins-sync-worker:
+    image: aiapitest-backend:local
+    build:
+      context: .
+      dockerfile: back-end/Dockerfile
+      args:
+        AIAPITEST_DEPENDENCY_HASH: ${BACKEND_DEPENDENCY_HASH:-unknown}
+        AIAPITEST_BUILD_INPUT_HASH: ${BACKEND_BUILD_INPUT_HASH:-unknown}
+        AIAPITEST_SOURCE_REVISION: ${AIAPITEST_SOURCE_REVISION:-unknown}
+    container_name: aiapitest-jenkins-sync-worker
+    restart: unless-stopped
+    command:
+      [
+        "python",
+        "manage.py",
+        "sync_jenkins_results",
+        "--watch",
+        "--interval",
+        "${JENKINS_BUILD_POLL_INTERVAL_SECONDS:-10}",
+      ]
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-backend,localhost,127.0.0.1}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?Set AUTH_TOKEN_SECRET in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_api_test_platform}
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      JENKINS_API_BASE_URL: http://jenkins:8080
+      JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}
+      JENKINS_USERNAME: ${JENKINS_USERNAME:-}
+      JENKINS_API_TOKEN: ${JENKINS_API_TOKEN:-}
+      JENKINS_SYNC_HEARTBEAT_PATH: /tmp/aiapitest-dwp/jenkins-sync-worker.heartbeat
+      JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS: ${JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS:-60}
+    healthcheck:
+      test: ["CMD", "python", "/usr/local/bin/worker_heartbeat_healthcheck.py"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    networks:
+      - aiapitest-platform
+
+  api-runner:
+    image: aiapitest-api-runner:local
+    build:
+      context: .
+      dockerfile: api-test/Dockerfile
+      args:
+        AIAPITEST_DEPENDENCY_HASH: ${API_RUNNER_DEPENDENCY_HASH:-unknown}
+        AIAPITEST_BUILD_INPUT_HASH: ${API_RUNNER_BUILD_INPUT_HASH:-unknown}
+        AIAPITEST_SOURCE_REVISION: ${AIAPITEST_SOURCE_REVISION:-unknown}
+    profiles: ["tools"]
+    restart: "no"
+    working_dir: /workspace/AiApiTest-DWP/api-test
+    command: ["python", "-m", "pytest", "tests", "-q"]
     networks:
       - aiapitest-platform
 

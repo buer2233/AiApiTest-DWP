@@ -1,0 +1,61 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.42kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/nginx:1.27-alpine
+#2 ...
+
+#3 [internal] load metadata for mcr.microsoft.com/playwright:v1.61.1-noble
+#3 DONE 0.6s
+
+#2 [internal] load metadata for docker.io/library/nginx:1.27-alpine
+#2 DONE 1.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 378B done
+#4 DONE 0.0s
+
+#5 [dependencies 1/5] FROM mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+#5 DONE 0.0s
+
+#6 [runtime 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 15.36kB 0.0s done
+#7 DONE 0.1s
+
+#8 [dependencies 2/5] WORKDIR /workspace/AiApiTest-DWP/front-end
+#8 CACHED
+
+#9 [dependencies 3/5] COPY front-end/package.json front-end/package-lock.json ./
+#9 CACHED
+
+#10 [dependencies 4/5] RUN npm ci && npm cache clean --force
+#10 CACHED
+
+#11 [dependencies 5/5] COPY front-end/ ./
+#11 CACHED
+
+#12 [build 1/1] RUN npm run build
+#12 CACHED
+
+#6 [runtime 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#6 CACHED
+
+#13 [runtime 2/3] COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+#13 DONE 0.1s
+
+#14 [runtime 3/3] COPY --from=build /workspace/AiApiTest-DWP/front-end/dist /usr/share/nginx/html
+#14 DONE 0.2s
+
+#15 exporting to image
+#15 exporting layers 0.1s done
+#15 writing image sha256:7fa820eaa365fa2fa2254bdef3b2a58fdb20b1d967522f4b2e206089d6e05fc7 0.0s done
+#15 naming to docker.io/library/aiapitest-frontend:local 0.0s done
+#15 DONE 0.2s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/y879z8gnjrdnc6ezy33f0l05t
+EXIT_CODE=0

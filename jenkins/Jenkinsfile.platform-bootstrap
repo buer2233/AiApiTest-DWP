@@ -1,0 +1,98 @@
+// 统一平台环境启动 Pipeline 入口。
+// Checkout 前无法加载仓库 Groovy，因此这里只负责参数、禁止并发、workspace 获取和失败兜底归档。
+node {
+    properties([
+        disableConcurrentBuilds(),
+        parameters([
+            booleanParam(name: 'build_all', defaultValue: true, description: 'Rebuild all application images and recreate all application containers'),
+            booleanParam(name: 'run_full_tests', defaultValue: false, description: 'Run platform full regression after the credential-free smoke checks')
+        ])
+    ])
+
+    def pipelineLoaded = false
+    def pipelineScript = null
+    def localWorkspace = env.AIAPITEST_LOCAL_WORKSPACE ?: '/workspace/AiApiTest-DWP'
+    def fallbackEvidenceDir = "runtime/platform-bootstrap/${env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"}"
+    try {
+        stage('Checkout/Workspace') {
+            if (env.LOCAL_WORKSPACE_REPO == 'true') {
+                if (!fileExists("${localWorkspace}/jenkins/scripts/platform-bootstrap-pipeline.groovy")) {
+                    error("Configured AIAPITEST_LOCAL_WORKSPACE does not contain the platform bootstrap Pipeline script")
+                }
+                dir(localWorkspace) {
+                    echo "Using local mounted repository at ${pwd()}"
+                    pipelineScript = load 'jenkins/scripts/platform-bootstrap-pipeline.groovy'
+                }
+            } else {
+                checkout scm
+                pipelineScript = load 'jenkins/scripts/platform-bootstrap-pipeline.groovy'
+            }
+        }
+        pipelineLoaded = true
+        if (env.LOCAL_WORKSPACE_REPO == 'true') {
+            dir(localWorkspace) {
+                pipelineScript.call()
+            }
+        } else {
+            pipelineScript.call()
+        }
+    } catch (Throwable failure) {
+        currentBuild.result = 'FAILURE'
+        if (!pipelineLoaded) {
+            // checkout/load 失败时仓库 Python 入口可能不可用，生成最小失败证据后仍抛出首因。
+            def fallbackSummaryFailure = null
+            def fallbackArchiveFailure = null
+            try {
+                stage("Archive ${'&'} Summary") {
+                    try {
+                        dir(fallbackEvidenceDir) {
+                            writeFile(
+                                file: 'platform-bootstrap-summary.json',
+                                text: groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+                                    success: false,
+                                    stage: 'Checkout/Workspace',
+                                    reason: 'Checkout or Pipeline script loading failed; inspect the Jenkins console with credential masking enabled.',
+                                    rerun: 'Repair checkout/workspace access, then rebuild the same Jenkins Job.'
+                                ])) + '\n'
+                            )
+                        }
+                    } catch (Throwable summaryProblem) {
+                        fallbackSummaryFailure = summaryProblem
+                        echo 'WARNING: fallback summary write failed; continuing with available evidence archive.'
+                    }
+                    try {
+                        archiveArtifacts(
+                            artifacts: "${fallbackEvidenceDir}/**",
+                            allowEmptyArchive: true,
+                            fingerprint: true
+                        )
+                    } catch (Throwable archiveProblem) {
+                        fallbackArchiveFailure = archiveProblem
+                        echo 'WARNING: fallback evidence archive failed; preserving the checkout/load primary failure.'
+                    }
+                }
+            } catch (Throwable finalizationProblem) {
+                if (fallbackSummaryFailure == null) {
+                    fallbackSummaryFailure = finalizationProblem
+                }
+                try {
+                    archiveArtifacts(
+                        artifacts: "${fallbackEvidenceDir}/**",
+                        allowEmptyArchive: true,
+                        fingerprint: true
+                    )
+                } catch (Throwable archiveProblem) {
+                    fallbackArchiveFailure = archiveProblem
+                    echo 'WARNING: fallback evidence archive failed; preserving the checkout/load primary failure.'
+                }
+            }
+            if (failure == null && fallbackSummaryFailure != null) {
+                throw fallbackSummaryFailure
+            }
+            if (failure == null && fallbackArchiveFailure != null) {
+                throw fallbackArchiveFailure
+            }
+        }
+        throw failure
+    }
+}

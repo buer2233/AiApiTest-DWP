@@ -1,0 +1,10 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_frontend_runtime_provides_nginx_spa_proxy_and_health __________
+jenkins\tests\test_stage13_platform_images_static.py:118: in test_frontend_runtime_provides_nginx_spa_proxy_and_health
+    assert "resolver 127.0.0.11" in nginx_config
+E   AssertionError: assert 'resolver 127.0.0.11' in 'server {\n    listen 80;\n    server_name _;\n    root /usr/share/nginx/html;\n    index index.html;\n\n    location ..._header X-Forwarded-Proto $scheme;\n    }\n\n    location / {\n        try_files $uri $uri/ /index.html;\n    }\n}\n\n'
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_frontend_runtime_provides_nginx_spa_proxy_and_health
+1 failed in 0.63s
+EXIT_CODE=1

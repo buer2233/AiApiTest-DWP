@@ -1,0 +1,40 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-7.4.4, pluggy-1.6.0 -- D:\Python3.12\python.exe
+cachedir: .pytest_cache
+metadata: {'Python': '3.12.6', 'Platform': 'Windows-11-10.0.22631-SP0', 'Packages': {'pytest': '7.4.4', 'pluggy': '1.6.0'}, 'Plugins': {'allure-pytest': '2.13.5', 'anyio': '4.9.0', 'Faker': '13.13.0', 'langsmith': '0.8.8', 'assume': '2.4.3', 'asyncio': '0.21.2', 'check': '2.1.4', 'cov': '7.1.0', 'django': '4.12.0', 'html': '3.1.1', 'metadata': '2.0.4', 'rerunfailures': '16.1', 'xdist': '3.5.0'}, 'JAVA_HOME': 'D:\\Program Files\\Java\\jdk1.8.0_201'}
+rootdir: D:\AI\Hermes\dev\workspace001\AiApiTest-DWP
+plugins: allure-pytest-2.13.5, anyio-4.9.0, Faker-13.13.0, langsmith-0.8.8, assume-2.4.3, asyncio-0.21.2, check-2.1.4, cov-7.1.0, django-4.12.0, html-3.1.1, metadata-2.0.4, rerunfailures-16.1, xdist-3.5.0
+asyncio: mode=Mode.STRICT
+collecting ... collected 13 items / 12 deselected / 1 selected
+
+jenkins/tests/test_stage13_platform_images_static.py::test_dockerignore_excludes_private_and_generated_content FAILED [100%]
+
+================================== FAILURES ===================================
+__________ test_dockerignore_excludes_private_and_generated_content ___________
+
+    def test_dockerignore_excludes_private_and_generated_content():
+        dockerignore = read_text(".dockerignore")
+    
+        for ignored in [
+            ".git",
+            ".env",
+            "node_modules",
+            ".venv",
+            "runtime",
+            "report",
+            "logs",
+            "test-results",
+            "htmlcov",
+            "*.log",
+        ]:
+            assert ignored in dockerignore
+        assert "!.env.example" in dockerignore
+>       assert ".gitignore" not in dockerignore.splitlines()
+E       AssertionError: assert '.gitignore' not in ['.git', '.gitignore', '.env', '.env.*', '!.env.example', '.planning', ...]
+E        +  where ['.git', '.gitignore', '.env', '.env.*', '!.env.example', '.planning', ...] = <built-in method splitlines of str object at 0x0000012FD4C93AB0>()
+E        +    where <built-in method splitlines of str object at 0x0000012FD4C93AB0> = '.git\n.gitignore\n.env\n.env.*\n!.env.example\n.planning\n.superpowers\n.tmp\n\n**/__pycache__\n**/*.py[cod]\n**/.pytest_cache\n**/.coverage\n**/htmlcov\n**/tests/evidence/htmlcov\n\n**/node_modules\n**/dist\n**/.venv\n**/test-results\n**/playwright-report\n\n**/runtime\n**/report\n**/logs\n**/*.log\n\nback-end/db.sqlite3\ndocker/mysql-data\ndocker/jenkins-home\n\n'.splitlines
+
+jenkins\tests\test_stage13_platform_images_static.py:173: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_dockerignore_excludes_private_and_generated_content
+====================== 1 failed, 12 deselected in 0.42s =======================

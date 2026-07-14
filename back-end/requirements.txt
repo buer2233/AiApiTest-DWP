@@ -1,6 +1,7 @@
 Django==5.2.15
 djangorestframework==3.17.1
 drf-spectacular==0.29.0
+gunicorn==23.0.0
 PyJWT==2.10.1
 PyMySQL>=1.1,<2.0
 pytest==7.4.4

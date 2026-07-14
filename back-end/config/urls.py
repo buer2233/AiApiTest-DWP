@@ -1,6 +1,7 @@
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from common.views import LiveHealthView, ReadyHealthView
 from accounts.views import (
     AuthMeView,
     InvitationListCreateView,
@@ -31,6 +32,8 @@ from metrics.views import (
 urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/v1/health/live/", LiveHealthView.as_view(), name="health-live"),
+    path("api/v1/health/ready/", ReadyHealthView.as_view(), name="health-ready"),
     path("api/v1/auth/login", LoginView.as_view(), name="auth-login"),
     path("api/v1/auth/logout", LogoutView.as_view(), name="auth-logout"),
     path("api/v1/auth/me", AuthMeView.as_view(), name="auth-me"),

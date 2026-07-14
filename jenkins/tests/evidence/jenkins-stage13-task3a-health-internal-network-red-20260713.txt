@@ -1,0 +1,42 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____ test_health_checks_fixed_endpoints_and_worker_with_finite_deadline ______
+
+tmp_path = WindowsPath('C:/Users/admin/AppData/Local/Temp/pytest-of-admin/pytest-89/test_health_checks_fixed_endpo0')
+
+    def test_health_checks_fixed_endpoints_and_worker_with_finite_deadline(tmp_path):
+        context = make_context(tmp_path, False)
+        store = EvidenceStore(context.evidence_dir)
+        store.write_stage_result("deploy", {"stage": "deploy", "success": True})
+        config = {
+            "BACKEND_SERVICE_URL": "https://api.example.invalid",
+            "FRONTEND_SERVICE_URL": "https://platform.example.invalid",
+        }
+        clock = FakeClock()
+        client = FakeHttpClient()
+        runner = FakeRunner(worker_status="healthy")
+    
+        result = HealthService(
+            runner,
+            client,
+            store,
+            monotonic=clock.monotonic,
+            sleep=clock.sleep,
+        ).run(context, config, timeout_seconds=5, interval_seconds=1)
+    
+        assert result.success is True
+>       assert [request.url for request in client.requests] == [
+            "http://backend:8000/api/v1/health/live/",
+            "http://backend:8000/api/v1/health/ready/",
+            "http://frontend/health",
+            "http://frontend/login",
+            "http://frontend/api/v1/health/ready/",
+        ]
+E       AssertionError: assert ['https://api...ealth/ready/'] == ['http://back...ealth/ready/']
+E         At index 0 diff: 'https://api.example.invalid/api/v1/health/live/' != 'http://backend:8000/api/v1/health/live/'
+E         Use -v to get more diff
+
+jenkins\tests\test_platform_bootstrap_deploy_health.py:147: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_platform_bootstrap_deploy_health.py::test_health_checks_fixed_endpoints_and_worker_with_finite_deadline
+1 failed in 0.44s

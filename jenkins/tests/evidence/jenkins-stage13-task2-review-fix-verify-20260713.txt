@@ -1,0 +1,12 @@
+ID=sha256:c0dc2fdf8fd492fef4bebb6c9f2a73b4deee4e689b71a4d31448043af37feada COMPONENT=api-runner
+IMAGE_CONTENT_GUARD:
+LOCAL_ARTIFACTS_EXCLUDED
+IMAGE_CONTENT_GUARD_EXIT_CODE=0
+API_TEST_FULL:
+.................................................ss.............         [100%]
+62 passed, 2 skipped in 1.86s
+API_TEST_FULL_EXIT_CODE=0
+JENKINS_DOCKER_STATIC:
+.........................s......                                         [100%]
+31 passed, 1 skipped in 0.27s
+JENKINS_DOCKER_STATIC_EXIT_CODE=0

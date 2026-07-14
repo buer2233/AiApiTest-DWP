@@ -1,0 +1,64 @@
+FFFFFFFF.F                                                               [100%]
+================================== FAILURES ===================================
+________ test_compose_uses_fixed_project_and_defines_platform_services ________
+jenkins\tests\test_stage13_platform_images_static.py:40: in test_compose_uses_fixed_project_and_defines_platform_services
+    assert compose["name"] == "aiapitest-dwp"
+E   KeyError: 'name'
+____ test_application_services_do_not_start_bootstrap_services_implicitly _____
+jenkins\tests\test_stage13_platform_images_static.py:55: in test_application_services_do_not_start_bootstrap_services_implicitly
+    assert "depends_on" not in services[service_name]
+E   KeyError: 'backend'
+____ test_jenkins_controller_uses_tools_image_and_socket_group_permission _____
+jenkins\tests\test_stage13_platform_images_static.py:64: in test_jenkins_controller_uses_tools_image_and_socket_group_permission
+    assert jenkins["image"] == "aiapitest-jenkins:lts-jdk17-tools"
+E   AssertionError: assert 'jenkins/jenkins:lts-jdk17' == 'aiapitest-je...s-jdk17-tools'
+E     - aiapitest-jenkins:lts-jdk17-tools
+E     + jenkins/jenkins:lts-jdk17
+_______ test_backend_and_worker_share_immutable_image_with_healthchecks _______
+jenkins\tests\test_stage13_platform_images_static.py:79: in test_backend_and_worker_share_immutable_image_with_healthchecks
+    backend = services["backend"]
+E   KeyError: 'backend'
+__________ test_frontend_runtime_provides_nginx_spa_proxy_and_health __________
+jenkins\tests\test_stage13_platform_images_static.py:96: in test_frontend_runtime_provides_nginx_spa_proxy_and_health
+    frontend = load_compose()["services"]["frontend"]
+E   KeyError: 'frontend'
+___________ test_domain_dockerfiles_publish_hash_and_source_labels ____________
+jenkins\tests\test_stage13_platform_images_static.py:114: in test_domain_dockerfiles_publish_hash_and_source_labels
+    dockerfile = read_text(relative_path)
+jenkins\tests\test_stage13_platform_images_static.py:29: in read_text
+    assert path.exists(), f"Missing required Stage13 file: {relative_path}"
+E   AssertionError: Missing required Stage13 file: back-end/Dockerfile
+E   assert False
+E    +  where False = <bound method Path.exists of WindowsPath('D:/AI/Hermes/dev/workspace001/AiApiTest-DWP/back-end/Dockerfile')>()
+E    +    where <bound method Path.exists of WindowsPath('D:/AI/Hermes/dev/workspace001/AiApiTest-DWP/back-end/Dockerfile')> = WindowsPath('D:/AI/Hermes/dev/workspace001/AiApiTest-DWP/back-end/Dockerfile').exists
+______ test_api_runner_is_non_persistent_and_uses_image_internal_source _______
+jenkins\tests\test_stage13_platform_images_static.py:122: in test_api_runner_is_non_persistent_and_uses_image_internal_source
+    runner = load_compose()["services"]["api-runner"]
+E   KeyError: 'api-runner'
+__________ test_dockerignore_excludes_private_and_generated_content ___________
+jenkins\tests\test_stage13_platform_images_static.py:137: in test_dockerignore_excludes_private_and_generated_content
+    dockerignore = read_text(".dockerignore")
+jenkins\tests\test_stage13_platform_images_static.py:29: in read_text
+    assert path.exists(), f"Missing required Stage13 file: {relative_path}"
+E   AssertionError: Missing required Stage13 file: .dockerignore
+E   assert False
+E    +  where False = <bound method Path.exists of WindowsPath('D:/AI/Hermes/dev/workspace001/AiApiTest-DWP/.dockerignore')>()
+E    +    where <bound method Path.exists of WindowsPath('D:/AI/Hermes/dev/workspace001/AiApiTest-DWP/.dockerignore')> = WindowsPath('D:/AI/Hermes/dev/workspace001/AiApiTest-DWP/.dockerignore').exists
+___ test_worker_heartbeat_healthcheck_handles_fresh_stale_and_missing_files ___
+jenkins\tests\test_stage13_platform_images_static.py:164: in test_worker_heartbeat_healthcheck_handles_fresh_stale_and_missing_files
+    assert script_path.exists()
+E   AssertionError: assert False
+E    +  where False = <bound method Path.exists of WindowsPath('D:/AI/Hermes/dev/workspace001/AiApiTest-DWP/docker/healthchecks/worker_heartbeat_healthcheck.py')>()
+E    +    where <bound method Path.exists of WindowsPath('D:/AI/Hermes/dev/workspace001/AiApiTest-DWP/docker/healthchecks/worker_heartbeat_healthcheck.py')> = WindowsPath('D:/AI/Hermes/dev/workspace001/AiApiTest-DWP/docker/healthchecks/worker_heartbeat_healthcheck.py').exists
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_compose_uses_fixed_project_and_defines_platform_services
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_application_services_do_not_start_bootstrap_services_implicitly
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_jenkins_controller_uses_tools_image_and_socket_group_permission
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_backend_and_worker_share_immutable_image_with_healthchecks
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_frontend_runtime_provides_nginx_spa_proxy_and_health
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_domain_dockerfiles_publish_hash_and_source_labels
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_api_runner_is_non_persistent_and_uses_image_internal_source
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_dockerignore_excludes_private_and_generated_content
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_worker_heartbeat_healthcheck_handles_fresh_stale_and_missing_files
+9 failed, 1 passed in 0.37s
+EXIT_CODE=1
