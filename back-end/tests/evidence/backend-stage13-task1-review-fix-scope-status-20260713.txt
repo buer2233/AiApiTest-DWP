@@ -1,0 +1,31 @@
+COMMAND: git status --short -- Task 1 allowed backend paths
+
+ M back-end/common/serializers.py
+ M back-end/config/urls.py
+ M back-end/metrics/management/commands/sync_jenkins_results.py
+?? back-end/common/health.py
+?? back-end/common/views.py
+?? back-end/tests/evidence/backend-stage13-task1-affected-regression-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-django-check-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-full-pytest-coverage-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-git-diff-check-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-red-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-review-fix-affected-regression-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-review-fix-django-check-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-review-fix-full-pytest-coverage-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-review-fix-git-diff-check-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-review-fix-green-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-review-fix-red-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-review-fix-scope-status-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-review-fix-security-scan-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-review-fix-target-regression-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-scope-status-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-security-scan-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-target-green-20260713.txt
+?? back-end/tests/evidence/backend-stage13-task1-target-regression-20260713.txt
+?? back-end/tests/test_stage13_health_api.py
+?? back-end/tests/test_stage13_worker_heartbeat.py
+
+COMMAND: git status --short -- backend migration paths
+PASS: no migration files changed or added.
+EXIT_CODE=0

@@ -1,0 +1,9 @@
+IMAGE_ID=sha256:fb6b3bfba45c3c88fba0582e2783bccf198584cd215395945e87fb52b278ee88 USER=jenkins
+uid=1000(jenkins) gid=1000(jenkins) groups=1000(jenkins)
+Docker version 29.6.1, build 8900f1d
+Docker Compose version v5.3.1
+Python 3.13.5
+git version 2.47.3
+2.30.0
+TOOLS_VERIFY_EXIT_CODE=0
+UNCHANGED_CONTAINER_ID=4eab285628adee9a5a37b938f6081d5007edbdfc4e48c9b3ea03409922a141be UNCHANGED_IMAGE_REF=jenkins/jenkins:lts-jdk17 UNCHANGED_IMAGE_ID=sha256:d488164d13bf304ffaec478e1a79183fcc6ea811ba28041a39bcea48537114f1 UNCHANGED_STATUS=running

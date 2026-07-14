@@ -1,0 +1,28 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_post_build_exception_keeps_one_attempt_hashes_phase_and_build_evidence _
+
+tmp_path = WindowsPath('C:/Users/admin/AppData/Local/Temp/pytest-of-admin/pytest-128/test_post_build_exception_keep0')
+
+    def test_post_build_exception_keeps_one_attempt_hashes_phase_and_build_evidence(tmp_path):
+        make_workspace(tmp_path)
+        context = make_context(tmp_path)
+        labels = valid_labels(context)
+        labels["aiapitest-backend:local"]["aiapitest.build-input-hash"] = "old-build-input"
+        runner = DependencyRunner(
+            labels,
+            raise_after_build_images={"aiapitest-backend:local"},
+        )
+    
+        result = DependencyAssuranceService(runner, ready_store(context)).run(context)
+    
+        backend = result.domain_results[0]
+        assert result.success is False
+>       assert backend.build_attempts == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = DependencyDomainResult(name='backend', dependency_status='INSTALL_FAILED', image_status='BUILD_FAILED', build_attempts...input/runner failure, then rebuild.', rerun='Rebuild AiApiTest-DWP-Platform-Bootstrap after the issue is resolved.'),)).build_attempts
+
+jenkins\tests\test_platform_bootstrap_dependencies.py:261: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_platform_bootstrap_dependencies.py::test_post_build_exception_keeps_one_attempt_hashes_phase_and_build_evidence
+1 failed in 1.08s

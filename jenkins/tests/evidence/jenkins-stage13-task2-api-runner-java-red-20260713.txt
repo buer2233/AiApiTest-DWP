@@ -1,0 +1,24 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-7.4.4, pluggy-1.6.0 -- D:\Python3.12\python.exe
+cachedir: .pytest_cache
+metadata: {'Python': '3.12.6', 'Platform': 'Windows-11-10.0.22631-SP0', 'Packages': {'pytest': '7.4.4', 'pluggy': '1.6.0'}, 'Plugins': {'allure-pytest': '2.13.5', 'anyio': '4.9.0', 'Faker': '13.13.0', 'langsmith': '0.8.8', 'assume': '2.4.3', 'asyncio': '0.21.2', 'check': '2.1.4', 'cov': '7.1.0', 'django': '4.12.0', 'html': '3.1.1', 'metadata': '2.0.4', 'rerunfailures': '16.1', 'xdist': '3.5.0'}, 'JAVA_HOME': 'D:\\Program Files\\Java\\jdk1.8.0_201'}
+rootdir: D:\AI\Hermes\dev\workspace001\AiApiTest-DWP
+plugins: allure-pytest-2.13.5, anyio-4.9.0, Faker-13.13.0, langsmith-0.8.8, assume-2.4.3, asyncio-0.21.2, check-2.1.4, cov-7.1.0, django-4.12.0, html-3.1.1, metadata-2.0.4, rerunfailures-16.1, xdist-3.5.0
+asyncio: mode=Mode.STRICT
+collecting ... collected 13 items / 12 deselected / 1 selected
+
+jenkins/tests/test_stage13_platform_images_static.py::test_api_runner_uses_supported_java_runtime_for_current_debian_base FAILED [100%]
+
+================================== FAILURES ===================================
+_____ test_api_runner_uses_supported_java_runtime_for_current_debian_base _____
+
+    def test_api_runner_uses_supported_java_runtime_for_current_debian_base():
+        dockerfile = read_text("api-test/Dockerfile")
+    
+>       assert "openjdk-21-jre-headless" in dockerfile
+E       assert 'openjdk-21-jre-headless' in 'FROM python:3.12-slim\n\nARG ALLURE_COMMANDLINE_VERSION=2.30.0\nARG AIAPITEST_DEPENDENCY_HASH=unknown\nARG AIAPITEST_BUILD_INPUT_HASH=unknown\nARG AIAPITEST_SOURCE_REVISION=unknown\n\nENV PYTHONDONTWRITEBYTECODE=1 \\\n    PYTHONUNBUFFERED=1 \\\n    ALLURE_COMMANDLINE_HOME=/opt/allure-${ALLURE_COMMANDLINE_VERSION} \\\n    PATH=/opt/allure-${ALLURE_COMMANDLINE_VERSION}/bin:${PATH}\n\nRUN apt-get update \\\n    && apt-get install -y --no-install-recommends ca-certificates curl git openjdk-17-jre-headless unzip \\\n    && curl -fsSL "https://github.com/allure-framework/allure2/releases/download/${ALLURE_COMMANDLINE_VERSION}/allure-${ALLURE_COMMANDLINE_VERSION}.zip" -o /tmp/allure-commandline.zip \\\n    && unzip /tmp/allure-commandline.zip -d /opt \\\n    && rm -rf /tmp/allure-commandline.zip /var/lib/apt/lists/*\n\nWORKDIR /workspace/AiApiTest-DWP\n\nCOPY api-test/requirements.txt /tmp/api-test-requirements.txt\nRUN python -m pip install --no-cache-dir -r /tmp/api-test-requirements.txt \\\n    && python -m pip check \\\n    && rm -f /tmp/api-test-requirements.txt\n\nCOPY . /workspace/AiApiTest-DWP\n\nLABEL aiapitest.component="api-runner" \\\n      aiapitest.dependency-hash="${AIAPITEST_DEPENDENCY_HASH}" \\\n      aiapitest.build-input-hash="${AIAPITEST_BUILD_INPUT_HASH}" \\\n      aiapitest.source-revision="${AIAPITEST_SOURCE_REVISION}"\n\nWORKDIR /workspace/AiApiTest-DWP/api-test\n\nCMD ["python", "-m", "pytest", "tests", "-q"]\n'
+
+jenkins\tests\test_stage13_platform_images_static.py:152: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_stage13_platform_images_static.py::test_api_runner_uses_supported_java_runtime_for_current_debian_base
+====================== 1 failed, 12 deselected in 0.75s =======================

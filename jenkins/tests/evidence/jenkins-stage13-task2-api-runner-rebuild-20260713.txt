@@ -1,0 +1,697 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.44kB 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 1.3s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 378B done
+#3 DONE 0.0s
+
+#4 [1/7] FROM docker.io/library/python:3.12-slim@sha256:423ed6ab25b1921a477529254bfeeabf5855151dc2c3141699a1bfc852199fbf
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 92.76kB 0.2s done
+#5 DONE 0.2s
+
+#6 [2/7] RUN apt-get update     && apt-get install -y --no-install-recommends ca-certificates curl git openjdk-21-jre-headless unzip     && curl -fsSL "https://github.com/allure-framework/allure2/releases/download/2.30.0/allure-2.30.0.zip" -o /tmp/allure-commandline.zip     && unzip /tmp/allure-commandline.zip -d /opt     && rm -rf /tmp/allure-commandline.zip /var/lib/apt/lists/*
+#6 1.108 Get:1 http://deb.debian.org/debian trixie InRelease [140 kB]
+#6 2.657 Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+#6 3.827 Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+#6 5.443 Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9673 kB]
+#6 643.4 Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [5412 B]
+#6 643.8 Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [225 kB]
+#6 656.0 Fetched 10.1 MB in 10min 52s (15.5 kB/s)
+#6 656.0 Reading package lists...
+#6 656.7 Reading package lists...
+#6 657.4 Building dependency tree...
+#6 657.5 Reading state information...
+#6 657.8 ca-certificates is already the newest version (20250419).
+#6 657.8 The following additional packages will be installed:
+#6 657.8   ca-certificates-java git-man java-common libbrotli1 libcom-err2
+#6 657.8   libcurl3t64-gnutls libcurl4t64 liberror-perl libexpat1 libgdbm-compat4t64
+#6 657.8   libgnutls30t64 libgssapi-krb5-2 libidn2-0 libjpeg62-turbo libk5crypto3
+#6 657.8   libkeyutils1 libkrb5-3 libkrb5support0 liblcms2-2 libldap2 libnghttp2-14
+#6 657.8   libnghttp3-9 libngtcp2-16 libngtcp2-crypto-gnutls8 libnspr4 libnss3
+#6 657.8   libp11-kit0 libpcsclite1 libperl5.40 libpsl5t64 librtmp1 libsasl2-2
+#6 657.8   libsasl2-modules-db libssh2-1t64 libtasn1-6 libunistring5 perl
+#6 657.8   perl-modules-5.40
+#6 657.8 Suggested packages:
+#6 657.8   gettext-base git-doc git-email git-gui gitk gitweb git-cvs git-mediawiki
+#6 657.8   git-svn default-jre gnutls-bin krb5-doc krb5-user liblcms2-utils pcscd
+#6 657.8   sensible-utils libnss-mdns fonts-dejavu-extra fonts-ipafont-gothic
+#6 657.8   fonts-ipafont-mincho fonts-wqy-microhei | fonts-wqy-zenhei fonts-indic
+#6 657.8   perl-doc libterm-readline-gnu-perl | libterm-readline-perl-perl make
+#6 657.8   libtap-harness-archive-perl zip
+#6 657.8 Recommended packages:
+#6 657.8   bash-completion patch less ssh-client krb5-locales libldap-common
+#6 657.8   publicsuffix libsasl2-modules libcups2t64 libfontconfig1 libfreetype6
+#6 657.8   libharfbuzz0b libasound2t64
+#6 658.0 The following NEW packages will be installed:
+#6 658.0   ca-certificates-java curl git git-man java-common libbrotli1 libcom-err2
+#6 658.0   libcurl3t64-gnutls libcurl4t64 liberror-perl libexpat1 libgdbm-compat4t64
+#6 658.0   libgnutls30t64 libgssapi-krb5-2 libidn2-0 libjpeg62-turbo libk5crypto3
+#6 658.0   libkeyutils1 libkrb5-3 libkrb5support0 liblcms2-2 libldap2 libnghttp2-14
+#6 658.0   libnghttp3-9 libngtcp2-16 libngtcp2-crypto-gnutls8 libnspr4 libnss3
+#6 658.0   libp11-kit0 libpcsclite1 libperl5.40 libpsl5t64 librtmp1 libsasl2-2
+#6 658.0   libsasl2-modules-db libssh2-1t64 libtasn1-6 libunistring5
+#6 658.0   openjdk-21-jre-headless perl perl-modules-5.40 unzip
+#6 658.7 0 upgraded, 42 newly installed, 0 to remove and 2 not upgraded.
+#6 658.7 Need to get 68.3 MB of archives.
+#6 658.7 After this operation, 331 MB of additional disk space will be used.
+#6 658.7 Get:1 http://deb.debian.org/debian trixie/main amd64 libexpat1 amd64 2.7.1-2 [108 kB]
+#6 659.5 Get:2 http://deb.debian.org/debian trixie/main amd64 perl-modules-5.40 all 5.40.1-6 [3019 kB]
+#6 659.9 Get:3 http://deb.debian.org/debian trixie/main amd64 libgdbm-compat4t64 amd64 1.24-2 [50.3 kB]
+#6 660.9 Get:4 http://deb.debian.org/debian trixie/main amd64 libperl5.40 amd64 5.40.1-6 [4341 kB]
+#6 661.8 Get:5 http://deb.debian.org/debian trixie/main amd64 perl amd64 5.40.1-6 [267 kB]
+#6 662.1 Get:6 http://deb.debian.org/debian trixie/main amd64 ca-certificates-java all 20240118 [11.6 kB]
+#6 662.7 Get:7 http://deb.debian.org/debian trixie/main amd64 libbrotli1 amd64 1.1.0-2+b7 [307 kB]
+#6 663.1 Get:8 http://deb.debian.org/debian trixie/main amd64 libkrb5support0 amd64 1.21.3-5+deb13u1 [33.1 kB]
+#6 663.4 Get:9 http://deb.debian.org/debian trixie/main amd64 libcom-err2 amd64 1.47.2-3+b11 [25.0 kB]
+#6 663.8 Get:10 http://deb.debian.org/debian trixie/main amd64 libk5crypto3 amd64 1.21.3-5+deb13u1 [81.2 kB]
+#6 664.0 Get:11 http://deb.debian.org/debian trixie/main amd64 libkeyutils1 amd64 1.6.3-6 [9456 B]
+#6 664.6 Get:12 http://deb.debian.org/debian trixie/main amd64 libkrb5-3 amd64 1.21.3-5+deb13u1 [326 kB]
+#6 665.1 Get:13 http://deb.debian.org/debian trixie/main amd64 libgssapi-krb5-2 amd64 1.21.3-5+deb13u1 [138 kB]
+#6 665.7 Get:14 http://deb.debian.org/debian trixie/main amd64 libunistring5 amd64 1.3-2 [477 kB]
+#6 666.2 Get:15 http://deb.debian.org/debian trixie/main amd64 libidn2-0 amd64 2.3.8-2 [109 kB]
+#6 666.5 Get:16 http://deb.debian.org/debian trixie/main amd64 libsasl2-modules-db amd64 2.1.28+dfsg1-9 [19.8 kB]
+#6 666.9 Get:17 http://deb.debian.org/debian trixie/main amd64 libsasl2-2 amd64 2.1.28+dfsg1-9 [57.5 kB]
+#6 667.5 Get:18 http://deb.debian.org/debian trixie/main amd64 libldap2 amd64 2.6.10+dfsg-1 [194 kB]
+#6 667.9 Get:19 http://deb.debian.org/debian trixie/main amd64 libnghttp2-14 amd64 1.64.0-1.1+deb13u1 [76.2 kB]
+#6 668.4 Get:20 http://deb.debian.org/debian trixie/main amd64 libnghttp3-9 amd64 1.8.0-1 [67.7 kB]
+#6 668.8 Get:21 http://deb.debian.org/debian trixie/main amd64 libpsl5t64 amd64 0.21.2-1.1+b1 [57.2 kB]
+#6 669.5 Get:22 http://deb.debian.org/debian trixie/main amd64 libp11-kit0 amd64 0.25.5-3 [425 kB]
+#6 669.9 Get:23 http://deb.debian.org/debian trixie/main amd64 libtasn1-6 amd64 4.20.0-2+deb13u1 [50.1 kB]
+#6 670.7 Get:24 http://deb.debian.org/debian trixie/main amd64 libgnutls30t64 amd64 3.8.9-3+deb13u4 [1469 kB]
+#6 671.3 Get:25 http://deb.debian.org/debian trixie/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-2+b5 [58.8 kB]
+#6 671.9 Get:26 http://deb.debian.org/debian trixie/main amd64 libssh2-1t64 amd64 1.11.1-1+deb13u1 [245 kB]
+#6 672.5 Get:27 http://deb.debian.org/debian trixie/main amd64 libcurl4t64 amd64 8.14.1-2+deb13u4 [392 kB]
+#6 673.2 Get:28 http://deb.debian.org/debian trixie/main amd64 curl amd64 8.14.1-2+deb13u4 [270 kB]
+#6 673.7 Get:29 http://deb.debian.org/debian trixie/main amd64 libngtcp2-16 amd64 1.11.0-1+deb13u1 [132 kB]
+#6 674.0 Get:30 http://deb.debian.org/debian trixie/main amd64 libngtcp2-crypto-gnutls8 amd64 1.11.0-1+deb13u1 [29.5 kB]
+#6 674.6 Get:31 http://deb.debian.org/debian trixie/main amd64 libcurl3t64-gnutls amd64 8.14.1-2+deb13u4 [384 kB]
+#6 675.0 Get:32 http://deb.debian.org/debian trixie/main amd64 liberror-perl all 0.17030-1 [26.9 kB]
+#6 675.9 Get:33 http://deb.debian.org/debian trixie/main amd64 git-man all 1:2.47.3-0+deb13u1 [2205 kB]
+#6 677.3 Get:34 http://deb.debian.org/debian trixie/main amd64 git amd64 1:2.47.3-0+deb13u1 [8862 kB]
+#6 678.8 Get:35 http://deb.debian.org/debian trixie/main amd64 java-common all 0.76 [6776 B]
+#6 679.5 Get:36 http://deb.debian.org/debian trixie/main amd64 libjpeg62-turbo amd64 1:2.1.5-4 [168 kB]
+#6 680.5 Get:37 http://deb.debian.org/debian trixie/main amd64 liblcms2-2 amd64 2.16-2+deb13u2 [160 kB]
+#6 681.1 Get:38 http://deb.debian.org/debian trixie/main amd64 libnspr4 amd64 2:4.36-1 [110 kB]
+#6 683.3 Get:39 http://deb.debian.org/debian trixie/main amd64 libnss3 amd64 2:3.110-1+deb13u3 [1395 kB]
+#6 683.9 Get:40 http://deb.debian.org/debian trixie/main amd64 libpcsclite1 amd64 2.3.3-1 [55.2 kB]
+#6 686.5 Get:41 http://deb.debian.org/debian trixie/main amd64 openjdk-21-jre-headless amd64 21.0.11+10-1~deb13u2 [41.9 MB]
+#6 694.3 Get:42 http://deb.debian.org/debian trixie/main amd64 unzip amd64 6.0-29 [173 kB]
+#6 694.6 debconf: unable to initialize frontend: Dialog
+#6 694.6 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#6 694.6 debconf: falling back to frontend: Readline
+#6 694.6 debconf: unable to initialize frontend: Readline
+#6 694.6 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.40.1 /usr/local/share/perl/5.40.1 /usr/lib/x86_64-linux-gnu/perl5/5.40 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.40 /usr/share/perl/5.40 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8, <STDIN> line 42.)
+#6 694.6 debconf: falling back to frontend: Teletype
+#6 694.6 debconf: unable to initialize frontend: Teletype
+#6 694.6 debconf: (This frontend requires a controlling tty.)
+#6 694.6 debconf: falling back to frontend: Noninteractive
+#6 696.9 Fetched 68.3 MB in 36s (1890 kB/s)
+#6 697.0 Selecting previously unselected package libexpat1:amd64.
+#6 697.0 (Reading database ... 
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 5645 files and directories currently installed.)
+#6 697.1 Preparing to unpack .../00-libexpat1_2.7.1-2_amd64.deb ...
+#6 697.1 Unpacking libexpat1:amd64 (2.7.1-2) ...
+#6 697.3 Selecting previously unselected package perl-modules-5.40.
+#6 697.3 Preparing to unpack .../01-perl-modules-5.40_5.40.1-6_all.deb ...
+#6 697.4 Unpacking perl-modules-5.40 (5.40.1-6) ...
+#6 698.4 Selecting previously unselected package libgdbm-compat4t64:amd64.
+#6 698.4 Preparing to unpack .../02-libgdbm-compat4t64_1.24-2_amd64.deb ...
+#6 698.4 Unpacking libgdbm-compat4t64:amd64 (1.24-2) ...
+#6 698.5 Selecting previously unselected package libperl5.40:amd64.
+#6 698.5 Preparing to unpack .../03-libperl5.40_5.40.1-6_amd64.deb ...
+#6 698.5 Unpacking libperl5.40:amd64 (5.40.1-6) ...
+#6 699.8 Selecting previously unselected package perl.
+#6 699.8 Preparing to unpack .../04-perl_5.40.1-6_amd64.deb ...
+#6 699.8 Unpacking perl (5.40.1-6) ...
+#6 700.0 Selecting previously unselected package ca-certificates-java.
+#6 700.0 Preparing to unpack .../05-ca-certificates-java_20240118_all.deb ...
+#6 700.0 Unpacking ca-certificates-java (20240118) ...
+#6 700.3 Selecting previously unselected package libbrotli1:amd64.
+#6 700.3 Preparing to unpack .../06-libbrotli1_1.1.0-2+b7_amd64.deb ...
+#6 700.3 Unpacking libbrotli1:amd64 (1.1.0-2+b7) ...
+#6 700.5 Selecting previously unselected package libkrb5support0:amd64.
+#6 700.5 Preparing to unpack .../07-libkrb5support0_1.21.3-5+deb13u1_amd64.deb ...
+#6 700.5 Unpacking libkrb5support0:amd64 (1.21.3-5+deb13u1) ...
+#6 700.7 Selecting previously unselected package libcom-err2:amd64.
+#6 700.7 Preparing to unpack .../08-libcom-err2_1.47.2-3+b11_amd64.deb ...
+#6 700.7 Unpacking libcom-err2:amd64 (1.47.2-3+b11) ...
+#6 700.8 Selecting previously unselected package libk5crypto3:amd64.
+#6 700.8 Preparing to unpack .../09-libk5crypto3_1.21.3-5+deb13u1_amd64.deb ...
+#6 700.8 Unpacking libk5crypto3:amd64 (1.21.3-5+deb13u1) ...
+#6 700.9 Selecting previously unselected package libkeyutils1:amd64.
+#6 700.9 Preparing to unpack .../10-libkeyutils1_1.6.3-6_amd64.deb ...
+#6 701.1 Unpacking libkeyutils1:amd64 (1.6.3-6) ...
+#6 701.2 Selecting previously unselected package libkrb5-3:amd64.
+#6 701.2 Preparing to unpack .../11-libkrb5-3_1.21.3-5+deb13u1_amd64.deb ...
+#6 701.2 Unpacking libkrb5-3:amd64 (1.21.3-5+deb13u1) ...
+#6 701.4 Selecting previously unselected package libgssapi-krb5-2:amd64.
+#6 701.4 Preparing to unpack .../12-libgssapi-krb5-2_1.21.3-5+deb13u1_amd64.deb ...
+#6 701.4 Unpacking libgssapi-krb5-2:amd64 (1.21.3-5+deb13u1) ...
+#6 701.5 Selecting previously unselected package libunistring5:amd64.
+#6 701.5 Preparing to unpack .../13-libunistring5_1.3-2_amd64.deb ...
+#6 701.5 Unpacking libunistring5:amd64 (1.3-2) ...
+#6 701.7 Selecting previously unselected package libidn2-0:amd64.
+#6 701.7 Preparing to unpack .../14-libidn2-0_2.3.8-2_amd64.deb ...
+#6 701.7 Unpacking libidn2-0:amd64 (2.3.8-2) ...
+#6 701.9 Selecting previously unselected package libsasl2-modules-db:amd64.
+#6 701.9 Preparing to unpack .../15-libsasl2-modules-db_2.1.28+dfsg1-9_amd64.deb ...
+#6 702.1 Unpacking libsasl2-modules-db:amd64 (2.1.28+dfsg1-9) ...
+#6 702.4 Selecting previously unselected package libsasl2-2:amd64.
+#6 702.4 Preparing to unpack .../16-libsasl2-2_2.1.28+dfsg1-9_amd64.deb ...
+#6 702.5 Unpacking libsasl2-2:amd64 (2.1.28+dfsg1-9) ...
+#6 702.6 Selecting previously unselected package libldap2:amd64.
+#6 702.6 Preparing to unpack .../17-libldap2_2.6.10+dfsg-1_amd64.deb ...
+#6 702.6 Unpacking libldap2:amd64 (2.6.10+dfsg-1) ...
+#6 702.7 Selecting previously unselected package libnghttp2-14:amd64.
+#6 702.7 Preparing to unpack .../18-libnghttp2-14_1.64.0-1.1+deb13u1_amd64.deb ...
+#6 702.8 Unpacking libnghttp2-14:amd64 (1.64.0-1.1+deb13u1) ...
+#6 702.9 Selecting previously unselected package libnghttp3-9:amd64.
+#6 702.9 Preparing to unpack .../19-libnghttp3-9_1.8.0-1_amd64.deb ...
+#6 702.9 Unpacking libnghttp3-9:amd64 (1.8.0-1) ...
+#6 703.0 Selecting previously unselected package libpsl5t64:amd64.
+#6 703.0 Preparing to unpack .../20-libpsl5t64_0.21.2-1.1+b1_amd64.deb ...
+#6 703.0 Unpacking libpsl5t64:amd64 (0.21.2-1.1+b1) ...
+#6 703.2 Selecting previously unselected package libp11-kit0:amd64.
+#6 703.2 Preparing to unpack .../21-libp11-kit0_0.25.5-3_amd64.deb ...
+#6 703.3 Unpacking libp11-kit0:amd64 (0.25.5-3) ...
+#6 704.3 Selecting previously unselected package libtasn1-6:amd64.
+#6 704.3 Preparing to unpack .../22-libtasn1-6_4.20.0-2+deb13u1_amd64.deb ...
+#6 704.3 Unpacking libtasn1-6:amd64 (4.20.0-2+deb13u1) ...
+#6 705.2 Selecting previously unselected package libgnutls30t64:amd64.
+#6 705.2 Preparing to unpack .../23-libgnutls30t64_3.8.9-3+deb13u4_amd64.deb ...
+#6 705.2 Unpacking libgnutls30t64:amd64 (3.8.9-3+deb13u4) ...
+#6 705.4 Selecting previously unselected package librtmp1:amd64.
+#6 705.4 Preparing to unpack .../24-librtmp1_2.4+20151223.gitfa8646d.1-2+b5_amd64.deb ...
+#6 705.4 Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b5) ...
+#6 705.8 Selecting previously unselected package libssh2-1t64:amd64.
+#6 705.8 Preparing to unpack .../25-libssh2-1t64_1.11.1-1+deb13u1_amd64.deb ...
+#6 706.3 Unpacking libssh2-1t64:amd64 (1.11.1-1+deb13u1) ...
+#6 706.4 Selecting previously unselected package libcurl4t64:amd64.
+#6 706.4 Preparing to unpack .../26-libcurl4t64_8.14.1-2+deb13u4_amd64.deb ...
+#6 706.5 Unpacking libcurl4t64:amd64 (8.14.1-2+deb13u4) ...
+#6 706.6 Selecting previously unselected package curl.
+#6 706.6 Preparing to unpack .../27-curl_8.14.1-2+deb13u4_amd64.deb ...
+#6 706.6 Unpacking curl (8.14.1-2+deb13u4) ...
+#6 706.8 Selecting previously unselected package libngtcp2-16:amd64.
+#6 706.8 Preparing to unpack .../28-libngtcp2-16_1.11.0-1+deb13u1_amd64.deb ...
+#6 706.8 Unpacking libngtcp2-16:amd64 (1.11.0-1+deb13u1) ...
+#6 706.9 Selecting previously unselected package libngtcp2-crypto-gnutls8:amd64.
+#6 706.9 Preparing to unpack .../29-libngtcp2-crypto-gnutls8_1.11.0-1+deb13u1_amd64.deb ...
+#6 707.0 Unpacking libngtcp2-crypto-gnutls8:amd64 (1.11.0-1+deb13u1) ...
+#6 707.1 Selecting previously unselected package libcurl3t64-gnutls:amd64.
+#6 707.1 Preparing to unpack .../30-libcurl3t64-gnutls_8.14.1-2+deb13u4_amd64.deb ...
+#6 707.1 Unpacking libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u4) ...
+#6 707.2 Selecting previously unselected package liberror-perl.
+#6 707.2 Preparing to unpack .../31-liberror-perl_0.17030-1_all.deb ...
+#6 707.2 Unpacking liberror-perl (0.17030-1) ...
+#6 707.4 Selecting previously unselected package git-man.
+#6 707.4 Preparing to unpack .../32-git-man_1%3a2.47.3-0+deb13u1_all.deb ...
+#6 707.4 Unpacking git-man (1:2.47.3-0+deb13u1) ...
+#6 707.6 Selecting previously unselected package git.
+#6 707.6 Preparing to unpack .../33-git_1%3a2.47.3-0+deb13u1_amd64.deb ...
+#6 707.7 Unpacking git (1:2.47.3-0+deb13u1) ...
+#6 708.5 Selecting previously unselected package java-common.
+#6 708.5 Preparing to unpack .../34-java-common_0.76_all.deb ...
+#6 708.5 Unpacking java-common (0.76) ...
+#6 708.6 Selecting previously unselected package libjpeg62-turbo:amd64.
+#6 708.6 Preparing to unpack .../35-libjpeg62-turbo_1%3a2.1.5-4_amd64.deb ...
+#6 708.7 Unpacking libjpeg62-turbo:amd64 (1:2.1.5-4) ...
+#6 708.8 Selecting previously unselected package liblcms2-2:amd64.
+#6 708.8 Preparing to unpack .../36-liblcms2-2_2.16-2+deb13u2_amd64.deb ...
+#6 708.8 Unpacking liblcms2-2:amd64 (2.16-2+deb13u2) ...
+#6 709.0 Selecting previously unselected package libnspr4:amd64.
+#6 709.0 Preparing to unpack .../37-libnspr4_2%3a4.36-1_amd64.deb ...
+#6 709.1 Unpacking libnspr4:amd64 (2:4.36-1) ...
+#6 709.2 Selecting previously unselected package libnss3:amd64.
+#6 709.2 Preparing to unpack .../38-libnss3_2%3a3.110-1+deb13u3_amd64.deb ...
+#6 709.3 Unpacking libnss3:amd64 (2:3.110-1+deb13u3) ...
+#6 709.5 Selecting previously unselected package libpcsclite1:amd64.
+#6 709.5 Preparing to unpack .../39-libpcsclite1_2.3.3-1_amd64.deb ...
+#6 709.5 Unpacking libpcsclite1:amd64 (2.3.3-1) ...
+#6 709.6 Selecting previously unselected package openjdk-21-jre-headless:amd64.
+#6 709.6 Preparing to unpack .../40-openjdk-21-jre-headless_21.0.11+10-1~deb13u2_amd64.deb ...
+#6 709.7 Unpacking openjdk-21-jre-headless:amd64 (21.0.11+10-1~deb13u2) ...
+#6 711.8 Selecting previously unselected package unzip.
+#6 711.8 Preparing to unpack .../41-unzip_6.0-29_amd64.deb ...
+#6 711.8 Unpacking unzip (6.0-29) ...
+#6 711.9 Setting up libexpat1:amd64 (2.7.1-2) ...
+#6 712.0 Setting up liblcms2-2:amd64 (2.16-2+deb13u2) ...
+#6 712.0 Setting up libkeyutils1:amd64 (1.6.3-6) ...
+#6 712.1 Setting up java-common (0.76) ...
+#6 712.2 Setting up libgdbm-compat4t64:amd64 (1.24-2) ...
+#6 712.2 Setting up unzip (6.0-29) ...
+#6 712.3 Setting up libbrotli1:amd64 (1.1.0-2+b7) ...
+#6 712.3 Setting up libnghttp2-14:amd64 (1.64.0-1.1+deb13u1) ...
+#6 712.4 Setting up libcom-err2:amd64 (1.47.2-3+b11) ...
+#6 712.4 Setting up libkrb5support0:amd64 (1.21.3-5+deb13u1) ...
+#6 712.7 Setting up libsasl2-modules-db:amd64 (2.1.28+dfsg1-9) ...
+#6 713.1 Setting up libjpeg62-turbo:amd64 (1:2.1.5-4) ...
+#6 713.1 Setting up libnspr4:amd64 (2:4.36-1) ...
+#6 713.2 Setting up libp11-kit0:amd64 (0.25.5-3) ...
+#6 713.2 Setting up libunistring5:amd64 (1.3-2) ...
+#6 713.3 Setting up libpcsclite1:amd64 (2.3.3-1) ...
+#6 713.4 Setting up libk5crypto3:amd64 (1.21.3-5+deb13u1) ...
+#6 713.4 Setting up libsasl2-2:amd64 (2.1.28+dfsg1-9) ...
+#6 713.5 Setting up libnghttp3-9:amd64 (1.8.0-1) ...
+#6 713.5 Setting up perl-modules-5.40 (5.40.1-6) ...
+#6 713.6 Setting up libtasn1-6:amd64 (4.20.0-2+deb13u1) ...
+#6 713.6 Setting up git-man (1:2.47.3-0+deb13u1) ...
+#6 713.7 Setting up libngtcp2-16:amd64 (1.11.0-1+deb13u1) ...
+#6 713.8 Setting up libkrb5-3:amd64 (1.21.3-5+deb13u1) ...
+#6 713.8 Setting up libssh2-1t64:amd64 (1.11.1-1+deb13u1) ...
+#6 713.9 Setting up ca-certificates-java (20240118) ...
+#6 714.0 No JRE found. Skipping Java certificates setup.
+#6 714.0 Setting up libldap2:amd64 (2.6.10+dfsg-1) ...
+#6 714.1 Setting up libidn2-0:amd64 (2.3.8-2) ...
+#6 714.1 Setting up libnss3:amd64 (2:3.110-1+deb13u3) ...
+#6 714.3 Setting up libperl5.40:amd64 (5.40.1-6) ...
+#6 714.6 Setting up perl (5.40.1-6) ...
+#6 714.8 Setting up libgssapi-krb5-2:amd64 (1.21.3-5+deb13u1) ...
+#6 714.9 Setting up libgnutls30t64:amd64 (3.8.9-3+deb13u4) ...
+#6 715.0 Setting up openjdk-21-jre-headless:amd64 (21.0.11+10-1~deb13u2) ...
+#6 715.4 update-alternatives: using /usr/lib/jvm/java-21-openjdk-amd64/bin/java to provide /usr/bin/java (java) in auto mode
+#6 715.4 update-alternatives: using /usr/lib/jvm/java-21-openjdk-amd64/bin/jpackage to provide /usr/bin/jpackage (jpackage) in auto mode
+#6 715.4 update-alternatives: using /usr/lib/jvm/java-21-openjdk-amd64/bin/keytool to provide /usr/bin/keytool (keytool) in auto mode
+#6 715.4 update-alternatives: using /usr/lib/jvm/java-21-openjdk-amd64/bin/rmiregistry to provide /usr/bin/rmiregistry (rmiregistry) in auto mode
+#6 715.4 update-alternatives: using /usr/lib/jvm/java-21-openjdk-amd64/lib/jexec to provide /usr/bin/jexec (jexec) in auto mode
+#6 715.5 Setting up libpsl5t64:amd64 (0.21.2-1.1+b1) ...
+#6 715.6 Setting up liberror-perl (0.17030-1) ...
+#6 715.6 Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b5) ...
+#6 715.7 Setting up libngtcp2-crypto-gnutls8:amd64 (1.11.0-1+deb13u1) ...
+#6 715.7 Setting up libcurl4t64:amd64 (8.14.1-2+deb13u4) ...
+#6 715.8 Setting up libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u4) ...
+#6 715.8 Setting up git (1:2.47.3-0+deb13u1) ...
+#6 715.9 Setting up curl (8.14.1-2+deb13u4) ...
+#6 715.9 Processing triggers for libc-bin (2.41-12+deb13u3) ...
+#6 716.0 Processing triggers for ca-certificates-java (20240118) ...
+#6 716.4 Adding debian:ACCVRAIZ1.pem
+#6 716.4 Adding debian:AC_RAIZ_FNMT-RCM.pem
+#6 716.5 Adding debian:AC_RAIZ_FNMT-RCM_SERVIDORES_SEGUROS.pem
+#6 716.5 Adding debian:ANF_Secure_Server_Root_CA.pem
+#6 716.5 Adding debian:Actalis_Authentication_Root_CA.pem
+#6 716.5 Adding debian:AffirmTrust_Commercial.pem
+#6 716.5 Adding debian:AffirmTrust_Networking.pem
+#6 716.5 Adding debian:AffirmTrust_Premium.pem
+#6 716.5 Adding debian:AffirmTrust_Premium_ECC.pem
+#6 716.5 Adding debian:Amazon_Root_CA_1.pem
+#6 716.5 Adding debian:Amazon_Root_CA_2.pem
+#6 716.5 Adding debian:Amazon_Root_CA_3.pem
+#6 716.5 Adding debian:Amazon_Root_CA_4.pem
+#6 716.5 Adding debian:Atos_TrustedRoot_2011.pem
+#6 716.5 Adding debian:Atos_TrustedRoot_Root_CA_ECC_TLS_2021.pem
+#6 716.5 Adding debian:Atos_TrustedRoot_Root_CA_RSA_TLS_2021.pem
+#6 716.5 Adding debian:Autoridad_de_Certificacion_Firmaprofesional_CIF_A62634068.pem
+#6 716.5 Adding debian:BJCA_Global_Root_CA1.pem
+#6 716.5 Adding debian:BJCA_Global_Root_CA2.pem
+#6 716.5 Adding debian:Baltimore_CyberTrust_Root.pem
+#6 716.5 Adding debian:Buypass_Class_2_Root_CA.pem
+#6 716.5 Adding debian:Buypass_Class_3_Root_CA.pem
+#6 716.5 Adding debian:CA_Disig_Root_R2.pem
+#6 716.5 Adding debian:CFCA_EV_ROOT.pem
+#6 716.5 Adding debian:COMODO_Certification_Authority.pem
+#6 716.5 Adding debian:COMODO_ECC_Certification_Authority.pem
+#6 716.5 Adding debian:COMODO_RSA_Certification_Authority.pem
+#6 716.5 Adding debian:Certainly_Root_E1.pem
+#6 716.5 Adding debian:Certainly_Root_R1.pem
+#6 716.5 Adding debian:Certigna.pem
+#6 716.5 Adding debian:Certigna_Root_CA.pem
+#6 716.5 Adding debian:Certum_EC-384_CA.pem
+#6 716.5 Adding debian:Certum_Trusted_Network_CA.pem
+#6 716.5 Adding debian:Certum_Trusted_Network_CA_2.pem
+#6 716.5 Adding debian:Certum_Trusted_Root_CA.pem
+#6 716.5 Adding debian:CommScope_Public_Trust_ECC_Root-01.pem
+#6 716.5 Adding debian:CommScope_Public_Trust_ECC_Root-02.pem
+#6 716.5 Adding debian:CommScope_Public_Trust_RSA_Root-01.pem
+#6 716.5 Adding debian:CommScope_Public_Trust_RSA_Root-02.pem
+#6 716.5 Adding debian:Comodo_AAA_Services_root.pem
+#6 716.6 Adding debian:D-TRUST_BR_Root_CA_1_2020.pem
+#6 716.6 Adding debian:D-TRUST_BR_Root_CA_2_2023.pem
+#6 716.6 Adding debian:D-TRUST_EV_Root_CA_1_2020.pem
+#6 716.6 Adding debian:D-TRUST_EV_Root_CA_2_2023.pem
+#6 716.6 Adding debian:D-TRUST_Root_Class_3_CA_2_2009.pem
+#6 716.6 Adding debian:D-TRUST_Root_Class_3_CA_2_EV_2009.pem
+#6 716.6 Adding debian:DigiCert_Assured_ID_Root_CA.pem
+#6 716.6 Adding debian:DigiCert_Assured_ID_Root_G2.pem
+#6 716.6 Adding debian:DigiCert_Assured_ID_Root_G3.pem
+#6 716.6 Adding debian:DigiCert_Global_Root_CA.pem
+#6 716.6 Adding debian:DigiCert_Global_Root_G2.pem
+#6 716.6 Adding debian:DigiCert_Global_Root_G3.pem
+#6 716.6 Adding debian:DigiCert_High_Assurance_EV_Root_CA.pem
+#6 716.6 Adding debian:DigiCert_TLS_ECC_P384_Root_G5.pem
+#6 716.6 Adding debian:DigiCert_TLS_RSA4096_Root_G5.pem
+#6 716.6 Adding debian:DigiCert_Trusted_Root_G4.pem
+#6 716.6 Adding debian:Entrust.net_Premium_2048_Secure_Server_CA.pem
+#6 716.6 Adding debian:Entrust_Root_Certification_Authority.pem
+#6 716.6 Adding debian:Entrust_Root_Certification_Authority_-_EC1.pem
+#6 716.6 Adding debian:Entrust_Root_Certification_Authority_-_G2.pem
+#6 716.6 Adding debian:FIRMAPROFESIONAL_CA_ROOT-A_WEB.pem
+#6 716.6 Adding debian:GDCA_TrustAUTH_R5_ROOT.pem
+#6 716.6 Adding debian:GLOBALTRUST_2020.pem
+#6 716.6 Adding debian:GTS_Root_R1.pem
+#6 716.6 Adding debian:GTS_Root_R2.pem
+#6 716.6 Adding debian:GTS_Root_R3.pem
+#6 716.6 Adding debian:GTS_Root_R4.pem
+#6 716.6 Adding debian:GlobalSign_ECC_Root_CA_-_R4.pem
+#6 716.6 Adding debian:GlobalSign_ECC_Root_CA_-_R5.pem
+#6 716.6 Adding debian:GlobalSign_Root_CA.pem
+#6 716.6 Adding debian:GlobalSign_Root_CA_-_R3.pem
+#6 716.6 Adding debian:GlobalSign_Root_CA_-_R6.pem
+#6 716.6 Adding debian:GlobalSign_Root_E46.pem
+#6 716.6 Adding debian:GlobalSign_Root_R46.pem
+#6 716.6 Adding debian:Go_Daddy_Class_2_CA.pem
+#6 716.6 Adding debian:Go_Daddy_Root_Certificate_Authority_-_G2.pem
+#6 716.6 Adding debian:HARICA_TLS_ECC_Root_CA_2021.pem
+#6 716.6 Adding debian:HARICA_TLS_RSA_Root_CA_2021.pem
+#6 716.6 Adding debian:Hellenic_Academic_and_Research_Institutions_ECC_RootCA_2015.pem
+#6 716.7 Adding debian:Hellenic_Academic_and_Research_Institutions_RootCA_2015.pem
+#6 716.7 Adding debian:HiPKI_Root_CA_-_G1.pem
+#6 716.7 Adding debian:Hongkong_Post_Root_CA_3.pem
+#6 716.7 Adding debian:ISRG_Root_X1.pem
+#6 716.7 Adding debian:ISRG_Root_X2.pem
+#6 716.7 Adding debian:IdenTrust_Commercial_Root_CA_1.pem
+#6 716.7 Adding debian:IdenTrust_Public_Sector_Root_CA_1.pem
+#6 716.7 Adding debian:Izenpe.com.pem
+#6 716.7 Adding debian:Microsec_e-Szigno_Root_CA_2009.pem
+#6 716.7 Adding debian:Microsoft_ECC_Root_Certificate_Authority_2017.pem
+#6 716.7 Adding debian:Microsoft_RSA_Root_Certificate_Authority_2017.pem
+#6 716.7 Adding debian:NAVER_Global_Root_Certification_Authority.pem
+#6 716.7 Adding debian:NetLock_Arany_=Class_Gold=_Főtanúsítvány.pem
+#6 716.7 Adding debian:OISTE_WISeKey_Global_Root_GB_CA.pem
+#6 716.7 Adding debian:OISTE_WISeKey_Global_Root_GC_CA.pem
+#6 716.7 Adding debian:QuoVadis_Root_CA_1_G3.pem
+#6 716.7 Adding debian:QuoVadis_Root_CA_2.pem
+#6 716.7 Adding debian:QuoVadis_Root_CA_2_G3.pem
+#6 716.7 Adding debian:QuoVadis_Root_CA_3.pem
+#6 716.7 Adding debian:QuoVadis_Root_CA_3_G3.pem
+#6 716.7 Adding debian:SSL.com_EV_Root_Certification_Authority_ECC.pem
+#6 716.7 Adding debian:SSL.com_EV_Root_Certification_Authority_RSA_R2.pem
+#6 716.7 Adding debian:SSL.com_Root_Certification_Authority_ECC.pem
+#6 716.7 Adding debian:SSL.com_Root_Certification_Authority_RSA.pem
+#6 716.7 Adding debian:SSL.com_TLS_ECC_Root_CA_2022.pem
+#6 716.7 Adding debian:SSL.com_TLS_RSA_Root_CA_2022.pem
+#6 716.7 Adding debian:SZAFIR_ROOT_CA2.pem
+#6 716.7 Adding debian:Sectigo_Public_Server_Authentication_Root_E46.pem
+#6 716.7 Adding debian:Sectigo_Public_Server_Authentication_Root_R46.pem
+#6 716.7 Adding debian:SecureSign_Root_CA12.pem
+#6 716.7 Adding debian:SecureSign_Root_CA14.pem
+#6 716.7 Adding debian:SecureSign_Root_CA15.pem
+#6 716.7 Adding debian:SecureTrust_CA.pem
+#6 716.7 Adding debian:Secure_Global_CA.pem
+#6 716.7 Adding debian:Security_Communication_ECC_RootCA1.pem
+#6 716.7 Adding debian:Security_Communication_RootCA2.pem
+#6 716.8 Adding debian:Starfield_Class_2_CA.pem
+#6 716.8 Adding debian:Starfield_Root_Certificate_Authority_-_G2.pem
+#6 716.8 Adding debian:Starfield_Services_Root_Certificate_Authority_-_G2.pem
+#6 716.8 Adding debian:SwissSign_Gold_CA_-_G2.pem
+#6 716.8 Adding debian:T-TeleSec_GlobalRoot_Class_2.pem
+#6 716.8 Adding debian:T-TeleSec_GlobalRoot_Class_3.pem
+#6 716.8 Adding debian:TUBITAK_Kamu_SM_SSL_Kok_Sertifikasi_-_Surum_1.pem
+#6 716.8 Adding debian:TWCA_CYBER_Root_CA.pem
+#6 716.8 Adding debian:TWCA_Global_Root_CA.pem
+#6 716.8 Adding debian:TWCA_Root_Certification_Authority.pem
+#6 716.8 Adding debian:Telekom_Security_TLS_ECC_Root_2020.pem
+#6 716.8 Adding debian:Telekom_Security_TLS_RSA_Root_2023.pem
+#6 716.8 Adding debian:TeliaSonera_Root_CA_v1.pem
+#6 716.8 Adding debian:Telia_Root_CA_v2.pem
+#6 716.8 Adding debian:TrustAsia_Global_Root_CA_G3.pem
+#6 716.8 Adding debian:TrustAsia_Global_Root_CA_G4.pem
+#6 716.8 Adding debian:Trustwave_Global_Certification_Authority.pem
+#6 716.8 Adding debian:Trustwave_Global_ECC_P256_Certification_Authority.pem
+#6 716.8 Adding debian:Trustwave_Global_ECC_P384_Certification_Authority.pem
+#6 716.8 Adding debian:TunTrust_Root_CA.pem
+#6 716.8 Adding debian:UCA_Extended_Validation_Root.pem
+#6 716.8 Adding debian:UCA_Global_G2_Root.pem
+#6 716.8 Adding debian:USERTrust_ECC_Certification_Authority.pem
+#6 716.8 Adding debian:USERTrust_RSA_Certification_Authority.pem
+#6 716.8 Adding debian:XRamp_Global_CA_Root.pem
+#6 716.8 Adding debian:certSIGN_ROOT_CA.pem
+#6 716.8 Adding debian:certSIGN_Root_CA_G2.pem
+#6 716.8 Adding debian:e-Szigno_Root_CA_2017.pem
+#6 716.8 Adding debian:ePKI_Root_Certification_Authority.pem
+#6 716.8 Adding debian:emSign_ECC_Root_CA_-_C3.pem
+#6 716.8 Adding debian:emSign_ECC_Root_CA_-_G3.pem
+#6 716.8 Adding debian:emSign_Root_CA_-_C1.pem
+#6 716.8 Adding debian:emSign_Root_CA_-_G1.pem
+#6 716.8 Adding debian:vTrus_ECC_Root_CA.pem
+#6 716.8 Adding debian:vTrus_Root_CA.pem
+#6 716.9 done.
+#6 719.7 Archive:  /tmp/allure-commandline.zip
+#6 719.7    creating: /opt/allure-2.30.0/
+#6 719.7    creating: /opt/allure-2.30.0/lib/
+#6 719.7    creating: /opt/allure-2.30.0/lib/config/
+#6 719.7   inflating: /opt/allure-2.30.0/lib/config/jetty-logging.properties  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/config/logback.xml  
+#6 719.7    creating: /opt/allure-2.30.0/config/
+#6 719.7   inflating: /opt/allure-2.30.0/config/allure-junit.yml  
+#6 719.7   inflating: /opt/allure-2.30.0/config/allure.yml  
+#6 719.7   inflating: /opt/allure-2.30.0/config/allure-cucumber.yml  
+#6 719.7    creating: /opt/allure-2.30.0/plugins/
+#6 719.7   inflating: /opt/allure-2.30.0/plugins/README.txt  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/allure-commandline-2.30.0.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/logback-classic-1.3.14.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/jcommander-1.82.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/allure-generator-2.30.0.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/jackson-dataformat-xml-2.17.2.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/allure-plugin-api-2.30.0.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/jackson-module-jaxb-annotations-2.17.2.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/jackson-annotations-2.17.2.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/jackson-core-2.17.2.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/jackson-dataformat-yaml-2.17.2.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/jackson-databind-2.17.2.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/tika-core-2.9.2.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/commons-io-2.16.1.jar  
+#6 719.7   inflating: /opt/allure-2.30.0/lib/jetty-server-9.4.53.v20231009.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/logback-core-1.3.14.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/allure1-model-1.0.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/slf4j-api-2.0.13.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/snakeyaml-2.2.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/javax.servlet-api-3.1.0.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/jetty-http-9.4.53.v20231009.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/jetty-io-9.4.53.v20231009.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/allure-model-2.28.0.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/jaxb-api-2.3.1.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/httpclient-4.5.14.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/freemarker-2.3.33.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/jetty-util-9.4.53.v20231009.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/opencsv-5.9.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/flexmark-ext-tables-0.62.2.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/flexmark-0.62.2.jar  
+#6 719.8   inflating: /opt/allure-2.30.0/lib/woodstox-core-6.7.0.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/stax2-api-4.2.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/jakarta.xml.bind-api-2.3.3.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/jakarta.activation-api-1.2.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/javax.activation-api-1.2.0.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/properties-2.0.RC5.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/jaxb-utils-1.0.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/httpcore-4.4.16.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/commons-beanutils-1.9.4.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/commons-logging-1.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/commons-codec-1.11.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/commons-text-1.11.0.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/commons-lang3-3.14.0.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/commons-collections4-4.4.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-format-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-ast-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-builder-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-dependency-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-html-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-options-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-sequence-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-collection-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-data-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-misc-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/flexmark-util-visitor-0.62.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/commons-collections-3.2.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/lib/annotations-15.0.jar  
+#6 719.9    creating: /opt/allure-2.30.0/bin/
+#6 719.9   inflating: /opt/allure-2.30.0/bin/allure.bat  
+#6 719.9   inflating: /opt/allure-2.30.0/bin/allure  
+#6 719.9    creating: /opt/allure-2.30.0/plugins/xunit-xml-plugin/
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/xunit-xml-plugin/allure-plugin.yml  
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/xunit-xml-plugin/xunit-xml-plugin-2.30.0.jar  
+#6 719.9    creating: /opt/allure-2.30.0/plugins/jira-plugin/
+#6 719.9    creating: /opt/allure-2.30.0/plugins/jira-plugin/lib/
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/kotlin-stdlib-jdk8-1.9.10.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/jackson-annotations-2.17.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/jackson-core-2.17.2.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/allure-jira-commons-2.30.0.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/annotations-13.0.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/kotlin-stdlib-common-1.9.10.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/retrofit-2.11.0.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/okio-jvm-3.6.0.jar  
+#6 719.9   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/kotlin-stdlib-1.9.10.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/okhttp-4.12.0.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/jackson-databind-2.17.2.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/kotlin-stdlib-jdk7-1.9.10.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/jira-plugin/lib/converter-jackson-2.11.0.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/jira-plugin/allure-plugin.yml  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/jira-plugin/jira-plugin-2.30.0.jar  
+#6 720.0    creating: /opt/allure-2.30.0/plugins/screen-diff-plugin/
+#6 720.0    creating: /opt/allure-2.30.0/plugins/screen-diff-plugin/static/
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/screen-diff-plugin/static/index.js  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/screen-diff-plugin/static/styles.css  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/screen-diff-plugin/allure-plugin.yml  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/screen-diff-plugin/screen-diff-plugin-2.30.0.jar  
+#6 720.0    creating: /opt/allure-2.30.0/plugins/xctest-plugin/
+#6 720.0    creating: /opt/allure-2.30.0/plugins/xctest-plugin/lib/
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xctest-plugin/lib/xmlwise-1.2.11.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xctest-plugin/allure-plugin.yml  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xctest-plugin/xctest-plugin-2.30.0.jar  
+#6 720.0    creating: /opt/allure-2.30.0/plugins/trx-plugin/
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/trx-plugin/trx-plugin-2.30.0.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/trx-plugin/allure-plugin.yml  
+#6 720.0    creating: /opt/allure-2.30.0/plugins/xray-plugin/
+#6 720.0    creating: /opt/allure-2.30.0/plugins/xray-plugin/lib/
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/kotlin-stdlib-jdk8-1.9.10.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/jackson-annotations-2.17.2.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/jackson-core-2.17.2.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/allure-jira-commons-2.30.0.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/annotations-13.0.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/kotlin-stdlib-common-1.9.10.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/retrofit-2.11.0.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/okio-jvm-3.6.0.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/kotlin-stdlib-1.9.10.jar  
+#6 720.0   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/okhttp-4.12.0.jar  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/jackson-databind-2.17.2.jar  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/kotlin-stdlib-jdk7-1.9.10.jar  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/xray-plugin/lib/converter-jackson-2.11.0.jar  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/xray-plugin/allure-plugin.yml  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/xray-plugin/xray-plugin-2.30.0.jar  
+#6 720.1    creating: /opt/allure-2.30.0/plugins/packages-plugin/
+#6 720.1    creating: /opt/allure-2.30.0/plugins/packages-plugin/static/
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/packages-plugin/static/index.js  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/packages-plugin/allure-plugin.yml  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/packages-plugin/packages-plugin-2.30.0.jar  
+#6 720.1    creating: /opt/allure-2.30.0/plugins/junit-xml-plugin/
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/junit-xml-plugin/junit-xml-plugin-2.30.0.jar  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/junit-xml-plugin/allure-plugin.yml  
+#6 720.1    creating: /opt/allure-2.30.0/plugins/custom-logo-plugin/
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/custom-logo-plugin/custom-logo-plugin-2.30.0.jar  
+#6 720.1    creating: /opt/allure-2.30.0/plugins/custom-logo-plugin/static/
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/custom-logo-plugin/static/styles.css  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/custom-logo-plugin/static/custom-logo.svg  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/custom-logo-plugin/allure-plugin.yml  
+#6 720.1    creating: /opt/allure-2.30.0/plugins/behaviors-plugin/
+#6 720.1    creating: /opt/allure-2.30.0/plugins/behaviors-plugin/static/
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/behaviors-plugin/static/index.js  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/behaviors-plugin/allure-plugin.yml  
+#6 720.1   inflating: /opt/allure-2.30.0/plugins/behaviors-plugin/behaviors-plugin-2.30.0.jar  
+#6 DONE 721.2s
+
+#7 [3/7] WORKDIR /workspace/AiApiTest-DWP
+#7 DONE 0.2s
+
+#8 [4/7] COPY api-test/requirements.txt /tmp/api-test-requirements.txt
+#8 DONE 0.2s
+
+#9 [5/7] RUN python -m pip install --no-cache-dir -r /tmp/api-test-requirements.txt     && python -m pip check     && rm -f /tmp/api-test-requirements.txt
+#9 2.709 Ignoring pyreadline3: markers 'platform_system == "Windows"' don't match your environment
+#9 3.367 Collecting pytest==7.4.4 (from -r /tmp/api-test-requirements.txt (line 1))
+#9 3.856   Downloading pytest-7.4.4-py3-none-any.whl.metadata (7.9 kB)
+#9 3.990 Collecting requests==2.32.5 (from -r /tmp/api-test-requirements.txt (line 2))
+#9 4.076   Downloading requests-2.32.5-py3-none-any.whl.metadata (4.9 kB)
+#9 4.195 Collecting allure-pytest==2.13.5 (from -r /tmp/api-test-requirements.txt (line 3))
+#9 4.274   Downloading allure_pytest-2.13.5-py3-none-any.whl.metadata (2.8 kB)
+#9 4.372 Collecting pytest-rerunfailures==16.1 (from -r /tmp/api-test-requirements.txt (line 4))
+#9 4.465   Downloading pytest_rerunfailures-16.1-py3-none-any.whl.metadata (21 kB)
+#9 5.424 Collecting PyYAML==6.0.2 (from -r /tmp/api-test-requirements.txt (line 5))
+#9 5.502   Downloading PyYAML-6.0.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (2.1 kB)
+#9 5.596 Collecting py==1.11.0 (from -r /tmp/api-test-requirements.txt (line 6))
+#9 5.670   Downloading py-1.11.0-py2.py3-none-any.whl.metadata (2.8 kB)
+#9 5.776 Collecting pluggy==1.6.0 (from -r /tmp/api-test-requirements.txt (line 8))
+#9 5.862   Downloading pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+#9 6.023 Collecting pytest-asyncio==0.21.2 (from -r /tmp/api-test-requirements.txt (line 9))
+#9 6.215   Downloading pytest_asyncio-0.21.2-py3-none-any.whl.metadata (4.0 kB)
+#9 6.689 Collecting pytest-html==3.1.1 (from -r /tmp/api-test-requirements.txt (line 10))
+#9 6.782   Downloading pytest_html-3.1.1-py3-none-any.whl.metadata (3.1 kB)
+#9 6.873 Collecting pytest-metadata==2.0.4 (from -r /tmp/api-test-requirements.txt (line 11))
+#9 6.969   Downloading pytest_metadata-2.0.4-py3-none-any.whl.metadata (8.0 kB)
+#9 7.066 Collecting iniconfig (from pytest==7.4.4->-r /tmp/api-test-requirements.txt (line 1))
+#9 7.181   Downloading iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+#9 7.733 Collecting packaging (from pytest==7.4.4->-r /tmp/api-test-requirements.txt (line 1))
+#9 8.046   Downloading packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+#9 8.702 Collecting charset_normalizer<4,>=2 (from requests==2.32.5->-r /tmp/api-test-requirements.txt (line 2))
+#9 8.777   Downloading charset_normalizer-3.4.9-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (41 kB)
+#9 8.941 Collecting idna<4,>=2.5 (from requests==2.32.5->-r /tmp/api-test-requirements.txt (line 2))
+#9 9.025   Downloading idna-3.18-py3-none-any.whl.metadata (6.1 kB)
+#9 9.139 Collecting urllib3<3,>=1.21.1 (from requests==2.32.5->-r /tmp/api-test-requirements.txt (line 2))
+#9 9.224   Downloading urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+#9 9.332 Collecting certifi>=2017.4.17 (from requests==2.32.5->-r /tmp/api-test-requirements.txt (line 2))
+#9 9.420   Downloading certifi-2026.6.17-py3-none-any.whl.metadata (2.5 kB)
+#9 9.531 Collecting allure-python-commons==2.13.5 (from allure-pytest==2.13.5->-r /tmp/api-test-requirements.txt (line 3))
+#9 9.753   Downloading allure_python_commons-2.13.5-py3-none-any.whl.metadata (5.5 kB)
+#9 9.890 Collecting attrs>=16.0.0 (from allure-python-commons==2.13.5->allure-pytest==2.13.5->-r /tmp/api-test-requirements.txt (line 3))
+#9 9.962   Downloading attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+#9 10.12 Downloading pytest-7.4.4-py3-none-any.whl (325 kB)
+#9 10.43 Downloading requests-2.32.5-py3-none-any.whl (64 kB)
+#9 10.51 Downloading allure_pytest-2.13.5-py3-none-any.whl (11 kB)
+#9 10.60 Downloading pytest_rerunfailures-16.1-py3-none-any.whl (14 kB)
+#9 10.68 Downloading PyYAML-6.0.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (767 kB)
+#9 10.81    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 767.5/767.5 kB 6.3 MB/s eta 0:00:00
+#9 10.89 Downloading py-1.11.0-py2.py3-none-any.whl (98 kB)
+#9 10.97 Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
+#9 11.04 Downloading pytest_asyncio-0.21.2-py3-none-any.whl (13 kB)
+#9 11.12 Downloading pytest_html-3.1.1-py3-none-any.whl (14 kB)
+#9 11.21 Downloading pytest_metadata-2.0.4-py3-none-any.whl (9.9 kB)
+#9 11.29 Downloading allure_python_commons-2.13.5-py3-none-any.whl (15 kB)
+#9 11.37 Downloading certifi-2026.6.17-py3-none-any.whl (133 kB)
+#9 11.46 Downloading charset_normalizer-3.4.9-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (224 kB)
+#9 11.55 Downloading idna-3.18-py3-none-any.whl (65 kB)
+#9 11.64 Downloading packaging-26.2-py3-none-any.whl (100 kB)
+#9 11.73 Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
+#9 11.81 Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+#9 11.89 Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+#9 11.95 Installing collected packages: urllib3, PyYAML, py, pluggy, packaging, iniconfig, idna, charset_normalizer, certifi, attrs, requests, pytest, allure-python-commons, pytest-rerunfailures, pytest-metadata, pytest-asyncio, allure-pytest, pytest-html
+#9 14.20 Successfully installed PyYAML-6.0.2 allure-pytest-2.13.5 allure-python-commons-2.13.5 attrs-26.1.0 certifi-2026.6.17 charset_normalizer-3.4.9 idna-3.18 iniconfig-2.3.0 packaging-26.2 pluggy-1.6.0 py-1.11.0 pytest-7.4.4 pytest-asyncio-0.21.2 pytest-html-3.1.1 pytest-metadata-2.0.4 pytest-rerunfailures-16.1 requests-2.32.5 urllib3-2.7.0
+#9 14.21 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#9 14.77 
+#9 14.77 [notice] A new release of pip is available: 25.0.1 -> 26.1.2
+#9 14.77 [notice] To update, run: pip install --upgrade pip
+#9 18.28 No broken requirements found.
+#9 DONE 18.4s
+
+#10 [6/7] COPY . /workspace/AiApiTest-DWP
+#10 DONE 0.8s
+
+#11 [7/7] WORKDIR /workspace/AiApiTest-DWP/api-test
+#11 DONE 1.2s
+
+#12 exporting to image
+#12 exporting layers
+#12 exporting layers 3.3s done
+#12 writing image sha256:5ca98c2d091552239f86ca18307629beb7af717845aa5882b2f5fff834e7d3fb done
+#12 naming to docker.io/library/aiapitest-api-runner:local 0.0s done
+#12 DONE 3.4s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/xr1pmzh37j3aivnk22n9hbahb
+EXIT_CODE=0

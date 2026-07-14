@@ -1,0 +1,70 @@
+ID=sha256:5ca98c2d091552239f86ca18307629beb7af717845aa5882b2f5fff834e7d3fb COMPONENT=api-runner DEPENDENCY=stage13-test INPUT=stage13-test SOURCE=stage13-test
+RUNTIME_CHECKS:
+No broken requirements found.
+openjdk version "21.0.11" 2026-04-21
+OpenJDK Runtime Environment (build 21.0.11+10-1-deb13u2-Debian)
+OpenJDK 64-Bit Server VM (build 21.0.11+10-1-deb13u2-Debian, mixed mode, sharing)
+sh: 1: allure: not found
+RUNTIME_CHECKS_EXIT_CODE=127
+JENKINS_DOCKER_STATIC_TESTS:
+...................FF....s......                                         [100%]
+=================================== FAILURES ===================================
+______________________ test_local_env_file_is_git_ignored ______________________
+
+    def test_local_env_file_is_git_ignored():
+        """本地 .env 必须被 git 忽略，避免私有密码进入仓库。"""
+>       content = (ROOT_DIR / ".gitignore").read_text(encoding="utf-8")
+
+jenkins/tests/test_docker_deployment_static.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/workspace/AiApiTest-DWP/.gitignore'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: '/workspace/AiApiTest-DWP/.gitignore'
+
+/usr/local/lib/python3.12/pathlib.py:1013: FileNotFoundError
+__________________ test_runtime_temp_directory_is_git_ignored __________________
+
+    def test_runtime_temp_directory_is_git_ignored():
+        """本地调试脚本和运行日志目录不得被误提交。"""
+>       content = (ROOT_DIR / ".gitignore").read_text(encoding="utf-8")
+
+jenkins/tests/test_docker_deployment_static.py:168: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/workspace/AiApiTest-DWP/.gitignore'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: '/workspace/AiApiTest-DWP/.gitignore'
+
+/usr/local/lib/python3.12/pathlib.py:1013: FileNotFoundError
+=========================== short test summary info ============================
+FAILED jenkins/tests/test_docker_deployment_static.py::test_local_env_file_is_git_ignored
+FAILED jenkins/tests/test_docker_deployment_static.py::test_runtime_temp_directory_is_git_ignored
+2 failed, 29 passed, 1 skipped in 1.05s
+JENKINS_DOCKER_STATIC_TESTS_EXIT_CODE=1

@@ -1,0 +1,82 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+__________ test_preflight_is_read_only_and_records_only_key_presence __________
+
+tmp_path = WindowsPath('C:/Users/admin/AppData/Local/Temp/pytest-of-admin/pytest-110/test_preflight_is_read_only_an0')
+
+    def test_preflight_is_read_only_and_records_only_key_presence(tmp_path):
+        context = make_context(tmp_path)
+        write_env(context.env_file)
+        responses = {
+            limited_inspect("aiapitest-jenkins"): (0, "jenkins-id|true|healthy"),
+            limited_inspect("aiapitest-mysql"): (0, "mysql-id|true|healthy"),
+            ("docker", "inspect", "aiapitest-jenkins"): (
+                0,
+                '[{"Id":"jenkins-id","State":{"Running":true,"Health":{"Status":"healthy"}}}]',
+            ),
+            ("docker", "inspect", "aiapitest-mysql"): (
+                0,
+                '[{"Id":"mysql-id","State":{"Running":true,"Health":{"Status":"healthy"}}}]',
+            ),
+        }
+        runner = FakeRunner(responses)
+    
+        result = PreflightService(runner, EvidenceStore(context.evidence_dir)).run(context)
+    
+        assert result.success is True
+        assert result.details["baseline_container_ids"] == {
+            "jenkins": "jenkins-id",
+            "mysql": "mysql-id",
+        }
+        serialized = str(result.to_dict())
+        for secret in ["private-mysql-password", "private-django-secret", "private-auth-secret"]:
+            assert secret not in serialized
+        assert result.details["environment_keys"]["MYSQL_ROOT_PASSWORD"] == "present"
+    
+        command_text = "\n".join(" ".join(spec.argv) for spec in runner.specs).lower()
+        for forbidden in [" up ", " start ", " restart ", " stop ", "chmod", " down "]:
+            assert forbidden not in f" {command_text} "
+        assert "config --quiet" in command_text
+        assert "config --no-interpolate" in command_text
+>       assert ("docker", "inspect", "aiapitest-jenkins") not in [spec.argv for spec in runner.specs]
+E       AssertionError: assert ('docker', 'inspect', 'aiapitest-jenkins') not in [('docker', '--version'), ('docker', 'compose', 'version'), ('docker', 'info'), ('docker', 'compose', '--project-name'...st-of-admin\\pytest-110\\test_preflight_is_read_only_an0\\.env', ...), ('docker', 'inspect', 'aiapitest-jenkins'), ...]
+
+jenkins\tests\test_platform_bootstrap_preflight.py:121: AssertionError
+_ test_mysql_unhealthy_collects_limited_health_and_tail_logs_without_config_env _
+
+tmp_path = WindowsPath('C:/Users/admin/AppData/Local/Temp/pytest-of-admin/pytest-110/test_mysql_unhealthy_collects_0')
+
+    def test_mysql_unhealthy_collects_limited_health_and_tail_logs_without_config_env(tmp_path):
+        context = make_context(tmp_path)
+        write_env(context.env_file)
+        runner = FakeRunner(
+            {
+                limited_inspect("aiapitest-jenkins"): (0, "jenkins-id|true|healthy"),
+                limited_inspect("aiapitest-mysql"): (0, "mysql-id|true|unhealthy"),
+                (
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{range .State.Health.Log}}{{.ExitCode}}|{{.Output}}{{println}}{{end}}",
+                    "aiapitest-mysql",
+                ): (0, "1|mysqladmin: connection refused"),
+                ("docker", "logs", "--tail", "200", "aiapitest-mysql"): (
+                    0,
+                    "mysql startup failed without secrets",
+                ),
+            }
+        )
+    
+        result = PreflightService(runner, EvidenceStore(context.evidence_dir)).run(context)
+    
+        assert result.success is False
+>       assert result.diagnostics[0].code == "BOOTSTRAP_MYSQL_UNHEALTHY"
+E       AssertionError: assert 'BOOTSTRAP_JE...S_NOT_RUNNING' == 'BOOTSTRAP_MYSQL_UNHEALTHY'
+E         - BOOTSTRAP_MYSQL_UNHEALTHY
+E         + BOOTSTRAP_JENKINS_NOT_RUNNING
+
+jenkins\tests\test_platform_bootstrap_preflight.py:183: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_platform_bootstrap_preflight.py::test_preflight_is_read_only_and_records_only_key_presence
+FAILED jenkins/tests/test_platform_bootstrap_preflight.py::test_mysql_unhealthy_collects_limited_health_and_tail_logs_without_config_env
+2 failed in 0.82s

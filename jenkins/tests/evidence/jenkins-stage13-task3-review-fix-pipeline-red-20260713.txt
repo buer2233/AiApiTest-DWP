@@ -1,0 +1,25 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+___ test_archive_failures_preserve_primary_and_fail_when_no_primary_exists ____
+
+    def test_archive_failures_preserve_primary_and_fail_when_no_primary_exists():
+        jenkinsfile = read_required(JENKINSFILE)
+        pipeline = read_required(PIPELINE)
+    
+>       assert "archiveFailure" in pipeline
+E       assert 'archiveFailure' in '// Stage13 ͳһƽ̨�������� Pipeline ���塣\n// ���л����жϺ�������ί�и� platform_bootstrap Python ���ġ�\n\ndef runCliStatus(String command...s.build_all ? \'full\' : \'incremental\'} / ${params.run_full_tests ? \'full tests\' : \'smoke\'}"\n}\n\nreturn this\n'
+
+jenkins\tests\test_platform_bootstrap_pipeline_static.py:117: AssertionError
+_ test_local_mounted_mode_validates_and_enters_configured_workspace_before_load _
+
+    def test_local_mounted_mode_validates_and_enters_configured_workspace_before_load():
+        jenkinsfile = read_required(JENKINSFILE)
+    
+>       assert "AIAPITEST_LOCAL_WORKSPACE" in jenkinsfile
+E       AssertionError: assert 'AIAPITEST_LOCAL_WORKSPACE' in '// ͳһƽ̨�������� Pipeline ��ڡ�\n// Checkout ǰ�޷����زֿ� Groovy���������ֻ�����������ֹ������workspace ��ȡ��ʧ�ܶ��׹鵵��\nnode {\n    properties([\n ...n                    fingerprint: true\n                )\n            }\n        }\n        throw failure\n    }\n}\n'
+
+jenkins\tests\test_platform_bootstrap_pipeline_static.py:129: AssertionError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_platform_bootstrap_pipeline_static.py::test_archive_failures_preserve_primary_and_fail_when_no_primary_exists
+FAILED jenkins/tests/test_platform_bootstrap_pipeline_static.py::test_local_mounted_mode_validates_and_enters_configured_workspace_before_load
+2 failed in 0.55s

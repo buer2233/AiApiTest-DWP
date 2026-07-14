@@ -1,0 +1,12 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_cli_exposes_only_six_environment_stage_subcommands ___________
+
+    def test_cli_exposes_only_six_environment_stage_subcommands():
+>       from platform_bootstrap.cli import build_parser, parse_bool
+E       ModuleNotFoundError: No module named 'platform_bootstrap.cli'
+
+jenkins\tests\test_platform_bootstrap_core.py:161: ModuleNotFoundError
+=========================== short test summary info ===========================
+FAILED jenkins/tests/test_platform_bootstrap_core.py::test_cli_exposes_only_six_environment_stage_subcommands
+1 failed in 0.26s
