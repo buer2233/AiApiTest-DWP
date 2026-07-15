@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -156,6 +157,191 @@ def test_command_runner_uses_argv_shell_false_and_writes_redacted_full_log(tmp_p
     assert "secret-token" not in evidence_path.read_text(encoding="utf-8")
     assert "***" in evidence_path.read_text(encoding="utf-8")
     assert json.loads(json.dumps(result.to_dict()))["returncode"] == 7
+
+
+def test_command_runner_converts_evidence_directory_oserror_to_redacted_failure(
+    tmp_path, monkeypatch, capsys
+):
+    """目录不可写时不启动命令，也必须返回可供 stage 诊断的失败结果。"""
+    evidence_path = tmp_path / "blocked" / "command.log"
+    original_mkdir = Path.mkdir
+
+    def fail_evidence_directory(self, *args, **kwargs):
+        if self == evidence_path.parent:
+            raise OSError("synthetic directory secret-value")
+        return original_mkdir(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", fail_evidence_directory)
+    result = SubprocessCommandRunner(
+        popen_factory=lambda *_args, **_kwargs: pytest.fail("Popen must not run")
+    ).run(
+        CommandSpec(
+            argv=("tool", "--check"),
+            cwd=tmp_path,
+            timeout_seconds=10,
+            evidence_path=evidence_path,
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result.returncode == 125
+    assert "COMMAND_EVIDENCE_DIRECTORY_UNAVAILABLE" in result.redacted_output_tail
+    assert "secret-value" not in result.redacted_output_tail + captured.out + captured.err
+    assert "Traceback" not in captured.out + captured.err
+
+
+def test_command_runner_converts_popen_oserror_to_redacted_evidence(tmp_path, capsys):
+    """命令无法启动时保留脱敏诊断日志，不能让 CLI 打印 traceback。"""
+    evidence_path = tmp_path / "command.log"
+
+    def fail_popen(*_args, **_kwargs):
+        raise OSError("synthetic command secret-value")
+
+    result = SubprocessCommandRunner(popen_factory=fail_popen).run(
+        CommandSpec(
+            argv=("docker", "inspect"),
+            cwd=tmp_path,
+            timeout_seconds=10,
+            evidence_path=evidence_path,
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result.returncode == 127
+    assert "COMMAND_START_FAILED" in result.redacted_output_tail
+    assert "secret-value" not in result.redacted_output_tail + evidence_path.read_text(encoding="utf-8")
+    assert "Traceback" not in captured.out + captured.err
+
+
+def test_command_runner_converts_evidence_write_oserror_to_redacted_failure(
+    tmp_path, monkeypatch, capsys
+):
+    """命令输出日志写失败必须改变结果为失败，而不是让上层误判成功。"""
+    evidence_path = tmp_path / "command.log"
+    original_write_text = Path.write_text
+
+    def fail_command_log(self, *args, **kwargs):
+        if self == evidence_path:
+            raise OSError("synthetic write secret-value")
+        return original_write_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", fail_command_log)
+    result = SubprocessCommandRunner(
+        popen_factory=lambda *_args, **_kwargs: FakeProcess("command output\n")
+    ).run(
+        CommandSpec(
+            argv=("tool", "--check"),
+            cwd=tmp_path,
+            timeout_seconds=10,
+            evidence_path=evidence_path,
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result.returncode == 125
+    assert "COMMAND_EVIDENCE_WRITE_FAILED" in result.redacted_output_tail
+    assert "secret-value" not in result.redacted_output_tail + captured.out + captured.err
+    assert "Traceback" not in captured.out + captured.err
+
+
+def test_command_runner_timeout_cleanup_never_exceeds_command_budget(tmp_path, capsys):
+    """超时后 terminate/communicate 清理仍只能使用原 CommandSpec 剩余预算。"""
+    evidence_path = tmp_path / "command.log"
+
+    class TimeoutThenExitProcess:
+        def __init__(self):
+            self.timeouts = []
+            self.returncode = -15
+
+        def communicate(self, timeout=None):
+            self.timeouts.append(timeout)
+            if len(self.timeouts) == 1:
+                raise subprocess.TimeoutExpired("tool", timeout)
+            return "", ""
+
+        def terminate(self):
+            return None
+
+        def kill(self):
+            return None
+
+    process = TimeoutThenExitProcess()
+    result = SubprocessCommandRunner(
+        popen_factory=lambda *_args, **_kwargs: process
+    ).run(
+        CommandSpec(
+            argv=("tool", "--check"),
+            cwd=tmp_path,
+            timeout_seconds=0.25,
+            evidence_path=evidence_path,
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result.timed_out is True
+    assert len(process.timeouts) >= 2
+    assert all(timeout <= 0.25 for timeout in process.timeouts)
+    assert "Traceback" not in captured.out + captured.err
+
+
+def test_command_runner_timeout_cleanup_oserror_returns_redacted_failure(tmp_path, capsys):
+    """超时清理调用的 OSError 不能 escape，必须转换为固定失败结果。"""
+    evidence_path = tmp_path / "command.log"
+
+    class FailingCleanupProcess:
+        returncode = None
+
+        def communicate(self, timeout=None):
+            raise subprocess.TimeoutExpired("tool", timeout)
+
+        def terminate(self):
+            raise OSError("synthetic cleanup secret-value")
+
+        def kill(self):
+            raise OSError("synthetic cleanup secret-value")
+
+    result = SubprocessCommandRunner(
+        popen_factory=lambda *_args, **_kwargs: FailingCleanupProcess()
+    ).run(
+        CommandSpec(
+            argv=("tool", "--check"),
+            cwd=tmp_path,
+            timeout_seconds=0.25,
+            evidence_path=evidence_path,
+        )
+    )
+
+    captured = capsys.readouterr()
+    assert result.returncode == 124
+    assert result.timed_out is True
+    assert "COMMAND_TIMEOUT_CLEANUP_FAILED" in result.redacted_output_tail
+    assert "secret-value" not in result.redacted_output_tail + captured.out + captured.err
+    assert "Traceback" not in captured.out + captured.err
+    assert evidence_path.is_file()
+
+
+def test_cli_evidence_store_initialization_oserror_is_structured_and_redacted(
+    tmp_path, monkeypatch, capsys
+):
+    """stage evidence 根目录不可用时，CLI 必须输出结构化可操作诊断。"""
+    import platform_bootstrap.cli as cli
+
+    class FailingEvidenceStore:
+        def __init__(self, *_args, **_kwargs):
+            raise OSError("synthetic cli evidence secret-value")
+
+    monkeypatch.setattr(cli, "EvidenceStore", FailingEvidenceStore)
+    monkeypatch.setenv("PLATFORM_BOOTSTRAP_WORKSPACE", str(tmp_path))
+
+    exit_code = cli.run_stage("health")
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Traceback" not in captured.out + captured.err
+    assert "secret-value" not in captured.out + captured.err
+    payload = json.loads(captured.out)
+    assert payload["diagnostics"][0]["code"] == "EVIDENCE_STORE_UNAVAILABLE"
+    assert payload["diagnostics"][0]["evidence"] == []
 
 
 def test_cli_exposes_six_environment_stages_and_trigger_subcommand():

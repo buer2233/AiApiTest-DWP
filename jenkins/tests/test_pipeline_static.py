@@ -67,9 +67,15 @@ def read_business_pipeline_files():
 
 
 def combined_business_pipeline_source():
-    """合并三条业务 Pipeline 源码，便于检查共享契约。"""
+    """合并四类业务 Pipeline 源码，便于检查共享契约。"""
     shared = read_pipeline_files()["api-test-pipeline.groovy"]
-    return "\n".join([shared, *read_business_pipeline_files().values()])
+    return "\n".join(
+        [
+            read_pipeline_files()["Jenkinsfile"],
+            shared,
+            *read_business_pipeline_files().values(),
+        ]
+    )
 
 
 def test_pipeline_defines_required_parameters():
@@ -102,14 +108,15 @@ def test_pipeline_declares_required_stages_and_unix_windows_branches():
 
     for stage_name in [
         "Checkout",
-        "Prepare Python",
-        "Install API Test Requirements",
         "Run API Tests",
-        "Generate Allure Report",
         "Archive Runtime Artifacts",
         "Publish Allure",
     ]:
         assert f"stage('{stage_name}')" in combined or f'stage("{stage_name}")' in combined
+
+    assert "stage('Prepare Python')" not in combined
+    assert "stage('Install API Test Requirements')" not in combined
+    assert "stage('Generate Allure Report')" not in combined
 
     assert "isUnix()" in combined
     assert "sh " in combined
@@ -121,7 +128,9 @@ def test_pipeline_delegates_pytest_execution_to_ci_runner():
     files = read_pipeline_files()
     combined = "\n".join(files.values())
 
-    assert "-m tools.ci_runner" in combined
+    assert "python3 jenkins/scripts/api_runner_cli.py execute" in combined
+    assert "python jenkins\\scripts\\api_runner_cli.py execute" in combined
+    assert "-m tools.ci_runner" not in combined
     assert "--case-path" not in combined
     assert "--node-id" not in combined
     assert "--retry-mode" not in combined
@@ -136,12 +145,12 @@ def test_pipeline_preserves_artifacts_when_pytest_fails():
     combined = "\n".join(files.values())
 
     run_stage_start = combined.index("stage('Run API Tests')")
-    generate_stage_start = combined.index("stage('Generate Allure Report')")
-    run_stage = combined[run_stage_start:generate_stage_start]
+    archive_stage_start = combined.index("stage('Archive Runtime Artifacts')")
+    run_stage = combined[run_stage_start:archive_stage_start]
 
     assert "catchError" not in run_stage
     assert "stageResult: 'FAILURE'" not in run_stage
-    assert "-m tools.ci_runner --from-jenkins-env" in run_stage
+    assert "api_runner_cli.py execute" in run_stage
 
 
 def test_jenkinsfile_loads_pipeline_script_inside_node_context():
@@ -180,68 +189,46 @@ def test_pipeline_uses_sandbox_safe_environment_default_access():
     assert "env.JENKINS_DEFAULT_CASE_PATH" in parameter_block
 
 
-def test_pipeline_uses_python_virtual_environment_for_dependencies():
-    """Pipeline 应使用 api-test 目录下的 Python 虚拟环境安装依赖。"""
+def test_pipeline_uses_only_shared_api_runner_cli_without_controller_dependencies():
+    """业务 Pipeline 只能委托共享 runner CLI，不得在 controller 准备业务 Python。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
 
-    assert "JENKINS_API_TEST_DIR" in pipeline
-    assert "JENKINS_PYTHON_VENV_DIR" in pipeline
-    assert "env.AIAPITEST_PREINSTALLED_REQUIREMENTS == '1'" in pipeline
-    assert "python -m venv ${unixVenvOptions}${pythonVenvDir}" in pipeline
-    assert "python -m venv ${pythonVenvDir}" in pipeline
-    assert "python -m venv .venv" not in pipeline
-    assert "/bin/python" in pipeline
-    assert "\\\\Scripts\\\\python" in pipeline
-
-
-def test_pipeline_installs_only_missing_api_test_requirements():
-    """Pipeline 应通过脚本只安装缺失依赖，避免每次全量 pip install。"""
-    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
-    install_stage_start = pipeline.index("stage('Install API Test Requirements')")
-    run_stage_start = pipeline.index("stage('Run API Tests')")
-    install_stage = pipeline[install_stage_start:run_stage_start]
-
-    unix_install_command = (
-        "cd ${apiTestDir} && python -m venv ${unixVenvOptions}${pythonVenvDir} && "
-        "${unixPython} -m tools.install_missing_requirements requirements.txt"
-    )
-    windows_install_command = (
-        "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && "
-        "${windowsPython} -m tools.install_missing_requirements requirements.txt"
-    )
-
-    assert unix_install_command in install_stage
-    assert windows_install_command in install_stage
-    assert "'--system-site-packages ' : ''" in install_stage
-    assert install_stage.count("-m tools.install_missing_requirements requirements.txt") == 2
-    assert "-m pip install" not in install_stage
-    assert "pip install -r" not in install_stage
+    assert "python3 jenkins/scripts/api_runner_cli.py execute" in pipeline
+    assert "python jenkins\\scripts\\api_runner_cli.py execute" in pipeline
+    for forbidden in [
+        "JENKINS_PYTHON_VENV_DIR",
+        "AIAPITEST_PREINSTALLED_REQUIREMENTS",
+        "python -m venv",
+        "pip install",
+        "install_missing_requirements",
+        "-m tools.ci_runner",
+    ]:
+        assert forbidden not in pipeline
 
 
 def test_pipeline_fails_when_allure_html_report_is_not_generated():
-    """Allure HTML 没有生成时 Pipeline 必须显式失败，不能只归档空结果。"""
-    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+    """Allure HTML 状态必须由 runner helper 的完整 summary 校验决定。"""
+    helper = read_required_text(JENKINS_ROOT / "scripts" / "api_runner_lifecycle.py")
 
-    assert "allure_report_status" in pipeline
-    assert "Allure HTML report was not generated" in pipeline
-    assert "SystemExit(1)" in pipeline or "sys.exit" in pipeline
+    assert "allure_report_status" in helper
+    assert "generated" in helper
+    assert "summary.json" in helper
 
 
 def test_pipeline_archives_runtime_even_when_allure_validation_fails():
-    """Allure 校验失败时也要归档 runtime，后端才能读取 summary 诊断。"""
+    """runner 失败时仍必须在 finally 中归档 runtime 与生命周期证据。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
     run_stage_start = pipeline.index("stage('Run API Tests')")
-    generate_stage_start = pipeline.index("stage('Generate Allure Report')")
     archive_stage_start = pipeline.index("stage('Archive Runtime Artifacts')")
     publish_stage_start = pipeline.index("stage('Publish Allure')")
-    try_start = pipeline.rindex("try {", 0, run_stage_start)
-    guarded_block = pipeline[try_start:publish_stage_start]
+    guarded_block = pipeline[run_stage_start:]
 
-    assert run_stage_start < generate_stage_start < archive_stage_start < publish_stage_start
-    assert "try {" in guarded_block
-    assert "} finally {" in guarded_block
-    assert guarded_block.index("} finally {") < guarded_block.index("stage('Archive Runtime Artifacts')")
+    assert run_stage_start < archive_stage_start < publish_stage_start
+    assert "def primaryFailure = null" in pipeline
+    assert "finally" in guarded_block
     assert "archiveArtifacts" in guarded_block
+    assert "runner-lifecycle" in guarded_block
+    assert "throw primaryFailure" in guarded_block
 
 
 def test_pipeline_accepts_platform_run_id_for_artifact_lookup():
@@ -283,13 +270,13 @@ def test_run_api_tests_stage_has_timeout_guard():
     """Run API Tests 必须有 Jenkins 级超时，避免 pytest 或 Allure 子进程无限挂起。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
     run_stage_start = pipeline.index("stage('Run API Tests')")
-    generate_stage_start = pipeline.index("stage('Generate Allure Report')")
-    run_stage = pipeline[run_stage_start:generate_stage_start]
+    archive_stage_start = pipeline.index("stage('Archive Runtime Artifacts')")
+    run_stage = pipeline[run_stage_start:archive_stage_start]
 
     assert "timeout(" in run_stage
     assert "time: 60" in run_stage
     assert "unit: 'MINUTES'" in run_stage
-    assert run_stage.index("timeout(") < run_stage.index("-m tools.ci_runner --from-jenkins-env")
+    assert run_stage.index("timeout(") < run_stage.index("api_runner_cli.py execute")
 
 
 def test_run_api_tests_stage_timeout_leaves_ci_runner_diagnostic_buffer():
@@ -345,7 +332,9 @@ def test_local_mounted_job_config_script_uses_workspace_without_git_checkout():
     assert "CpsFlowDefinition" in script
     assert "dir('${mountedWorkspace}')" in script
     assert "ws('${mountedWorkspace}')" not in script
-    assert script.index("dir('${mountedWorkspace}')") < script.index("load '${config.scriptPath}'")
+    assert "def pipelineInvocation = \"\"\"def pipelineScript" in script
+    assert "pipelineScript = load '${config.scriptPath}'" in script
+    assert "pipelineScript.call()" in script
     assert "git branch:" not in script
     assert "github.com" not in script
 
@@ -386,6 +375,53 @@ def test_local_mounted_job_config_preserves_legacy_cron_until_daily_jobs_are_rea
     assert script.index("if (dailyCronMigrationReady)") < script.index("legacyDailyJob.setTriggers")
 
 
+def test_local_mounted_job_config_auto_creates_platform_bootstrap_from_jenkinsfile():
+    """环境 Job 与既有本地 Job 一样由 Jenkins init 幂等创建，不依赖手工配置。"""
+    script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
+
+    assert "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME" in script
+    assert "AiApiTest-DWP-Platform-Bootstrap" in script
+    assert "name: platformBootstrapJobName" in script
+    assert "scriptPath: 'jenkins/Jenkinsfile.platform-bootstrap'" in script
+    assert "entrypoint: true" in script
+    assert "envVars: ['LOCAL_WORKSPACE_REPO=true']" in script
+    assert "dailyCron: false" in script
+    assert "load '${config.scriptPath}'" in script
+
+
+def test_local_init_forcibly_repairs_only_declared_platform_bootstrap_job():
+    """历史手工验收 Job 也必须被固定环境入口接管，业务 Job 仍保留非本地保护。"""
+    script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
+
+    assert "forceReplace: true" in script
+    assert "config.forceReplace || shouldReplaceExistingJob(job)" in script
+    assert "if (!(config.forceReplace || shouldReplaceExistingJob(job)))" in script
+
+
+def test_platform_bootstrap_job_keeps_jenkinsfile_owned_concurrency_control():
+    """业务 Job 可并发，环境 Job 的禁止并发属性只由其 Jenkinsfile 建立。"""
+    script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
+
+    assert "allowConcurrent: false" in script
+    assert "if (config.allowConcurrent)" in script
+    assert script.index("if (config.allowConcurrent)") < script.index("removeProperty")
+
+
+def test_local_mounted_job_loads_from_mount_but_calls_pipeline_in_writable_workspace():
+    """挂载仓库只读时，durable-task 和运行证据必须回到 Jenkins 自己的 workspace。"""
+    script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
+    bootstrap = read_required_text(JENKINS_ROOT / "Jenkinsfile.platform-bootstrap")
+
+    assert "def pipelineScript" in script
+    assert "pipelineScript = load '${config.scriptPath}'" in script
+    assert script.index("pipelineScript = load '${config.scriptPath}'") < script.index(
+        "pipelineScript.call()"
+    )
+    assert "dir('${mountedWorkspace}') {\n        withEnv" not in script
+    assert "def call()" in bootstrap
+    assert bootstrap.index("def call()") < bootstrap.index("node {")
+
+
 def test_jenkins_readme_states_daily_cron_is_effective_after_initialization():
     """初始化脚本已直接配置 cron，文档不得继续要求首次手工 Build 才生效。"""
     readme = read_required_text(JENKINS_ROOT / "README.md")
@@ -395,8 +431,8 @@ def test_jenkins_readme_states_daily_cron_is_effective_after_initialization():
     assert "先手工 Build 一次，确认参数和 `0 2 * * *` 定时触发生效" not in readme
 
 
-def test_all_four_local_jobs_allow_concurrent_builds():
-    """四个本地 Pipeline Job 必须移除禁止并发属性。"""
+def test_business_local_jobs_allow_concurrent_builds():
+    """业务本地 Pipeline Job 必须移除禁止并发属性；环境 Job 例外由 Jenkinsfile 管理。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
     assert "JENKINS_GENERIC_PIPELINE_JOB_NAME" in script
@@ -405,13 +441,37 @@ def test_all_four_local_jobs_allow_concurrent_builds():
     assert "removeProperty" in script
 
 
-def test_pipeline_uses_executor_scoped_virtualenv():
-    """共享挂载 workspace 并发执行时，虚拟环境必须按 executor 隔离。"""
+def test_pipeline_has_no_executor_scoped_virtualenv_after_runner_migration():
+    """并发隔离由唯一 runner 容器承担，controller 不再创建 executor venv。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
 
-    assert "env.EXECUTOR_NUMBER" in pipeline
-    assert "executor-${executorNumber}" in pipeline
-    assert "JENKINS_PYTHON_VENV_DIR" in pipeline
+    assert "env.EXECUTOR_NUMBER" not in pipeline
+    assert "executor-${executorNumber}" not in pipeline
+    assert "JENKINS_PYTHON_VENV_DIR" not in pipeline
+
+
+def test_jenkins_readme_describes_image_runner_instead_of_legacy_venv():
+    """Jenkins 文档必须与 api-runner 迁移后的实际执行和产物语义一致。"""
+    readme = read_required_text(JENKINS_ROOT / "README.md")
+
+    for forbidden in [
+        "Prepare Python",
+        "Install API Test Requirements",
+        "Generate Allure Report",
+        "executor venv",
+        "JENKINS_PYTHON_VENV_DIR",
+        "AIAPITEST_PREINSTALLED_REQUIREMENTS",
+        "install_missing_requirements",
+    ]:
+        assert forbidden not in readme
+    for required in [
+        "aiapitest-api-runner:local",
+        "api_runner_cli.py execute",
+        "镜像内源码",
+        "runner-lifecycle",
+        "导出失败",
+    ]:
+        assert required in readme
 
 
 def test_daily_full_module_pipeline_is_scheduled_and_fixed_to_none_mode():
@@ -485,10 +545,11 @@ def test_business_pipelines_delegate_execution_to_shared_ci_runner_contract():
     """业务脚本只能固定业务模式，不得复制 pytest 或 runner 参数拼接逻辑。"""
     combined = combined_business_pipeline_source()
 
-    assert combined.count("-m tools.ci_runner --from-jenkins-env") >= 1
+    assert combined.count("api_runner_cli.py execute") == 2
     assert "jenkins/scripts/api-test-pipeline.groovy" in combined
     for forbidden in [
         "-m pytest",
+        "-m tools.ci_runner",
         "--case-path",
         "--node-id",
         "--retry-mode",
@@ -506,15 +567,45 @@ def test_business_pipelines_reuse_cross_platform_artifact_and_allure_contract():
         "sh ",
         "bat ",
         "LOCAL_WORKSPACE_REPO",
-        "JENKINS_API_TEST_DIR",
-        "JENKINS_PYTHON_VENV_DIR",
+        "api_runner_cli.py execute",
+        "runner-lifecycle",
         "archiveArtifacts",
         "stage('Publish Allure')",
         "allure([",
-        "Allure HTML report was not generated",
+        "primaryFailure",
         "error(emptyNodeIdsMessage)",
     ]:
         assert required in combined
+
+
+def test_all_four_business_pipelines_forbid_controller_installs_and_workspace_mounts():
+    """四类 Job 合并源码不得保留旧依赖安装、controller pytest 或 runner bind mount。"""
+    combined = combined_business_pipeline_source()
+
+    for forbidden in [
+        "python -m venv",
+        "pip install",
+        "install_missing_requirements",
+        "JENKINS_PYTHON_VENV_DIR",
+        "-m tools.ci_runner",
+        "--volume",
+        "--mount",
+        "docker.sock",
+    ]:
+        assert forbidden not in combined
+
+
+def test_runner_helper_reuses_task3_api_runner_fingerprint_contract():
+    """Task 4 只能选择 Task 3 api-runner 域，禁止复制 hash 或 ignore 算法。"""
+    helper = read_required_text(JENKINS_ROOT / "scripts" / "api_runner_lifecycle.py")
+
+    assert "default_domain_specs" in helper
+    assert "compute_domain_hashes" in helper
+    assert "DependencyDomainSpec" in helper
+    assert "name == \"api-runner\"" in helper or "name == 'api-runner'" in helper
+    assert "def _iter_files" not in helper
+    assert "IGNORED_PARTS" not in helper
+    assert "IGNORED_NAMES" not in helper
 
 
 def test_failed_and_module_rerun_pipelines_reuse_shared_allure_publish_contract():

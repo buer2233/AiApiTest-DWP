@@ -81,4 +81,4 @@
 - 前端已按融合方案实现 `/environments` 与 `/modules`。
 - 移动端 `/modules` 已按候选 05 映射为卡片布局。
 - 生成环境报告、失败重试、模块重试、趋势和 Jenkins 任务仍保持 P2 占位/禁用边界。
-- 关键截图已留存于 `front-end/tests/evidence/screenshots/`。
+- 关键截图已留存于 `历史验证记录（screenshots/，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）`。

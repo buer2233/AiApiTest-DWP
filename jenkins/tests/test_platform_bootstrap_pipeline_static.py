@@ -27,6 +27,14 @@ def brace_block(source: str, token: str) -> str:
     raise AssertionError(f"unclosed block for {token}")
 
 
+def local_mounted_copy_block(source: str) -> str:
+    """返回加载完成后、负责复制源码的第二个本地挂载分支。"""
+    token = "if (env.LOCAL_WORKSPACE_REPO == 'true')"
+    first = source.index(token)
+    second = source.index(token, first + len(token))
+    return brace_block(source[second:], token)
+
+
 def test_pipeline_has_only_two_boolean_parameters_and_disables_concurrency():
     source = read_required(JENKINSFILE) + "\n" + read_required(PIPELINE)
 
@@ -69,6 +77,7 @@ def test_pipeline_is_cross_platform_and_delegates_all_logic_to_python_cli():
     for command in ["preflight", "assure-dependencies", "deploy", "health", "test", "summary"]:
         assert command in pipeline
     assert "platform_bootstrap_cli.py" in pipeline
+    assert "python3 jenkins/scripts/platform_bootstrap_cli.py" in pipeline
     for forbidden in [
         "docker compose",
         "docker build",
@@ -149,6 +158,60 @@ def test_local_mounted_mode_validates_and_enters_configured_workspace_before_loa
     assert local_block.index("dir(localWorkspace)") < jenkinsfile.index(
         "load 'jenkins/scripts/platform-bootstrap-pipeline.groovy'"
     )
+
+
+def test_local_mounted_mode_runs_durable_steps_from_writable_workspace():
+    """挂载源码目录只用于加载和 CLI 的 cd 目标，不能承载 Jenkins durable @tmp。"""
+    jenkinsfile = read_required(JENKINSFILE)
+    pipeline = read_required(PIPELINE)
+
+    assert "PLATFORM_BOOTSTRAP_SOURCE_WORKSPACE" in pipeline
+    assert 'cd \\"' in pipeline
+    assert pipeline.index('cd \\"') < pipeline.index("platform_bootstrap_cli.py")
+    assert "--exclude=.git" in jenkinsfile
+    for ignored_runtime_path in [".pytest_tmp*", "runtime", "node_modules", ".idea"]:
+        assert ignored_runtime_path in jenkinsfile
+    assert "dir(localWorkspace) {\n                pipelineScript.call()" not in jenkinsfile
+
+
+def test_windows_local_copy_propagates_robocopy_failure_with_delayed_expansion():
+    """robocopy 的 8 及以上错误码必须原样传给 Jenkins，0 至 7 才可归零。"""
+    copy_block = local_mounted_copy_block(read_required(JENKINSFILE))
+
+    robocopy_offset = copy_block.index("robocopy")
+    enable_offset = copy_block.index("setlocal EnableDelayedExpansion")
+    capture_offset = copy_block.index('set "ROBOCOPY_EXIT=!ERRORLEVEL!"')
+    failure_offset = copy_block.index(
+        "if !ROBOCOPY_EXIT! GEQ 8 exit /B !ROBOCOPY_EXIT!"
+    )
+    success_offset = copy_block.index("exit /B 0", failure_offset)
+
+    assert enable_offset < robocopy_offset < capture_offset < failure_offset < success_offset
+    assert "%ERRORLEVEL%" not in copy_block
+
+
+def test_windows_local_copy_excludes_generated_and_runtime_directories():
+    """Windows 必须与 Linux 使用同一组本地生成目录排除项。"""
+    copy_block = local_mounted_copy_block(read_required(JENKINSFILE))
+    robocopy_line = next(
+        line.strip() for line in copy_block.splitlines() if "robocopy" in line
+    )
+
+    assert "/XD .git .pytest_tmp* .tmp runtime report node_modules .idea" in robocopy_line
+
+
+def test_local_mounted_copy_cleans_only_writable_workspace_before_copy():
+    """每次复制前清理 Jenkins workspace，挂载源码加载块不得执行删除。"""
+    jenkinsfile = read_required(JENKINSFILE)
+    token = "if (env.LOCAL_WORKSPACE_REPO == 'true')"
+    mounted_load_block = brace_block(jenkinsfile, token)
+    copy_block = local_mounted_copy_block(jenkinsfile)
+
+    assert "deleteDir()" not in mounted_load_block
+    assert copy_block.count("deleteDir()") == 1
+    cleanup_offset = copy_block.index("deleteDir()")
+    assert cleanup_offset < copy_block.index("tar -C")
+    assert cleanup_offset < copy_block.index("robocopy")
 
 
 def test_summary_step_exception_still_reaches_archive_allure_and_preserves_priority():

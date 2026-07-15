@@ -1,4 +1,5 @@
-FROM mcr.microsoft.com/playwright:v1.61.1-noble AS dependencies
+ARG PLAYWRIGHT_BASE_IMAGE=mcr.m.daocloud.io/playwright:v1.61.1-noble
+FROM ${PLAYWRIGHT_BASE_IMAGE} AS dependencies
 
 WORKDIR /workspace/AiApiTest-DWP/front-end
 

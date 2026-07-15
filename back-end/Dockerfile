@@ -16,6 +16,8 @@ RUN python -m pip install --no-cache-dir -r /tmp/back-end-requirements.txt \
     && rm -f /tmp/back-end-requirements.txt
 
 COPY back-end/ /workspace/AiApiTest-DWP/back-end/
+# 后端模块筛选默认读取此非敏感元数据，镜像内必须具备同一相对路径。
+COPY api-test/utils/package_module.yaml /workspace/AiApiTest-DWP/api-test/utils/package_module.yaml
 COPY docker/healthchecks/worker_heartbeat_healthcheck.py /usr/local/bin/worker_heartbeat_healthcheck.py
 
 LABEL aiapitest.component="backend" \

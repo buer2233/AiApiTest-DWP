@@ -49,37 +49,37 @@
 
 | 阶段 | 命令 | 证据 | 结论 |
 | --- | --- | --- | --- |
-| 前端 API RED | `npm run test:unit -- tests/stage8-metrics-api.test.ts` | `../../../front-end/tests/evidence/stage8-frontend-api-red-20260707.txt` | 失败符合预期，缺 `fetchModuleSnapshotFilterOptions` |
-| 前端 Playwright RED | `npm run test:e2e -- e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-frontend-playwright-red-20260707.txt` | 失败符合预期，旧 UI/交互不满足 Stage8 |
-| 后端目标 GREEN | `python -m pytest tests/test_metrics_api.py tests/test_metrics_commands.py tests/test_metrics_jenkins_execution_api.py tests/test_metrics_swagger_docs.py` | `../../../back-end/tests/evidence/backend-stage8-phase5-target-green-20260707.txt` | 55 passed，覆盖率 72% |
-| 后端全量 GREEN | `python -m pytest` | `../../../back-end/tests/evidence/backend-stage8-phase5-full-green-20260707.txt` | 140 passed，覆盖率 89% |
-| Django 系统检查 | `python manage.py check` | `../../../back-end/tests/evidence/backend-stage8-phase5-manage-check-20260707.txt` | 无系统检查错误 |
-| Django 迁移检查 | `python manage.py makemigrations --check --dry-run` | `../../../back-end/tests/evidence/backend-stage8-phase5-makemigrations-check-20260707.txt` | No changes detected |
-| 前端 API GREEN | `npm run test:unit -- tests/stage8-metrics-api.test.ts` | `../../../front-end/tests/evidence/stage8-frontend-api-green-20260707.txt` | 3 passed |
-| Stage8 目标 E2E GREEN | `npm run test:e2e -- e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-frontend-playwright-green-with-screenshots-20260707.txt` | 8 passed |
-| 前端 typecheck | `npm run typecheck` | `../../../front-end/tests/evidence/stage8-frontend-typecheck-green-20260707.txt` | 通过 |
-| 前端全量 Vitest | `npm run test:unit` | `../../../front-end/tests/evidence/stage8-frontend-unit-full-20260707.txt` | 6 files / 12 tests passed |
-| 前端全量 Playwright | `npm run test:e2e` | `../../../front-end/tests/evidence/stage8-frontend-playwright-full-green-20260707.txt` | 51 passed，1 skipped（既有 `.local` 真服务回归） |
-| 前端生产构建 | `npm run build` | `../../../front-end/tests/evidence/stage8-frontend-build-green-20260707.txt` | 构建通过；存在既有 Rollup PURE 注释和 chunk size warning |
-| Jenkins/Docker 静态回归 | `python -m pytest jenkins/tests/test_docker_deployment_static.py jenkins/tests/test_pipeline_static.py` | `../../../jenkins/tests/evidence/jenkins-stage8-phase7-static-20260707.txt` | 41 passed |
-| Phase 13 前端 typecheck | `npm run typecheck` | `../../../front-end/tests/evidence/stage8-phase13-frontend-typecheck-green-20260707.txt` | 通过 |
-| Phase 13 前端单元测试 | `npm run test:unit` | `../../../front-end/tests/evidence/stage8-phase13-frontend-unit-green-20260707.txt` | 6 files / 12 tests passed |
-| Phase 13 受影响前端 E2E | `npm run test:e2e -- e2e/stage3-p2-metrics.spec.ts e2e/stage4-p3-case-detail-trend.spec.ts e2e/stage6-p5-jenkins-execution.spec.ts e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-phase13-frontend-affected-e2e-green-20260707.txt` | 28 passed |
-| AI 真实 5174 验收 | `STAGE8_REAL_ACCEPTANCE=1 STAGE8_REAL_BASE_URL=http://127.0.0.1:5174 npm run test:e2e -- e2e/stage8-real-acceptance.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-real-acceptance-5174-20260707.txt`、`../../../front-end/tests/evidence/screenshots/stage8-real-acceptance-modules-20260707.png` | 1 passed；filter-options 200 且来自 YAML；点选下拉自动筛选、无查询按钮、重置、Jenkins 任务、右侧 70% 抽屉、侧边栏重复进入不清空、模块行一键失败重试 202、模块重试 202 均已在真实页面执行 |
-| Phase 14 后端目标 GREEN | `python -m pytest tests/test_metrics_api.py tests/test_metrics_commands.py tests/test_metrics_jenkins_execution_api.py tests/test_metrics_jenkins_service.py tests/test_metrics_swagger_docs.py` | `../../../back-end/tests/evidence/backend-stage8-phase14-target-green-20260707.txt` | 73 passed，覆盖同模块活跃任务互斥、取消 404 转 409、crumb 和外链派生 |
-| Phase 14 后端全量 GREEN | `python -m pytest` | `../../../back-end/tests/evidence/backend-stage8-phase14-full-green-20260707.txt` | 153 passed，覆盖率 90% |
-| Phase 14 受影响前端 E2E | `npx playwright test e2e/stage3-p2-metrics.spec.ts e2e/stage4-p3-case-detail-trend.spec.ts e2e/stage6-p5-jenkins-execution.spec.ts e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-phase14-frontend-affected-e2e-green-20260707.txt` | 29 passed |
-| Phase 14 AI 真实 5174 验收 | `STAGE8_REAL_ACCEPTANCE=1 STAGE8_REAL_BASE_URL=http://127.0.0.1:5174 npx playwright test e2e/stage8-real-acceptance.spec.ts --project=chromium` | `../../../front-end/tests/evidence/stage8-phase14-real-acceptance-5174-20260707.txt`、`../../../front-end/tests/evidence/screenshots/stage8-real-acceptance-modules-20260707.png` | 1 passed；取消任务不再 503；外链新标签打开；一键失败重试/模块重试允许 202 或后端 409 互斥提示 |
+| 前端 API RED | `npm run test:unit -- tests/stage8-metrics-api.test.ts` | `历史验证记录（stage8-frontend-api-red-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 失败符合预期，缺 `fetchModuleSnapshotFilterOptions` |
+| 前端 Playwright RED | `npm run test:e2e -- e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `历史验证记录（stage8-frontend-playwright-red-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 失败符合预期，旧 UI/交互不满足 Stage8 |
+| 后端目标 GREEN | `python -m pytest tests/test_metrics_api.py tests/test_metrics_commands.py tests/test_metrics_jenkins_execution_api.py tests/test_metrics_swagger_docs.py` | `历史验证记录（backend-stage8-phase5-target-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 55 passed，覆盖率 72% |
+| 后端全量 GREEN | `python -m pytest` | `历史验证记录（backend-stage8-phase5-full-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 140 passed，覆盖率 89% |
+| Django 系统检查 | `python manage.py check` | `历史验证记录（backend-stage8-phase5-manage-check-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 无系统检查错误 |
+| Django 迁移检查 | `python manage.py makemigrations --check --dry-run` | `历史验证记录（backend-stage8-phase5-makemigrations-check-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | No changes detected |
+| 前端 API GREEN | `npm run test:unit -- tests/stage8-metrics-api.test.ts` | `历史验证记录（stage8-frontend-api-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 3 passed |
+| Stage8 目标 E2E GREEN | `npm run test:e2e -- e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `历史验证记录（stage8-frontend-playwright-green-with-screenshots-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 8 passed |
+| 前端 typecheck | `npm run typecheck` | `历史验证记录（stage8-frontend-typecheck-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 通过 |
+| 前端全量 Vitest | `npm run test:unit` | `历史验证记录（stage8-frontend-unit-full-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 6 files / 12 tests passed |
+| 前端全量 Playwright | `npm run test:e2e` | `历史验证记录（stage8-frontend-playwright-full-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 51 passed，1 skipped（既有 `.local` 真服务回归） |
+| 前端生产构建 | `npm run build` | `历史验证记录（stage8-frontend-build-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 构建通过；存在既有 Rollup PURE 注释和 chunk size warning |
+| Jenkins/Docker 静态回归 | `python -m pytest jenkins/tests/test_docker_deployment_static.py jenkins/tests/test_pipeline_static.py` | `历史验证记录（jenkins-stage8-phase7-static-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 41 passed |
+| Phase 13 前端 typecheck | `npm run typecheck` | `历史验证记录（stage8-phase13-frontend-typecheck-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 通过 |
+| Phase 13 前端单元测试 | `npm run test:unit` | `历史验证记录（stage8-phase13-frontend-unit-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 6 files / 12 tests passed |
+| Phase 13 受影响前端 E2E | `npm run test:e2e -- e2e/stage3-p2-metrics.spec.ts e2e/stage4-p3-case-detail-trend.spec.ts e2e/stage6-p5-jenkins-execution.spec.ts e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `历史验证记录（stage8-phase13-frontend-affected-e2e-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 28 passed |
+| AI 真实 5174 验收 | `STAGE8_REAL_ACCEPTANCE=1 STAGE8_REAL_BASE_URL=http://127.0.0.1:5174 npm run test:e2e -- e2e/stage8-real-acceptance.spec.ts --project=chromium` | `历史验证记录（stage8-real-acceptance-5174-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）`、`历史验证记录（screenshots/stage8-real-acceptance-modules-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 1 passed；filter-options 200 且来自 YAML；点选下拉自动筛选、无查询按钮、重置、Jenkins 任务、右侧 70% 抽屉、侧边栏重复进入不清空、模块行一键失败重试 202、模块重试 202 均已在真实页面执行 |
+| Phase 14 后端目标 GREEN | `python -m pytest tests/test_metrics_api.py tests/test_metrics_commands.py tests/test_metrics_jenkins_execution_api.py tests/test_metrics_jenkins_service.py tests/test_metrics_swagger_docs.py` | `历史验证记录（backend-stage8-phase14-target-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 73 passed，覆盖同模块活跃任务互斥、取消 404 转 409、crumb 和外链派生 |
+| Phase 14 后端全量 GREEN | `python -m pytest` | `历史验证记录（backend-stage8-phase14-full-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 153 passed，覆盖率 90% |
+| Phase 14 受影响前端 E2E | `npx playwright test e2e/stage3-p2-metrics.spec.ts e2e/stage4-p3-case-detail-trend.spec.ts e2e/stage6-p5-jenkins-execution.spec.ts e2e/stage8-module-filters-jenkins.spec.ts --project=chromium` | `历史验证记录（stage8-phase14-frontend-affected-e2e-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 29 passed |
+| Phase 14 AI 真实 5174 验收 | `STAGE8_REAL_ACCEPTANCE=1 STAGE8_REAL_BASE_URL=http://127.0.0.1:5174 npx playwright test e2e/stage8-real-acceptance.spec.ts --project=chromium` | `历史验证记录（stage8-phase14-real-acceptance-5174-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）`、`历史验证记录（screenshots/stage8-real-acceptance-modules-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 1 passed；取消任务不再 503；外链新标签打开；一键失败重试/模块重试允许 202 或后端 409 互斥提示 |
 
 ## 6. 截图证据
 
 | 截图 | 路径 | 验收点 |
 | --- | --- | --- |
-| 模块页桌面筛选 | `../../../front-end/tests/evidence/screenshots/stage8-modules-filters-desktop-20260707.png` | 筛选区、无查询按钮、重置按钮、列顺序、一键失败重试、模块重试确认 |
-| 用例详情失败重试 | `../../../front-end/tests/evidence/screenshots/stage8-case-details-retry-20260707.png` | 选中重试和一键失败重试直接触发后提示 |
-| Jenkins 任务筛选 | `../../../front-end/tests/evidence/screenshots/stage8-jenkins-tasks-filters-20260707.png` | 状态、日期、任务类型筛选和任务类型/任务名展示 |
-| 模块页移动端 | `../../../front-end/tests/evidence/screenshots/stage8-modules-mobile-20260707.png` | 移动端通过率位于统计字段之后且不溢出 |
-| 真实 5174 AI 验收 | `../../../front-end/tests/evidence/screenshots/stage8-real-acceptance-modules-20260707.png` | 真实服务页面完成自动筛选、重置、Jenkins 任务、用例详情抽屉、一键失败重试和模块重试动作 |
+| 模块页桌面筛选 | `历史验证记录（screenshots/stage8-modules-filters-desktop-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 筛选区、无查询按钮、重置按钮、列顺序、一键失败重试、模块重试确认 |
+| 用例详情失败重试 | `历史验证记录（screenshots/stage8-case-details-retry-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 选中重试和一键失败重试直接触发后提示 |
+| Jenkins 任务筛选 | `历史验证记录（screenshots/stage8-jenkins-tasks-filters-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 状态、日期、任务类型筛选和任务类型/任务名展示 |
+| 模块页移动端 | `历史验证记录（screenshots/stage8-modules-mobile-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 移动端通过率位于统计字段之后且不溢出 |
+| 真实 5174 AI 验收 | `历史验证记录（screenshots/stage8-real-acceptance-modules-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 真实服务页面完成自动筛选、重置、Jenkins 任务、用例详情抽屉、一键失败重试和模块重试动作 |
 
 ## 7. 容器化兼容检查
 

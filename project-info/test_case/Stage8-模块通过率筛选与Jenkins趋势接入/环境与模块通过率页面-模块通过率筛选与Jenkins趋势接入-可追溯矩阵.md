@@ -12,27 +12,27 @@
 
 | 证据编号 | 路径 | 结论 |
 | --- | --- | --- |
-| EV-S8-BE-TARGET | `../../../back-end/tests/evidence/backend-stage8-phase5-target-green-20260707.txt` | Stage8 后端目标测试：55 passed，覆盖率 72% |
-| EV-S8-BE-FULL | `../../../back-end/tests/evidence/backend-stage8-phase5-full-green-20260707.txt` | 后端全量测试：140 passed，覆盖率 89% |
-| EV-S8-BE-CHECK | `../../../back-end/tests/evidence/backend-stage8-phase5-manage-check-20260707.txt` | Django system check 无问题 |
-| EV-S8-BE-MIGRATION | `../../../back-end/tests/evidence/backend-stage8-phase5-makemigrations-check-20260707.txt` | 迁移检查无新增 migration |
-| EV-S8-FE-API-RED | `../../../front-end/tests/evidence/stage8-frontend-api-red-20260707.txt` | 前端 API 契约 RED：缺 `fetchModuleSnapshotFilterOptions` |
-| EV-S8-FE-E2E-RED | `../../../front-end/tests/evidence/stage8-frontend-playwright-red-20260707.txt` | 前端 Stage8 E2E RED：旧筛选、旧列顺序、旧重试口径失败 |
-| EV-S8-FE-API | `../../../front-end/tests/evidence/stage8-frontend-api-green-20260707.txt` | Stage8 前端 API 契约：3 passed |
-| EV-S8-FE-E2E | `../../../front-end/tests/evidence/stage8-frontend-playwright-green-with-screenshots-20260707.txt` | Stage8 目标 Playwright：8 passed |
-| EV-S8-FE-TYPE | `../../../front-end/tests/evidence/stage8-frontend-typecheck-green-20260707.txt` | 前端 TypeScript / Vue typecheck 通过 |
-| EV-S8-FE-UNIT | `../../../front-end/tests/evidence/stage8-frontend-unit-full-20260707.txt` | 前端全量 Vitest：6 files / 12 tests passed |
-| EV-S8-FE-FULL-E2E | `../../../front-end/tests/evidence/stage8-frontend-playwright-full-green-20260707.txt` | 前端全量 Playwright：51 passed，1 skipped（既有 `.local` 真服务回归） |
-| EV-S8-FE-BUILD | `../../../front-end/tests/evidence/stage8-frontend-build-green-20260707.txt` | 前端生产构建通过，保留既有 Rollup warning |
-| EV-S8-JENKINS | `../../../jenkins/tests/evidence/jenkins-stage8-phase7-static-20260707.txt` | Jenkins/Docker 静态回归：41 passed |
-| EV-S8-SHOT-MODULES | `../../../front-end/tests/evidence/screenshots/stage8-modules-filters-desktop-20260707.png` | `/modules` 桌面筛选、列顺序截图 |
-| EV-S8-SHOT-CASE | `../../../front-end/tests/evidence/screenshots/stage8-case-details-retry-20260707.png` | 用例详情失败重试提示截图 |
-| EV-S8-SHOT-JENKINS | `../../../front-end/tests/evidence/screenshots/stage8-jenkins-tasks-filters-20260707.png` | Jenkins 任务弹窗筛选截图 |
-| EV-S8-SHOT-MOBILE | `../../../front-end/tests/evidence/screenshots/stage8-modules-mobile-20260707.png` | `/modules` 移动端卡片截图 |
-| EV-S8-P14-BE-TARGET | `../../../back-end/tests/evidence/backend-stage8-phase14-target-green-20260707.txt` | Phase 14 后端目标回归：73 passed |
-| EV-S8-P14-BE-FULL | `../../../back-end/tests/evidence/backend-stage8-phase14-full-green-20260707.txt` | Phase 14 后端全量回归：153 passed，覆盖率 90% |
-| EV-S8-P14-FE-E2E | `../../../front-end/tests/evidence/stage8-phase14-frontend-affected-e2e-green-20260707.txt` | Phase 14 受影响前端 E2E：29 passed |
-| EV-S8-P14-REAL | `../../../front-end/tests/evidence/stage8-phase14-real-acceptance-5174-20260707.txt` | Phase 14 真实 `http://127.0.0.1:5174` AI 验收：1 passed |
+| EV-S8-BE-TARGET | `历史验证记录（backend-stage8-phase5-target-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Stage8 后端目标测试：55 passed，覆盖率 72% |
+| EV-S8-BE-FULL | `历史验证记录（backend-stage8-phase5-full-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 后端全量测试：140 passed，覆盖率 89% |
+| EV-S8-BE-CHECK | `历史验证记录（backend-stage8-phase5-manage-check-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Django system check 无问题 |
+| EV-S8-BE-MIGRATION | `历史验证记录（backend-stage8-phase5-makemigrations-check-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 迁移检查无新增 migration |
+| EV-S8-FE-API-RED | `历史验证记录（stage8-frontend-api-red-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 前端 API 契约 RED：缺 `fetchModuleSnapshotFilterOptions` |
+| EV-S8-FE-E2E-RED | `历史验证记录（stage8-frontend-playwright-red-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 前端 Stage8 E2E RED：旧筛选、旧列顺序、旧重试口径失败 |
+| EV-S8-FE-API | `历史验证记录（stage8-frontend-api-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Stage8 前端 API 契约：3 passed |
+| EV-S8-FE-E2E | `历史验证记录（stage8-frontend-playwright-green-with-screenshots-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Stage8 目标 Playwright：8 passed |
+| EV-S8-FE-TYPE | `历史验证记录（stage8-frontend-typecheck-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 前端 TypeScript / Vue typecheck 通过 |
+| EV-S8-FE-UNIT | `历史验证记录（stage8-frontend-unit-full-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 前端全量 Vitest：6 files / 12 tests passed |
+| EV-S8-FE-FULL-E2E | `历史验证记录（stage8-frontend-playwright-full-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 前端全量 Playwright：51 passed，1 skipped（既有 `.local` 真服务回归） |
+| EV-S8-FE-BUILD | `历史验证记录（stage8-frontend-build-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 前端生产构建通过，保留既有 Rollup warning |
+| EV-S8-JENKINS | `历史验证记录（jenkins-stage8-phase7-static-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Jenkins/Docker 静态回归：41 passed |
+| EV-S8-SHOT-MODULES | `历史验证记录（screenshots/stage8-modules-filters-desktop-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | `/modules` 桌面筛选、列顺序截图 |
+| EV-S8-SHOT-CASE | `历史验证记录（screenshots/stage8-case-details-retry-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 用例详情失败重试提示截图 |
+| EV-S8-SHOT-JENKINS | `历史验证记录（screenshots/stage8-jenkins-tasks-filters-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Jenkins 任务弹窗筛选截图 |
+| EV-S8-SHOT-MOBILE | `历史验证记录（screenshots/stage8-modules-mobile-20260707.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | `/modules` 移动端卡片截图 |
+| EV-S8-P14-BE-TARGET | `历史验证记录（backend-stage8-phase14-target-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Phase 14 后端目标回归：73 passed |
+| EV-S8-P14-BE-FULL | `历史验证记录（backend-stage8-phase14-full-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Phase 14 后端全量回归：153 passed，覆盖率 90% |
+| EV-S8-P14-FE-E2E | `历史验证记录（stage8-phase14-frontend-affected-e2e-green-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Phase 14 受影响前端 E2E：29 passed |
+| EV-S8-P14-REAL | `历史验证记录（stage8-phase14-real-acceptance-5174-20260707.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | Phase 14 真实 `http://127.0.0.1:5174` AI 验收：1 passed |
 
 ## 3. AC 追溯矩阵
 

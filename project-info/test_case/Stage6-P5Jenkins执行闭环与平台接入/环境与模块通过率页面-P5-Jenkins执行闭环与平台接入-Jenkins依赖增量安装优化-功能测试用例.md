@@ -1,4 +1,4 @@
-﻿# 环境与模块通过率页面-P5-Jenkins执行闭环与平台接入-Jenkins依赖增量安装优化-功能测试用例
+# 环境与模块通过率页面-P5-Jenkins执行闭环与平台接入-Jenkins依赖增量安装优化-功能测试用例
 
 ## 1. 测试范围
 
@@ -27,5 +27,5 @@
 
 ## 4. 证据文件
 
-- `api-test/tests/evidence/api-test-stage6-p5-incremental-requirements-green-20260706.txt`
-- `jenkins/tests/evidence/jenkins-stage6-p5-incremental-requirements-static-green-20260706.txt`
+- `历史验证记录（api-test-stage6-p5-incremental-requirements-green-20260706.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）`
+- `历史验证记录（jenkins-stage6-p5-incremental-requirements-static-green-20260706.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）`

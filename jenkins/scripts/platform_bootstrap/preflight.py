@@ -22,7 +22,7 @@ REQUIRED_ENV_KEYS = (
     "BACKEND_SERVICE_URL",
     "BACKEND_API_BASE_URL",
 )
-LIMITED_CONTAINER_FORMAT = "{{.Id}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}"
+LIMITED_CONTAINER_FORMAT = "{{.Id}}|{{.State.Running}}|unknown"
 LIMITED_HEALTH_LOG_FORMAT = "{{range .State.Health.Log}}{{.ExitCode}}|{{.Output}}{{println}}{{end}}"
 
 
@@ -236,6 +236,14 @@ class PreflightService:
                         ),
                     )
                 )
+            if name == "mysql":
+                health_result = self._command(
+                    context,
+                    "mysql-health-status",
+                    ("docker", "inspect", "--format", "{{.State.Health.Status}}", "aiapitest-mysql"),
+                )
+                if health_result.success:
+                    health = health_result.redacted_output_tail.strip()
             if name == "mysql" and health != "healthy":
                 health_result = self._command(
                     context,

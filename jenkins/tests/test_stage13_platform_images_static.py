@@ -69,6 +69,19 @@ def test_application_services_do_not_start_bootstrap_services_implicitly():
     assert "aiapitest-jenkins-home:/var/jenkins_home" in services["jenkins"]["volumes"]
 
 
+def test_compose_uses_private_application_database_credentials_for_container_networking():
+    """应用容器不能跨网络使用 MySQL root，初始化与运行必须复用私有 DB 用户。"""
+    services = load_compose()["services"]
+
+    assert services["mysql"]["environment"]["MYSQL_USER"] == "${DB_USER:?Set DB_USER in .env}"
+    assert services["mysql"]["environment"]["MYSQL_PASSWORD"] == "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
+    for service_name in ["backend", "jenkins-sync-worker"]:
+        environment = services[service_name]["environment"]
+        assert environment["DB_USER"] == "${DB_USER:?Set DB_USER in .env}"
+        assert environment["DB_PASSWORD"] == "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
+        assert environment["DJANGO_ALLOWED_HOSTS"].endswith(",backend,frontend")
+
+
 def test_jenkins_controller_uses_tools_image_and_socket_group_permission():
     jenkins = load_compose()["services"]["jenkins"]
 
@@ -92,6 +105,10 @@ def test_backend_and_worker_share_immutable_image_with_healthchecks():
 
     assert backend["image"] == "aiapitest-backend:local"
     assert backend["build"]["dockerfile"] == "back-end/Dockerfile"
+    assert (
+        "COPY api-test/utils/package_module.yaml "
+        "/workspace/AiApiTest-DWP/api-test/utils/package_module.yaml"
+    ) in read_text("back-end/Dockerfile")
     assert "gunicorn" in " ".join(backend["command"])
     assert "/api/v1/health/ready/" in " ".join(backend["healthcheck"]["test"])
     assert backend["environment"]["DB_HOST"] == "mysql"
@@ -111,7 +128,7 @@ def test_frontend_runtime_provides_nginx_spa_proxy_and_health():
     assert frontend["image"] == "aiapitest-frontend:local"
     assert frontend["build"]["target"] == "runtime"
     assert "nginx" in dockerfile.lower()
-    assert "mcr.microsoft.com/playwright:v1.61.1" in dockerfile
+    assert "ARG PLAYWRIGHT_BASE_IMAGE" in dockerfile
     assert "npm ci" in dockerfile
     assert "npx playwright install" not in dockerfile
     assert "location = /health" in nginx_config
@@ -143,15 +160,44 @@ def test_api_runner_is_non_persistent_and_uses_image_internal_source():
     assert "COPY . /workspace/AiApiTest-DWP" in dockerfile
     assert "api-test/requirements.txt" in dockerfile
     assert "python -m pip install" in dockerfile
-    assert "allure-commandline" in dockerfile
+    assert "COPY --from=jenkins-tools /opt/allure-${ALLURE_COMMANDLINE_VERSION}" in dockerfile
     assert "mkdir -p /workspace/AiApiTest-DWP/api-test/report" in dockerfile
 
 
-def test_api_runner_uses_supported_java_runtime_for_current_debian_base():
+def test_api_runner_reuses_jenkins_java_runtime_without_debian_installation():
     dockerfile = read_text("api-test/Dockerfile")
 
-    assert "openjdk-21-jre-headless" in dockerfile
+    assert "COPY --from=jenkins-tools /opt/java/openjdk /opt/java/openjdk" in dockerfile
+    assert "JAVA_HOME=/opt/java/openjdk" in dockerfile
+    assert "openjdk-21-jre-headless" not in dockerfile
     assert "openjdk-17-jre-headless" not in dockerfile
+
+
+def test_api_runner_reuses_jenkins_toolchain_without_external_install_downloads():
+    """已启动的 Jenkins 提供 JRE 与 Allure，Runner 构建不得再访问 apt 或 GitHub 下载。"""
+    dockerfile = read_text("api-test/Dockerfile")
+
+    assert "FROM aiapitest-jenkins:lts-jdk17-tools AS jenkins-tools" in dockerfile
+    assert "COPY --from=jenkins-tools /opt/allure-${ALLURE_COMMANDLINE_VERSION}" in dockerfile
+    assert "COPY --from=jenkins-tools /opt/java/openjdk /opt/java/openjdk" in dockerfile
+    assert "JAVA_HOME=/opt/java/openjdk" in dockerfile
+    for forbidden in ["apt-get", "curl -fsSL", "unzip /tmp/allure"]:
+        assert forbidden not in dockerfile
+
+
+def test_frontend_uses_env_injected_playwright_proxy_image():
+    """前端 build/test 需要的 Playwright 镜像地址必须由根 .env 经 Jenkins 与 Bake 传入。"""
+    dockerfile = read_text("front-end/Dockerfile")
+    compose = load_compose()
+    bake = read_text("jenkins/scripts/platform-bootstrap-bake.hcl")
+    env_example = read_text(".env.example")
+
+    assert "ARG PLAYWRIGHT_BASE_IMAGE" in dockerfile
+    assert "FROM ${PLAYWRIGHT_BASE_IMAGE} AS dependencies" in dockerfile
+    assert "FRONTEND_PLAYWRIGHT_BASE_IMAGE" in compose["services"]["jenkins"]["environment"]
+    assert 'variable "FRONTEND_PLAYWRIGHT_BASE_IMAGE"' in bake
+    assert bake.count("PLAYWRIGHT_BASE_IMAGE = FRONTEND_PLAYWRIGHT_BASE_IMAGE") == 2
+    assert "FRONTEND_PLAYWRIGHT_BASE_IMAGE=mcr.m.daocloud.io/playwright:v1.61.1-noble" in env_example
 
 
 def test_dockerignore_excludes_private_and_generated_content():

@@ -1,3 +1,5 @@
+FROM aiapitest-jenkins:lts-jdk17-tools AS jenkins-tools
+
 FROM python:3.12-slim
 
 ARG ALLURE_COMMANDLINE_VERSION=2.30.0
@@ -7,14 +9,13 @@ ARG AIAPITEST_SOURCE_REVISION=unknown
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    JAVA_HOME=/opt/java/openjdk \
     ALLURE_COMMANDLINE_HOME=/opt/allure-${ALLURE_COMMANDLINE_VERSION} \
-    PATH=/opt/allure-${ALLURE_COMMANDLINE_VERSION}/bin:${PATH}
+    PATH=/opt/java/openjdk/bin:/opt/allure-${ALLURE_COMMANDLINE_VERSION}/bin:${PATH}
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git openjdk-21-jre-headless unzip \
-    && curl -fsSL "https://github.com/allure-framework/allure2/releases/download/${ALLURE_COMMANDLINE_VERSION}/allure-${ALLURE_COMMANDLINE_VERSION}.zip" -o /tmp/allure-commandline.zip \
-    && unzip /tmp/allure-commandline.zip -d /opt \
-    && rm -rf /tmp/allure-commandline.zip /var/lib/apt/lists/*
+# Jenkins 是本环境 Job 的先决服务，复用其已验证的 JRE 与 Allure，避免 API Runner 在构建时访问外部下载源。
+COPY --from=jenkins-tools /opt/allure-${ALLURE_COMMANDLINE_VERSION} /opt/allure-${ALLURE_COMMANDLINE_VERSION}
+COPY --from=jenkins-tools /opt/java/openjdk /opt/java/openjdk
 
 WORKDIR /workspace/AiApiTest-DWP
 

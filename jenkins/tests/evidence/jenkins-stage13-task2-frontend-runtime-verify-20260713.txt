@@ -1,4 +1,0 @@
-ID=sha256:7fa820eaa365fa2fa2254bdef3b2a58fdb20b1d967522f4b2e206089d6e05fc7 COMPONENT=frontend DEPENDENCY=stage13-test INPUT=stage13-test SOURCE=stage13-test
-HEALTH=ok
-INDEX_HAS_APP=    <div id="app"></div>
-VERIFY_EXIT_CODE=0

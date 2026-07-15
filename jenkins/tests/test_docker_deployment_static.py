@@ -53,7 +53,6 @@ def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
         "JENKINS_DAILY_FULL_JOB_PREFIX: ${JENKINS_DAILY_FULL_JOB_PREFIX:-AiApiTest-DWP-Daily-Full-Module}",
         "JENKINS_DEFAULT_CASE_PATH: ${JENKINS_DEFAULT_CASE_PATH:-test_case/test_gbif_case}",
         "JENKINS_API_TEST_DIR: ${JENKINS_API_TEST_DIR:-api-test}",
-        "JENKINS_PYTHON_VENV_DIR: ${JENKINS_PYTHON_VENV_DIR:-.venv}",
         "JENKINS_EXECUTORS: ${JENKINS_EXECUTORS:-40}",
         "LOCAL_WORKSPACE_REPO: ${LOCAL_WORKSPACE_REPO:-true}",
         "AIAPITEST_LOCAL_WORKSPACE: ${AIAPITEST_LOCAL_WORKSPACE:-/workspace/AiApiTest-DWP}",
@@ -61,6 +60,7 @@ def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
         "CI_RUN_RETENTION_DAYS: ${CI_RUN_RETENTION_DAYS:-30}",
     ]:
         assert variable in content
+    assert "JENKINS_PYTHON_VENV_DIR" not in content
 
 
 def test_env_example_documents_required_values_without_real_secrets():
@@ -153,6 +153,16 @@ def test_compose_bootstraps_local_module_jobs_via_versioned_init_script():
     assert (
         "./jenkins/scripts/configure-local-mounted-jobs.groovy:"
         "/var/jenkins_home/init.groovy.d/30-aiapitest-local-jobs.groovy:ro"
+    ) in compose
+
+
+def test_compose_injects_platform_bootstrap_job_name_into_jenkins_init_script():
+    """私有 .env 覆盖的环境 Job 名必须进入 Jenkins init Groovy，而非只使用代码默认值。"""
+    compose = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+
+    assert (
+        "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME: "
+        "${JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME:-AiApiTest-DWP-Platform-Bootstrap}"
     ) in compose
 
 

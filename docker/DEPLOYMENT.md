@@ -1,34 +1,35 @@
 # Docker Deployment
 
-本文档是本项目 Docker 快速部署的详细说明，面向人工部署和 AI 自动部署。
+本文档是本项目 Docker bootstrap 的详细说明，只面向主人/平台运维。AI 不执行本文件的 Docker 命令；AI 的平台应用环境操作只能触发固定 Jenkins 环境 Job。
 
 ## 部署目标
 
-通过 Docker Compose 快速启动当前项目依赖的两个基础服务：
-
-- MySQL：后端 DRF 使用的本地数据库。
-- Jenkins：执行和管理接口自动化 Pipeline。
-
-默认不包含 `back-end`、`front-end` 和 `api-test` 应用容器。这三个模块仍按项目阶段文档在本机或 Jenkins workspace 中运行。
+当前 `docker-compose.yml` 声明以下默认 Compose 服务。MySQL 与 Jenkins 是用户管理的 bootstrap 基础服务；其余应用服务的构建、依赖检查、启动、健康检查与环境验收均由 Jenkins 环境 Job 管理，不能以宿主机命令替代。
 
 ## 关键文件
 
 | 文件 | 用途 |
 |------|------|
-| `docker-compose.yml` | 默认 MySQL 和 Jenkins 服务定义 |
-| `docker-compose.jenkins-tools.yml` | 可选 Jenkins 工具链镜像 override |
+| `docker-compose.yml` | 默认 Compose 服务与 Jenkins 工具链镜像构建定义 |
+| `docker-compose.jenkins-tools.yml` | 与默认工具镜像一致的兼容 overlay，不是环境 Job 的必需入口 |
 | `.env.example` | 可提交的通用网络配置模板 |
 | `.env` | 本地私有部署配置，不提交 git |
 | `scripts/deploy-docker.ps1` | Windows PowerShell 一键部署脚本 |
 | `scripts/deploy-docker.sh` | Linux/macOS/Git Bash 一键部署脚本 |
-| `docker/jenkins/Dockerfile` | 可选 Jenkins 工具链镜像定义 |
+| `docker/jenkins/Dockerfile` | 默认 Jenkins tools 镜像构建来源 |
 
-## 默认服务
+## 默认 Compose 服务
 
-| 服务 | 镜像 | 容器名 | 主机端口 | 容器端口 | 数据卷 |
-|------|------|--------|----------|----------|--------|
-| MySQL | `mysql:8.4` | `aiapitest-mysql` | `${MYSQL_BIND_HOST}:${MYSQL_HOST_PORT}` | `3306` | `aiapitest-mysql-data` |
-| Jenkins | `jenkins/jenkins:lts-jdk17` | `aiapitest-jenkins` | `${JENKINS_HTTP_PORT}`, `${JENKINS_AGENT_PORT}` | `8080`, `50000` | `aiapitest-jenkins-home` |
+| 服务 | 角色 | 生命周期 |
+|------|------|----------|
+| `mysql` | DRF 数据库 | 主人/平台运维 bootstrap；持久化 `aiapitest-mysql-data` |
+| `jenkins` | Jenkins controller | 主人/平台运维 bootstrap；持久化 `aiapitest-jenkins-home` |
+| `backend` | DRF API | Jenkins 环境 Job 管理 |
+| `frontend` | 前端/Nginx 服务 | Jenkins 环境 Job 管理 |
+| `jenkins-sync-worker` | Jenkins 结果同步 worker | Jenkins 环境 Job 管理 |
+| `api-runner` | pytest/Allure 隔离执行镜像 | `tools profile`，非常驻服务，由 Jenkins 调度 |
+
+默认 Jenkins controller 构建 `docker/jenkins/Dockerfile` 工具链镜像 `aiapitest-jenkins:lts-jdk17-tools`，不是可选 override。该镜像提供 Docker CLI/Compose、Allure 与 Jenkins 插件；业务 pytest/Allure 依赖仍只在 `aiapitest-api-runner:local` 镜像构建阶段安装。
 
 Jenkins 访问地址：
 
@@ -39,6 +40,8 @@ MySQL 本机连接：
 由 `.env` 中 `MYSQL_BIND_HOST`、`MYSQL_HOST_PORT`、`MYSQL_DATABASE` 和后端数据库用户变量决定。
 
 ## 人工部署
+
+> **仅主人/平台运维执行，AI 不得执行。** 本节命令仅用于启动或维护 MySQL/Jenkins bootstrap 容器；环境 Job/helper 永不管理 MySQL 与 Jenkins。
 
 部署前确认 Docker Compose 可用：
 
@@ -58,7 +61,7 @@ Linux/macOS/Git Bash：
 bash scripts/deploy-docker.sh
 ```
 
-脚本会在缺少 `.env` 时从 `.env.example` 创建本地配置。`.env.example` 只包含 IP、端口和服务入口；首次启动前必须在本地 `.env` 中补齐 `MYSQL_ROOT_PASSWORD`、初始化管理员账号、Django/Auth 密钥等私有配置。
+脚本会在缺少 `.env` 时从 `.env.example` 创建本地配置。`.env.example` 只包含 IP、端口和服务入口；首次启动前必须在本地 `.env` 中补齐 `MYSQL_ROOT_PASSWORD`、`DB_USER`、`DB_PASSWORD`、初始化管理员账号、Django/Auth 密钥等私有配置。
 
 补齐 `.env` 后执行：
 
@@ -74,40 +77,31 @@ JENKINS_PUBLIC_BASE_URL=http://localhost:8080
 JENKINS_HTTP_PORT=8080
 JENKINS_AGENT_PORT=50001
 JENKINS_EXECUTORS=40
+JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME=AiApiTest-DWP-Platform-Bootstrap
 PROJECT_WORKSPACE=$PROJECT_ROOT
 CI_RUN_RETENTION_DAYS=30
+DOCKER_GID=0
+BACKEND_BIND_HOST=127.0.0.1
+BACKEND_HOST_PORT=8000
+FRONTEND_BIND_HOST=127.0.0.1
+FRONTEND_HOST_PORT=5173
+JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS=60
 ```
 
-同时在 `.env` 中维护私有配置，例如 `MYSQL_ROOT_PASSWORD`、`DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET`、`INITIAL_ADMIN_USERNAME` 和 `INITIAL_ADMIN_PASSWORD`。默认 root 连接优先使用 `MYSQL_ROOT_PASSWORD`；只有启用非 root 用户时才使用 `MYSQL_PASSWORD`。
+同时在 `.env` 中维护私有配置，例如 `MYSQL_ROOT_PASSWORD`、`DB_USER`、`DB_PASSWORD`、`DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET`、`INITIAL_ADMIN_USERNAME` 和 `INITIAL_ADMIN_PASSWORD`。其中 `DB_USER` 与 `DB_PASSWORD` 是 Compose 必填的应用专用非 root 数据库用户和密码，只写入本地 `.env`；`MYSQL_ROOT_PASSWORD` 只用于 MySQL 管理和初始化，不作为 backend 或 worker 的运行连接账号。
 
-## AI 部署
+## AI 环境操作边界
 
-如果让 AI 执行部署，建议给 AI 以下指令：
+AI 对平台应用环境重启、依赖检查/安装、`backend`/`frontend`/`jenkins-sync-worker` 启动、停止或重建，以及平台冒烟/全量环境验收，必须且只能触发同一 Jenkins 环境 Job：
 
-```text
-请先读取 AGENTS.md 和 docker/DEPLOYMENT.md，然后使用仓库内 Docker Compose 脚本部署本项目依赖的 MySQL 和 Jenkins。不要提交 .env，不要删除已有数据卷；如果端口或同名容器冲突，先说明冲突并给出处理建议。
-```
+- Windows：`scripts/trigger-platform-bootstrap.ps1`
+- Linux/macOS/Git Bash：`scripts/trigger-platform-bootstrap.sh`
 
-AI 执行时必须遵守：
-
-1. 先运行 `git status --short`，确认工作区改动范围。
-2. 运行 `docker compose version`，确认 Docker Compose 可用。
-3. 优先使用 `scripts/deploy-docker.ps1` 或 `scripts/deploy-docker.sh`。
-4. 不读取、不记录、不提交 `.env` 中的真实密码。
-5. 不执行 `docker compose down -v`，除非用户明确要求删除本地数据。
-6. 如果已有同名容器或端口冲突，先向用户说明再处理。
-
-部署后验证：
-
-```bash
-docker compose ps
-docker compose logs --tail=80 mysql
-docker compose logs --tail=80 jenkins
-```
+AI 禁止直接执行应用服务 `docker compose up/restart/stop/down`、`docker build`、宿主机或运行容器的 `pip install`、`npm install`、`npm ci`，也禁止直接启动 Django `runserver`、Vite 或同步 worker 来替代环境 Job。MySQL/Jenkins 未运行、Docker Socket 不可用或配置缺失时，AI 只能报告 Jenkins 结构化诊断，引导主人/平台运维修复后重新构建，不能旁路修复。
 
 ## 后端连接 Docker MySQL
 
-后端本地运行默认读取仓库根目录 `.env`，正式运行使用 Docker MySQL。默认情况下后端会复用 `MYSQL_DATABASE`、`MYSQL_BIND_HOST`、`MYSQL_HOST_PORT` 和 `MYSQL_ROOT_PASSWORD`；这些私有值写在本地 `.env`，不写入 `.env.example`。如果后续启用非 root 用户，可通过 `MYSQL_USER` / `MYSQL_PASSWORD` 或 `DB_USER` / `DB_PASSWORD` 覆盖。如果需要覆盖容器内连接，可在 `.env` 中设置 `DB_HOST=mysql`、`DB_PORT=3306`。
+后端本地运行默认读取仓库根目录 `.env`，正式 Compose 运行时 backend 与 `jenkins-sync-worker` 固定使用本地 `.env` 中必填的 `DB_USER`、`DB_PASSWORD` 连接 `mysql:3306`。`MYSQL_ROOT_PASSWORD` 仅供 MySQL 管理和初始化；宿主机调试连接地址仍由 `MYSQL_BIND_HOST` 与 `MYSQL_HOST_PORT` 决定。这些私有账号、密码和数据库名不写入 `.env.example`，模板只保留变量用途说明。
 
 测试环境仍由 `config.settings.test` 使用内存 SQLite，不依赖本机 MySQL。
 
@@ -121,62 +115,47 @@ docker exec aiapitest-jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 
 该密码只用于本地首次初始化，不要提交到仓库或写入项目文档。
 
-Jenkins 初始化后，创建 Pipeline job 时可使用仓库中的：
+Jenkins 初始化后，既有业务 Pipeline job 可使用仓库中的：
 
 ```text
 jenkins/Jenkinsfile
 ```
 
-默认 Compose 会把版本化的 `jenkins/scripts/configure-local-mounted-jobs.groovy` 挂载到 `init.groovy.d`。Jenkins 启动后自动创建或修复各模块 Daily Job、配置凌晨 2 点定时器，并停用遗留共享 Daily Job 的定时器；无需在 Script Console 手工粘贴脚本。模块配置变化后可用以下命令重新加载初始化脚本，保留 Jenkins home 数据卷：
+默认 Compose 会把版本化的 `jenkins/scripts/configure-local-mounted-jobs.groovy` 挂载到 `init.groovy.d`。Jenkins 启动时幂等创建或修复 `AiApiTest-DWP-Platform-Bootstrap` 环境 Job，以及各模块 Daily Job；环境 Job 无 cron、固定加载 `jenkins/Jenkinsfile.platform-bootstrap`，Daily Job 配置凌晨 2 点定时器，并停用遗留共享 Daily Job 的定时器。无需在 Script Console 手工粘贴脚本。模块配置变化后可由主人/平台运维使用以下命令重新加载初始化脚本，保留 Jenkins home 数据卷：
 
 ```bash
 docker compose up -d --no-deps --force-recreate jenkins
 ```
 
-当前 Compose 尚不包含后端容器，Jenkins 同步 worker 在宿主机后端目录独立运行：
+Stage13 Compose 已定义 `backend`、`frontend` 和 `jenkins-sync-worker` 应用服务。它们只能由环境 Job 部署；worker 从运行时环境读取数据库与 Jenkins 配置，容器内部通过 `mysql:3306` 和 `jenkins:8080` 访问依赖，不绑定宿主机固定端口。
 
-```bash
-cd back-end
-python manage.py sync_jenkins_results --watch
-```
+## Jenkins 工具链镜像
 
-worker 从仓库根 `.env` 读取数据库与 Jenkins 配置。后续后端容器化时，应复用同一 backend 镜像新增 `jenkins-sync-worker` service，命令保持不变，容器内部通过 `mysql:3306` 和 `jenkins:8080` 访问依赖，不绑定宿主机固定端口。
-
-## 可选 Jenkins 工具链镜像
-
-默认 `docker-compose.yml` 使用官方 Jenkins 镜像，启动最快。
-
-如果希望 Jenkins 容器内直接具备执行 `api-test` Pipeline 的工具链，可使用：
+默认 `docker-compose.yml` 已构建 Jenkins 工具链镜像，首次 bootstrap 或工具链镜像变更时由主人/平台运维执行：
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.jenkins-tools.yml up -d mysql jenkins
 ```
 
-该 override 会构建 `docker/jenkins/Dockerfile`，额外安装：
+默认 Compose 的 Jenkins build 会构建 `docker/jenkins/Dockerfile`，额外安装：
 
 - `python3`
 - `python3-pip`
-- `python3-venv`
 - `python-is-python3`
 - `git`
+- Docker CLI、Buildx 与 Compose plugin
 - Allure CLI
 - Jenkins Allure 插件
-- `api-test/requirements.txt` 中当前 Linux 环境适用的 Python 依赖
 
-工具链镜像还会初始化 `/workspace` 目录权限，保证 Jenkins 用户能创建 `@tmp` 控制目录，并通过 init 脚本把镜像内 Allure CLI 注册为 Jenkins 全局工具 `Allure Commandline`。镜像通过 `AIAPITEST_PREINSTALLED_REQUIREMENTS=1` 标识预装依赖；仅该 Linux 工具镜像的 executor venv 使用 `--system-site-packages` 只读复用镜像依赖。其它 Linux/Windows agent 保持隔离 venv，所有环境运行时仍会检查 requirements，版本落后时仅在当前 executor venv 补差异。
+工具链镜像还会初始化 `/workspace` 目录权限，保证 Jenkins 用户能创建 `@tmp` 控制目录，并通过 init 脚本把镜像内 Allure CLI 注册为 Jenkins 全局工具 `Allure Commandline`。controller 不创建业务 venv、不安装 pytest/Allure 业务依赖；`api-test` 依赖只在固定 `aiapitest-api-runner:local` 镜像构建阶段安装，并由环境 Job 统一检查。
 
-修改 `api-test/requirements.txt` 后需要重建 Jenkins 工具镜像，才能让新的 executor 首次运行也直接复用最新依赖：
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.jenkins-tools.yml build jenkins
-docker compose -f docker-compose.yml -f docker-compose.jenkins-tools.yml up -d --no-deps jenkins
-```
-
-注意：该构建需要访问 Debian 软件源、Allure 下载地址和 Jenkins 插件更新中心，网络较慢时可能耗时较长。默认快速部署不依赖该构建。
+修改应用或 `api-test` 依赖后，不在 controller 或宿主机执行动态安装；使用环境 Job 的 `build_all=true` 重新构建镜像和应用服务。工具链镜像自身变更时，由主人/平台运维按本节 bootstrap 命令重建 Jenkins，不删除 Jenkins 数据卷。
 
 Jenkins Pipeline 的本地报告会生成在挂载仓库的 `api-test/runtime/ci-runs/<run_id>/`。`PROJECT_WORKSPACE` 必须指向当前正在验收的仓库根目录；如果它指向旧工作区，Jenkins 会把报告写到旧工作区或容器临时目录，当前仓库下不会出现报告。`CI_RUN_RETENTION_DAYS` 默认 30，只清理超过保留期的历史 run 目录。
 
-## 常用命令
+## 主人/平台运维维护命令
+
+> **仅主人/平台运维执行，AI 不得执行。** 以下命令维护 bootstrap 服务，不是平台应用环境的启动入口。
 
 查看服务：
 
@@ -203,9 +182,11 @@ docker compose down
 docker compose down -v
 ```
 
-执行清理数据卷前必须确认不再需要本地 Jenkins/MySQL 数据。
+执行清理数据卷前必须确认不再需要本地 Jenkins/MySQL 数据。AI 禁止 `down -v`、volume 删除和 `chmod 666 /var/run/docker.sock`。
 
-## 故障处理
+## Bootstrap 故障处理
+
+> **仅主人/平台运维执行，AI 不得执行。** 修复 bootstrap 故障后，回到 Jenkins 环境 Job 重新构建，不以宿主机应用命令绕过。
 
 端口被占用：
 
@@ -221,6 +202,35 @@ docker compose down -v
 
 MySQL 密码不一致：
 
-1. 确认 `.env` 中 `MYSQL_ROOT_PASSWORD`。
-2. 默认 root 连接时确认后端运行环境读取的是 `MYSQL_ROOT_PASSWORD`；只有使用非 root 用户时才检查 `MYSQL_PASSWORD`。
-3. 已初始化过的数据卷不会因为修改 `.env` 自动改 root 密码；必要时需要人工进入 MySQL 修改密码，或在确认可删除数据后重建数据卷。
+1. 确认 `.env` 中 `MYSQL_ROOT_PASSWORD` 仅用于 MySQL 管理和初始化，同时已配置必填的 `DB_USER` 与 `DB_PASSWORD`。
+2. backend 与 `jenkins-sync-worker` 的应用连接只使用 `DB_USER`、`DB_PASSWORD`；确认 MySQL 中存在与之匹配的应用专用非 root 数据库用户和密码。
+3. 已初始化过的持久化数据卷不会因为修改 `.env` 自动更新 root 或应用用户密码；必要时由主人/平台运维进入 MySQL 同步凭据，只有确认数据可删除后才允许重建数据卷。
+
+## 环境 Job 创建与使用
+
+完成 MySQL/Jenkins bootstrap 后，版本化 init Groovy 会在 Jenkins 启动时幂等创建或修复固定 Pipeline Job `AiApiTest-DWP-Platform-Bootstrap`，并与私有 `.env` 的 `JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME` 保持一致。该 Job 固定加载 `jenkins/Jenkinsfile.platform-bootstrap`、注入 `LOCAL_WORKSPACE_REPO=true`、无 cron，详细契约见 `jenkins/README.md`。
+
+确认 Job 已由启动初始化脚本创建或修复后，用户可在 Jenkins 页面点击 Build，或使用两个 helper 触发同一契约：Windows 使用 `scripts/trigger-platform-bootstrap.ps1`，Linux/macOS/Git Bash 使用 `scripts/trigger-platform-bootstrap.sh`。构建完成后在 Jenkins Build Summary、归档产物、Allure 入口和 `.env` 配置的公开地址查看结果。
+
+## Docker Socket 安全边界
+
+Jenkins controller 挂载 `/var/run/docker.sock` 后拥有主机级 Docker 控制能力；`DOCKER_GID/group_add` 仅用于授权，不提供隔离。这只适用于受信任的本地开发/验收 controller，不是生产部署安全承诺，绝不允许不受信任 SCM/PR Job 使用该 Socket。
+
+Linux 由主人/平台运维执行 `stat -c '%g' /var/run/docker.sock` 获取实际 GID，写入私有 `.env` 的 `DOCKER_GID` 后重建 Jenkins。Windows Docker Desktop 当前使用 `DOCKER_GID=0` 兼容值，必须由实际环境验证；任何平台都禁止 `chmod 666 /var/run/docker.sock`。
+
+## 环境 Job 失败诊断
+
+环境 Job 的失败摘要和结构化诊断是唯一应用环境排查入口。修复后重新构建：
+
+| 诊断场景 | 主人/平台运维修复动作 |
+| --- | --- |
+| `.env` 缺失或公开地址/端口配置错误 | 在私有 `.env` 补齐或修正配置，不提交该文件，然后重新构建。 |
+| Docker CLI、Compose 或 Socket/GID 不可用 | 修复 Jenkins 工具链镜像、Socket 挂载或 `DOCKER_GID`，重建 Jenkins bootstrap 后重新构建。 |
+| MySQL 未运行或不健康 | 启动或修复 MySQL bootstrap 容器，等待 healthy 后重新构建。 |
+| 依赖或镜像 build 失败 | 查看 Jenkins 对应依赖域日志；修复 Dockerfile/lockfile/网络或镜像源后重新构建。每个域只尝试一次安装。 |
+| 应用 health 超时 | 查看 Jenkins 健康阶段与服务日志，修复配置或应用后重新构建；失败服务和证据会保留。 |
+| helper 认证、Job 名或等待超时 | 校验 Jenkins Credentials、`JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME` 和 timeout 配置，修复后重新构建。 |
+
+环境 Job 默认 `build_all=true`：重建镜像并重启全部应用服务；传入 `build_all=false` 时仅在缺失或构建输入变化时增量重建。默认执行冒烟测试，传入 `run_full_tests=true` 才执行平台全量测试。三个依赖域各自检查，缺失或不满足时只执行一次安装并输出成功/失败日志；任一失败会汇总后终止部署。环境 Job 不执行 migration、初始化管理员、`collectstatic`、rollback 或 volume 删除，失败时保留应用服务与证据。
+
+启动后不建议修改的配置包括 MySQL/Jenkins volumes、数据库私有配置、Jenkins 公共 URL/Job 名、Compose project `aiapitest-dwp`、Socket/GID、认证 secret 与 Cookie 策略。Allure 是 Jenkins Build 级插件/归档入口，不新增常驻服务；公开链接由 `.env` 与 Jenkins runtime 生成。

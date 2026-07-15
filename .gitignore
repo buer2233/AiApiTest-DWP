@@ -27,3 +27,5 @@ front-end/test-results/
 front-end/tests/evidence/playwright-report/
 /.codegraph/
 /.planning/
+**/evidence/
+/.pytest_tmp*/

@@ -17,6 +17,7 @@ def genericPipelineJobName = System.getenv('JENKINS_GENERIC_PIPELINE_JOB_NAME') 
 def failedRerunJobName = System.getenv('JENKINS_FAILED_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Failed-Rerun'
 def moduleRerunJobName = System.getenv('JENKINS_MODULE_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Module-Rerun'
 def dailyFullJobPrefix = System.getenv('JENKINS_DAILY_FULL_JOB_PREFIX') ?: 'AiApiTest-DWP-Daily-Full-Module'
+def platformBootstrapJobName = System.getenv('JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME') ?: 'AiApiTest-DWP-Platform-Bootstrap'
 def managedMarker = '[AiApiTest-DWP local-mounted]'
 def legacyRemoteUrl = ['https://github', 'com/buer2233/AiApiTest-DWP.git'].join('.')
 
@@ -95,7 +96,9 @@ def jobConfigs = dailyModuleConfigs.collect { module ->
         description: "${managedMarker} Stage8 本地每日全量模块执行 Job（${module.packageName}）。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
         scriptPath: 'jenkins/scripts/daily-full-module-pipeline.groovy',
         envVars: ['LOCAL_WORKSPACE_REPO=true', "JENKINS_MODULE_CASE_PATH=${module.casePath}"],
-        dailyCron: true
+        dailyCron: true,
+        allowConcurrent: true,
+        entrypoint: false
     ]
 }
 
@@ -105,28 +108,46 @@ jobConfigs.addAll([
         description: "${managedMarker} Stage10 本地通用执行 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
         scriptPath: 'jenkins/scripts/api-test-pipeline.groovy',
         envVars: ['LOCAL_WORKSPACE_REPO=true'],
-        dailyCron: false
+        dailyCron: false,
+        allowConcurrent: true,
+        entrypoint: false
     ],
     [
         name: failedRerunJobName,
         description: "${managedMarker} Stage8 本地失败用例重试 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
         scriptPath: 'jenkins/scripts/failed-rerun-pipeline.groovy',
         envVars: ['LOCAL_WORKSPACE_REPO=true'],
-        dailyCron: false
+        dailyCron: false,
+        allowConcurrent: true,
+        entrypoint: false
     ],
     [
         name: moduleRerunJobName,
         description: "${managedMarker} Stage8 本地模块重试 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
         scriptPath: 'jenkins/scripts/module-rerun-pipeline.groovy',
         envVars: ['LOCAL_WORKSPACE_REPO=true'],
-        dailyCron: false
+        dailyCron: false,
+        allowConcurrent: true,
+        entrypoint: false
+    ],
+    [
+        // 环境 Job 与其他本地 Job 一样由 Jenkins 启动时创建/修复；顶层 Jenkinsfile 自行定义参数和禁止并发。
+        name: platformBootstrapJobName,
+        description: "${managedMarker} Stage13 统一平台环境启动 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
+        scriptPath: 'jenkins/Jenkinsfile.platform-bootstrap',
+        envVars: ['LOCAL_WORKSPACE_REPO=true'],
+        dailyCron: false,
+        allowConcurrent: false,
+        entrypoint: true,
+        // 固定环境入口必须覆盖历史手工验收 Job，避免重启后残留临时配置。
+        forceReplace: true
     ]
 ])
 
 def configuredDailyJobNames = [] as LinkedHashSet
 jobConfigs.each { config ->
     def job = jenkins.getItemByFullName(config.name, WorkflowJob)
-    if (!shouldReplaceExistingJob(job)) {
+    if (!(config.forceReplace || shouldReplaceExistingJob(job))) {
         println "[AiApiTest-DWP] skip existing non-local Jenkins Job: ${config.name}"
     } else {
         if (job == null) {
@@ -134,20 +155,25 @@ jobConfigs.each { config ->
         }
 
         def envList = config.envVars.collect { "'${it}'" }.join(', ')
-def pipelineScript = """node {
+        // 只在挂载目录读取 Pipeline 源码；durable-task、源码副本和证据必须使用 Jenkins 可写 workspace。
+        def pipelineInvocation = """def pipelineScript
     dir('${mountedWorkspace}') {
-        withEnv([${envList}]) {
-            def pipelineScript = load '${config.scriptPath}'
-            pipelineScript.call()
-        }
+        pipelineScript = load '${config.scriptPath}'
     }
+    withEnv([${envList}]) {
+        pipelineScript.call()
+    }"""
+def pipelineScript = """node {
+    ${pipelineInvocation}
 }
 """
 
         job.setDescription(config.description)
         job.setDefinition(new CpsFlowDefinition(pipelineScript, true))
-        // 平台依靠模块锁控制同模块互斥，Jenkins Job 本身必须允许不同模块并发。
-        job.removeProperty(DisableConcurrentBuildsJobProperty)
+        // 业务 Job 依靠模块锁控制互斥，环境 Job 的禁止并发由其 Jenkinsfile 在首次构建时建立并持久化。
+        if (config.allowConcurrent) {
+            job.removeProperty(DisableConcurrentBuildsJobProperty)
+        }
         def configuredTriggers = job.getTriggers().values().findAll { !(it instanceof TimerTrigger) } as List
         if (config.dailyCron) {
             configuredTriggers.add(new TimerTrigger('0 2 * * *'))

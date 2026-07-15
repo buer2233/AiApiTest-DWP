@@ -29,7 +29,7 @@
 | Q9 | 应用启动或测试失败是否自动回滚 | A：保留现场；B：自动回滚 | 采用 A；保留容器和日志，不自动回滚或停服 | 已确认 |
 | Q10 | Allure 是否新增独立服务 | A：继续 Jenkins 构建级入口；B：新增常驻服务 | 采用 A；复用 Jenkins 插件和归档 | 已确认 |
 | Q11 | 后端健康探针方式 | A：新增 live/ready；B：复用文档页 | 采用 A；无凭据、无敏感信息的独立探针 | 已确认 |
-| Q12 | 环境 Job 是否自动创建 | A：init Groovy 自动创建；B：用户手工创建 | 采用 B；仓库提供固定脚本和配置说明 | 已确认 |
+| Q12 | 环境 Job 是否自动创建 | A：init Groovy 自动创建；B：用户手工创建 | 采用 A；与既有 local-mounted Job 一样，由 Jenkins 启动 init Groovy 幂等创建或修复固定 Job | 已确认（2026-07-14 验收裁决） |
 | Q13 | 依赖安装位置 | A：只安装到不可变镜像；B：运行容器/宿主机动态安装 | 采用 A；通过清单哈希和镜像构建完成一次安装 | 已确认 |
 | Q14 | 后续 AI 如何使用该 Pipeline | A：helper 自动触发/轮询；B：只能提示用户点击 | 采用 A；AI 禁止旁路 Docker 和依赖命令 | 已确认 |
 | Q15 | 应用部署阶段统一失败码 | 冻结前已批准的错误码设计包含 `DEPLOY_SERVICE_FAILED`；需写回正式规格以供测试断言 | 采用 `DEPLOY_SERVICE_FAILED`，按具体 target/reason 区分服务和原因 | 已确认 |
@@ -44,7 +44,7 @@
   - 现有 Jenkins Pipeline 主要执行 `api-test`，不存在固定的平台环境准备 Job；依赖失败日志和环境健康反馈也没有统一契约。
   - 后续 AI 若直接执行零散 Docker、pip、npm 命令，容易绕过 Jenkins 主干、产生不可复现依赖或误操作数据卷。
 - **目标**：
-  - 用户只需自行启动 MySQL 和 Jenkins Docker 容器，再在 Jenkins 手工创建的固定 Job 中点击构建，即可完成应用镜像准备、服务启动、健康检查、默认冒烟和访问地址输出。
+  - 用户只需自行启动 MySQL 和 Jenkins Docker 容器；Jenkins 启动 init Groovy 幂等创建或修复固定 Job 后，在 Jenkins 页面点击构建，即可完成应用镜像准备、服务启动、健康检查、默认冒烟和访问地址输出。
   - 后续 AI 只能通过仓库 helper 触发和轮询该 Job，不能直接重启应用容器或在宿主机安装依赖。
   - 所有失败均提供结构化、脱敏、可操作的诊断，明确引导用户修复问题后重新构建。
 - **成功指标 / 价值**：
@@ -57,7 +57,7 @@
 ## §2 范围
 
 - **做（in scope）**：
-  - 新增固定平台环境 Jenkinsfile 和可复用 Pipeline 脚本；Job 由用户在 Jenkins 页面手工创建。
+  - 新增固定平台环境 Jenkinsfile 和可复用 Pipeline 脚本；本地 Compose Jenkins 启动时由版本化 init Groovy 幂等创建或修复 Job。
   - 为 Jenkins 工具镜像安装 Docker CLI/Compose，并挂载 Docker Socket。
   - 为 DRF 后端增加生产型镜像和 `backend` Compose service。
   - 为 Vue 前端增加 Node 多阶段构建、Nginx 运行镜像和 `frontend` Compose service。
@@ -78,7 +78,7 @@
   - 不新增独立 Allure 常驻服务。
   - 不在环境 Job 中执行依赖外部业务系统的 `api-test/test_case` 全量。
   - 不改变 `tools/ci_runner.py` 的参数、重试、summary、failed node ids 和 Allure 执行协议；只改变现有业务 Job 的执行载体和依赖准备位置。
-  - 不自动创建或覆盖 Jenkins 环境 Job。
+  - 不创建第二条环境旁路 Job；仅由版本化 init Groovy 幂等创建或修复固定环境 Job。
   - 不实现自动镜像/容器回滚。
   - 不把 Docker Socket 方案描述为生产安全部署方案。
 
@@ -86,7 +86,7 @@
 
 | 角色 | 可执行操作 | 禁止操作 | 数据可见范围 |
 | --- | --- | --- | --- |
-| 平台运维/主人 | 自行启动 MySQL/Jenkins；手工创建并构建环境 Job；查看日志、摘要和报告 | 未确认时删除 volume；把真实凭据写入 Job 脚本 | 本地平台全部服务与构建证据 |
+| 平台运维/主人 | 自行启动 MySQL/Jenkins；确认 init 已创建/修复后构建环境 Job；查看日志、摘要和报告 | 未确认时删除 volume；把真实凭据写入 Job 脚本 | 本地平台全部服务与构建证据 |
 | AI 协作代理 | 通过仓库 helper 触发/轮询环境 Job；读取结构化错误并反馈 | 直接执行应用 Docker 重启、`pip install`、`npm install`；输出凭据 | Jenkins build 状态、脱敏日志和公开地址 |
 | Jenkins 环境 Job | 检查 bootstrap 服务；构建镜像；管理应用服务；执行测试和归档 | 管理 MySQL/Jenkins 生命周期；执行 migration/init admin；删除 volume | 当前 workspace、Docker 应用服务、脱敏环境配置 |
 | 普通平台用户 | 使用启动后的前端和后端能力 | 配置或触发环境 Job | 已授权平台业务数据 |
@@ -102,7 +102,7 @@
   - Jenkins 通过 Compose `group_add` 使用根 `.env` 的 `DOCKER_GID` 获得 Docker Socket 最小必要组权限；禁止通过 `chmod 666` 放宽 Socket 权限。
   - Windows Docker Desktop 默认允许使用文档给出的兼容 GID；Linux 部署必须按宿主机 Docker Socket 实际 GID 配置 `DOCKER_GID`，并由用户自行重建 Jenkins bootstrap 容器。
   - 前置检查失败时不进入依赖构建或应用部署。
-  - 每个失败均输出统一诊断块：`stage/code/target/reason/observed/evidence/suggestion/rerun`。
+  - 每个失败均输出统一诊断块：`历史验证记录（suggestion/rerun，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）`。
 - **关联数据表**：不涉及持久化；证据写入当前 Jenkins workspace/构建归档。
 - **验收标准**：
   - `AC-S13-1.1` — Given `.env` 不存在 When 执行 Job Then 以 `CONFIG_ENV_MISSING` 失败，列出模板路径和重新构建指引，不创建应用容器。
@@ -206,7 +206,7 @@
 ### F6 AI Jenkins helper 与强制唯一入口
 
 - **能做什么 / 做到什么程度 / 满足什么要求**：
-  - 提供 Windows/Linux 兼容 helper，读取私有 Jenkins 配置，触发推荐环境 Job，传递两个布尔参数，轮询 queue/build 并输出结构化结果。
+  - 提供 Windows/Linux 兼容 helper，读取私有 Jenkins 配置，触发由启动 init Groovy 创建/修复的推荐环境 Job，传递两个布尔参数，轮询 queue/build 并输出结构化结果。
   - 根及 `jenkins`、`docker`、`back-end`、`front-end`、`api-test` 规则明确：AI 环境重启和依赖检查必须使用 helper/Pipeline。
   - 静态门禁检查关键规则、helper、Jenkinsfile 和禁止旁路文本仍存在。
 - **关联数据表**：不涉及业务持久化；Jenkins build 提供审计轨迹。
@@ -338,7 +338,7 @@
 
 - **推荐 Job 名**：`AiApiTest-DWP-Platform-Bootstrap`。
 - **Pipeline script path**：`jenkins/Jenkinsfile.platform-bootstrap`。
-- **创建方式**：用户手工创建；仓库不通过 init Groovy 自动创建或覆盖。
+- **创建方式**：本地 Compose Jenkins 启动时由 `jenkins/scripts/configure-local-mounted-jobs.groovy` 幂等创建或修复；固定 `LOCAL_WORKSPACE_REPO=true`、无 cron。
 - **并发策略**：禁止并发构建。
 
 | 参数 | 类型 | 默认 | 含义 |
@@ -418,17 +418,21 @@ API/Pipeline 契约冻结结论：DRF 新增两个只读健康接口；Jenkins �
 | 宿主机固定端口 | 否（设计要求） | MySQL/Jenkins/backend/frontend 对外端口和公开 URL均由根 `.env` 注入；容器间使用服务名 |
 | 真实凭据 | 否（设计要求） | 仅根私有 `.env`/Jenkins Credentials 保存；`.env.example` 只列通用网络变量；日志脱敏 |
 | 不可迁移业务常量 | 否 | 服务名、Job 推荐名和固定默认值由代码维护；地址/端口不写死个人环境 |
-| 手工 Jenkins 配置依赖 | 是，主人已确认 | Job 由用户手工创建；文档必须提供 script path、参数、并发和工具镜像配置验收清单 |
+| Jenkins bootstrap 配置依赖 | 是，主人已确认 | 主人启动 MySQL/Jenkins bootstrap；版本化 init Groovy 自动创建/修复 Job，文档提供 script path、参数、并发和工具镜像配置验收清单 |
 | Docker Socket 高权限 | 是 | 仅受信任本地 Jenkins；不得运行不受信任 SCM/PR；部署文档显式告警，不视为生产方案 |
 | Docker Socket 组权限 | 是 | Compose 使用 `group_add` 注入 `DOCKER_GID`；Linux 按 `stat` 获取实际 GID，Windows Docker Desktop 使用兼容默认值；禁止 `chmod 666` |
 | 不可重建运行状态 | 否 | MySQL/Jenkins/报告数据使用 volume；应用镜像和容器可重建；依赖不写入宿主机 |
 
-新增或调整的通用网络配置必须同步 `.env.example`，至少覆盖：
+新增或调整的通用网络配置必须同步 `.env.example`。相对 Stage13 前的 32 项公开配置，当前模板为 40 项，新增项共 8 个：
 
-- `BACKEND_BIND_HOST`、`BACKEND_HOST_PORT`、`BACKEND_SERVICE_URL`、`BACKEND_API_BASE_URL`。
-- `FRONTEND_BIND_HOST`、`FRONTEND_HOST_PORT`、`FRONTEND_SERVICE_URL`。
-- `JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME`。
+- `JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME`：固定环境 Job 名。
+- `JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS`：同步 worker 心跳最大年龄。
 - `DOCKER_GID`：Docker Socket 的宿主机组 ID；属于部署权限配置，不包含凭据。
+- `BACKEND_BIND_HOST`、`BACKEND_HOST_PORT`：backend 容器公开映射。
+- `FRONTEND_BIND_HOST`、`FRONTEND_HOST_PORT`：frontend 容器公开映射。
+- `FRONTEND_PLAYWRIGHT_BASE_IMAGE`：frontend 构建与测试 target 使用的 Playwright 基础镜像。
+
+既有 `BACKEND_SERVICE_URL`、`BACKEND_API_BASE_URL` 和 `FRONTEND_SERVICE_URL` 继续作为公开服务地址配置。
 
 敏感项继续只存在私有 `.env`：Jenkins 用户名/API Token、数据库密码、Django 密钥、私有验收账号。
 
@@ -487,6 +491,7 @@ Compose 文件必须使用顶层固定 `name: aiapitest-dwp`，保证本地挂�
 | 2026-07-13 | 0.3 | 补齐业务 Job api-runner 唯一依赖入口、固定 Compose project、Docker GID、ready 安全子码和全量测试镜像载体 | 独立规格审查 1 Critical / 4 Important 闭环 |
 | 2026-07-13 | 0.4 | 冻结 runner 镜像内源码与 `docker cp` 产物回传协议，回传失败保留容器现场 | 独立规格复审新增 1 Important 闭环 |
 | 2026-07-13 | 0.5 | 回写冻结前已批准的 `DEPLOY_SERVICE_FAILED` 错误码 | 测试设计审查发现正式规格遗漏已批准值 |
+| 2026-07-15 | 0.6 | 记录 Platform Bootstrap Job 由 init Groovy 自动创建/修复的最终裁决，以及 Build #23 全量 Smoke、Build #24 增量全量验收结果 | 首轮 Jenkins 现场验收与最终独立审查闭环 |
 
 ---
 
