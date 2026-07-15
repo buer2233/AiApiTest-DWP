@@ -28,50 +28,165 @@ class SubprocessCommandRunner:
         self._popen_factory = popen_factory
         self._output_tail_limit = output_tail_limit
 
+    def _failure_result(
+        self,
+        spec: CommandSpec,
+        *,
+        started: float,
+        returncode: int,
+        message: str,
+        timed_out: bool = False,
+    ) -> CommandResult:
+        """将基础设施异常降级为脱敏命令失败，供上层生成结构化诊断。"""
+        redacted = self._redactor.text(message)
+        self._write_evidence(spec.evidence_path, redacted)
+        print(redacted)
+        return CommandResult(
+            returncode=returncode,
+            duration_seconds=time.monotonic() - started,
+            timed_out=timed_out,
+            redacted_output_tail=redacted[-self._output_tail_limit :],
+            evidence_path=str(spec.evidence_path),
+        )
+
+    def _write_evidence(self, path: Path, content: str) -> bool:
+        try:
+            path.write_text(content, encoding="utf-8")
+        except OSError:
+            return False
+        return True
+
+    @staticmethod
+    def _remaining_seconds(deadline: float) -> float:
+        return max(0.0, deadline - time.monotonic())
+
     def run(self, spec: CommandSpec) -> CommandResult:
-        spec.evidence_path.parent.mkdir(parents=True, exist_ok=True)
+        started = time.monotonic()
+        deadline = started + max(0.0, float(spec.timeout_seconds))
+        try:
+            spec.evidence_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return self._failure_result(
+                spec,
+                started=started,
+                returncode=125,
+                message=(
+                    "COMMAND_EVIDENCE_DIRECTORY_UNAVAILABLE: unable to prepare "
+                    "command evidence directory; inspect Jenkins workspace permissions."
+                ),
+            )
         environment = os.environ.copy()
         if spec.env:
             environment.update(spec.env)
-        started = time.monotonic()
-        process = self._popen_factory(
-            list(spec.argv),
-            cwd=str(spec.cwd),
-            env=environment,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            shell=False,
-        )
+        try:
+            process = self._popen_factory(
+                list(spec.argv),
+                cwd=str(spec.cwd),
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                shell=False,
+            )
+        except OSError:
+            message = (
+                "COMMAND_START_FAILED: unable to start external command; inspect "
+                "the executable, workspace, and Jenkins agent permissions."
+            )
+            if not self._write_evidence(spec.evidence_path, self._redactor.text(message)):
+                message += (
+                    " COMMAND_EVIDENCE_WRITE_FAILED: command evidence could not be "
+                    "persisted; inspect Jenkins workspace permissions."
+                )
+            return self._failure_result(
+                spec,
+                started=started,
+                returncode=127,
+                message=message,
+            )
         timed_out = False
         output = ""
         try:
             if hasattr(process, "communicate"):
-                output, _ = process.communicate(timeout=spec.timeout_seconds)
+                output, _ = process.communicate(
+                    timeout=self._remaining_seconds(deadline)
+                )
             else:
+                process.wait(timeout=self._remaining_seconds(deadline))
                 output = "".join(process.stdout or ())
-                process.wait(timeout=spec.timeout_seconds)
         except subprocess.TimeoutExpired:
             timed_out = True
-            process.terminate()
+            cleanup_failed = False
             try:
-                if hasattr(process, "communicate"):
-                    remaining, _ = process.communicate(timeout=5)
-                    output += remaining or ""
-                else:
-                    process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                if hasattr(process, "communicate"):
-                    remaining, _ = process.communicate()
-                    output += remaining or ""
+                process.terminate()
+            except OSError:
+                cleanup_failed = True
+            if not cleanup_failed and self._remaining_seconds(deadline) > 0:
+                try:
+                    if hasattr(process, "communicate"):
+                        remaining, _ = process.communicate(
+                            timeout=self._remaining_seconds(deadline)
+                        )
+                        output += remaining or ""
+                    else:
+                        process.wait(timeout=self._remaining_seconds(deadline))
+                except subprocess.TimeoutExpired:
+                    try:
+                        process.kill()
+                    except OSError:
+                        cleanup_failed = True
+                    if not cleanup_failed and self._remaining_seconds(deadline) > 0:
+                        try:
+                            if hasattr(process, "communicate"):
+                                remaining, _ = process.communicate(
+                                    timeout=self._remaining_seconds(deadline)
+                                )
+                                output += remaining or ""
+                            else:
+                                process.wait(timeout=self._remaining_seconds(deadline))
+                        except (OSError, subprocess.TimeoutExpired):
+                            cleanup_failed = True
+                except OSError:
+                    cleanup_failed = True
+            if cleanup_failed:
+                return self._failure_result(
+                    spec,
+                    started=started,
+                    returncode=124,
+                    timed_out=True,
+                    message=(
+                        "COMMAND_TIMEOUT_CLEANUP_FAILED: timed-out command cleanup "
+                        "could not complete; inspect Jenkins agent process permissions."
+                    ),
+                )
+        except OSError:
+            return self._failure_result(
+                spec,
+                started=started,
+                returncode=125,
+                message=(
+                    "COMMAND_EXECUTION_FAILED: command I/O failed without exposing "
+                    "system error details; inspect Jenkins agent permissions."
+                ),
+            )
         redacted = self._redactor.text(output)
-        spec.evidence_path.write_text(redacted, encoding="utf-8")
+        if not self._write_evidence(spec.evidence_path, redacted):
+            return self._failure_result(
+                spec,
+                started=started,
+                returncode=125,
+                message=(
+                    "COMMAND_EVIDENCE_WRITE_FAILED: command output could not be "
+                    "persisted; inspect Jenkins workspace permissions. " + redacted
+                ),
+            )
         if redacted:
             print(redacted, end="" if redacted.endswith("\n") else "\n")
         returncode = getattr(process, "returncode", -1)
+        if timed_out and returncode is None:
+            returncode = 124
         return CommandResult(
             returncode=int(returncode if returncode is not None else -1),
             duration_seconds=time.monotonic() - started,

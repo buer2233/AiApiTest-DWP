@@ -1,6 +1,0 @@
-
-Running 1 test using 1 worker
-
-  ok 1 [chromium] › e2e\stage4-p3-screenshots.spec.ts:139:3 › Stage4 P3 截图证据 › 保存用例详情、状态修改、趋势和移动端关键截图 (5.2s)
-
-  1 passed (11.0s)

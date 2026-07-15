@@ -2,6 +2,7 @@ variable "BACKEND_DEPENDENCY_HASH" { default = "unknown" }
 variable "BACKEND_BUILD_INPUT_HASH" { default = "unknown" }
 variable "FRONTEND_DEPENDENCY_HASH" { default = "unknown" }
 variable "FRONTEND_BUILD_INPUT_HASH" { default = "unknown" }
+variable "FRONTEND_PLAYWRIGHT_BASE_IMAGE" { default = "mcr.m.daocloud.io/playwright:v1.61.1-noble" }
 variable "API_RUNNER_DEPENDENCY_HASH" { default = "unknown" }
 variable "API_RUNNER_BUILD_INPUT_HASH" { default = "unknown" }
 variable "AIAPITEST_SOURCE_REVISION" { default = "unknown" }
@@ -25,6 +26,7 @@ target "frontend-runtime" {
   args = {
     AIAPITEST_DEPENDENCY_HASH = FRONTEND_DEPENDENCY_HASH
     AIAPITEST_BUILD_INPUT_HASH = FRONTEND_BUILD_INPUT_HASH
+    PLAYWRIGHT_BASE_IMAGE = FRONTEND_PLAYWRIGHT_BASE_IMAGE
     AIAPITEST_SOURCE_REVISION = AIAPITEST_SOURCE_REVISION
   }
 }
@@ -37,6 +39,7 @@ target "frontend-test" {
   args = {
     AIAPITEST_DEPENDENCY_HASH = FRONTEND_DEPENDENCY_HASH
     AIAPITEST_BUILD_INPUT_HASH = FRONTEND_BUILD_INPUT_HASH
+    PLAYWRIGHT_BASE_IMAGE = FRONTEND_PLAYWRIGHT_BASE_IMAGE
     AIAPITEST_SOURCE_REVISION = AIAPITEST_SOURCE_REVISION
   }
 }

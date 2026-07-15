@@ -16,7 +16,7 @@
 - `P0` 用例阻断核心一键启动、安全或数据保留；`P1` 覆盖重要异常与跨平台；`P2` 覆盖兼容和提示质量。
 - 私有 `.env` 使用脱敏值，公开 URL/端口来自 `.env.example` 对应变量。
 - 基础容器名为 `aiapitest-mysql`、`aiapitest-jenkins`；固定 Compose project 为 `aiapitest-dwp`。
-- 推荐环境 Job 为 `AiApiTest-DWP-Platform-Bootstrap`，参数 `build_all=true`、`run_full_tests=false`。
+- Jenkins 启动 init Groovy 幂等创建或修复推荐环境 Job `AiApiTest-DWP-Platform-Bootstrap`，参数 `build_all=true`、`run_full_tests=false`。
 - 每条用例执行前记录 MySQL/Jenkins/应用容器 ID；测试后按预期确认是否保持或变化。
 - 失败用例仅使用受控无敏感测试输入；不得删除命名 volume 或修改真实业务数据。
 
@@ -90,7 +90,7 @@
 | `TC-S13-F6-002` | `AC-S13-6.2` | P0 | helper 错误分类和脱敏 | 分别模拟认证失败、Job 不存在、轮询超时 | 执行 helper | 三类故障分别返回可相互区分的固定结构化错误结果；均含脱敏原因、修复建议和非零退出；用户名/token 不出现在日志；不在测试阶段新增未冻结公共错误码 |
 | `TC-S13-F6-003` | `AC-S13-6.3` | P0 | AI 只解释 Pipeline 失败 | Pipeline 返回结构化失败 artifact/摘要 | helper 结束并读取结果 | 向用户返回错误码、证据、rerun；不执行 Docker/pip/npm 旁路修复 |
 | `TC-S13-F6-004` | `AC-S13-6.4` | P0 | AGENTS 与静态门禁禁止旁路 | 扫描根和相关模块规则、helper、Jenkinsfile | 执行静态测试 | 明确唯一入口；直接应用重启、宿主 pip/npm、`down -v` 被禁止；关键文件缺失即失败 |
-| `TC-S13-F6-005` | `AC-S13-6.5` | P1 | 手工点击与 helper 契约一致 | 用户手工创建固定 Job | 分别 UI 点击与 helper 触发相同参数 | 两者进入同一 Jenkinsfile、阶段和结果契约；不自动覆盖 Job 配置 |
+| `TC-S13-F6-005` | `AC-S13-6.5` | P1 | 启动自动创建的 Job 与 helper 契约一致 | Jenkins 已由主人启动且 init Groovy 已创建/修复固定 Job | 确认 Job 名、Jenkinsfile、无 cron 和 `LOCAL_WORKSPACE_REPO=true`，再分别 UI 点击与 helper 触发相同参数 | 只有一个固定 Job；两者进入同一 Jenkinsfile、阶段和结果契约；Jenkins 重启后会幂等修复配置 |
 
 ## 9. 异常、边界、安全与并发扩展用例
 
@@ -101,7 +101,7 @@
 | `TC-S13-ERR-003` | `AC-S13-2.3` | P0 | 分别制造 pip/npm 版本冲突和完整性检查失败 | 两类失败的 reason/observed/evidence 可相互区分且保留对应构建日志；每域不二次安装或构建；不部署；不在测试阶段新增未冻结公共枚举 |
 | `TC-S13-BND-001` | `AC-S13-2.1`,`2.2` | P1 | requirements 为空、lock 文件缺失、image label 缺失分别执行 | 空清单/缺 lock 明确配置失败；缺 label 触发一次构建；均不静默 SATISFIED |
 | `TC-S13-SEC-001` | `AC-S13-1.6`,`6.4` | P0 | 静态扫描 Docker/部署脚本含 `chmod 666 /var/run/docker.sock` | 安全门禁失败并指出 DOCKER_GID/group_add 替代方案 |
-| `TC-S13-ERR-004` | `AC-S13-4.3`,`4.7` | P0 | backend 停止或 Nginx upstream 配错后请求 `/api` | 返回与配置、数据库、schema、心跳和超时故障可区分的代理健康失败诊断；结构包含 stage/code/target/reason/observed/evidence/suggestion/rerun；服务现场和 Nginx 日志保留 |
+| `TC-S13-ERR-004` | `AC-S13-4.3`,`4.7` | P0 | backend 停止或 Nginx upstream 配错后请求 `/api` | 返回与配置、数据库、schema、心跳和超时故障可区分的代理健康失败诊断；结构包含 历史验证记录（suggestion/rerun；服务现场和，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档） Nginx 日志保留 |
 | `TC-S13-BND-002` | `AC-S13-4.7` | P1 | 健康轮询超时配置为 0、负数、非数字和极大值 | 非法值回退安全默认并告警；所有轮询仍有有限上限，不无限等待 |
 | `TC-S13-ERR-005` | `AC-S13-5.1`,`5.2` | P0 | 删除任一必需公开 URL/端口配置 | `CONFIG_REQUIRED_ENV_MISSING`；列出缺失键名但不显示值；不使用硬编码 localhost 回退 |
 | `TC-S13-BND-003` | `AC-S13-5.1` | P1 | Jenkins Job 名含空格、中文或 folder 层级 | Summary/Allure URL 正确编码且可点击，不出现重复或丢失路径分隔 |

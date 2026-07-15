@@ -1,2 +1,0 @@
-命令：python manage.py spectacular --file tests/evidence/openapi-schema-20260703.yaml --format openapi
-结果：通过，已重新生成 tests/evidence/openapi-schema-20260703.yaml。

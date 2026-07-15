@@ -1,14 +1,39 @@
 # jenkins
 
-`jenkins` 是 AiApiTest-DWP 的 Jenkins Pipeline 和 Groovy 脚本目录，后续负责在 Windows/Linux Jenkins agent 上调用 `api-test`，执行接口自动化测试、失败重试、Allure 报告生成和产物归档。
+`jenkins` 是 AiApiTest-DWP 的 Jenkins Pipeline 和 Groovy 脚本目录，负责在 Windows/Linux Jenkins agent 上校验并启动隔离的 `api-runner`，执行接口自动化测试、失败重试、Allure 报告生成和产物归档。
 
 Stage 5 P4 已在通用 Pipeline 基础上拆出三条业务流水线：每日全量模块执行、失败重试、模块重试。当前阶段供主人直接在 Jenkins 上配置和验收；平台 DRF/Vue 触发与结果同步在下一阶段接入。
+
+## Stage13 平台环境 Job
+
+平台应用环境准备只使用一个固定 Pipeline Job。推荐名称为 `AiApiTest-DWP-Platform-Bootstrap`，并与私有 `.env` 中的 `JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME` 一致。本地 Compose Jenkins 启动时幂等创建或修复该 Job，固定加载 `jenkins/Jenkinsfile.platform-bootstrap` 并注入 `LOCAL_WORKSPACE_REPO=true`；用户可以在 Jenkins 页面手工点击同一个 Job，也可以使用 helper 触发，两条路径都进入相同的 Jenkinsfile、参数、阶段和结果契约。
+
+| 配置项 | 固定值或要求 |
+| --- | --- |
+| Job 类型 | Pipeline |
+| Pipeline script path | `jenkins/Jenkinsfile.platform-bootstrap` |
+| 并发 | Pipeline 固定 `disableConcurrentBuilds`，不得在 Job 覆盖为并发执行 |
+| 参数一 | Boolean `build_all`，默认 `build_all=true` |
+| 参数二 | Boolean `run_full_tests`，默认 `run_full_tests=false` |
+| 本地挂载模式 | `LOCAL_WORKSPACE_REPO=true`，使用 `AIAPITEST_LOCAL_WORKSPACE`；不能把本地源码 Job 改为远端 checkout |
+| SCM 模式 | `LOCAL_WORKSPACE_REPO=false`，由 Jenkins 配置的 SCM 执行 `checkout scm` |
+| controller | 使用 Jenkins 工具链镜像，必须具有 Docker CLI/Compose、Docker Socket 挂载和 `.env` 的 `DOCKER_GID` supplemental group |
+
+环境 Job 有固定七阶段：Checkout/Workspace、Bootstrap Preflight、Dependency Assurance、Deploy、Health、Tests、Archive & Summary。`build_all=true` 会重建镜像并重启全部应用服务；`build_all=false` 仅在服务缺失或构建输入变化时增量重建。默认冒烟，`run_full_tests=true` 才执行平台全量。三域依赖独立检查，安装失败时每个域只尝试一次安装、输出完整日志并汇总失败；任何依赖失败均在部署前终止。环境 Job 不执行 migration、初始化管理员、`collectstatic`，不执行 rollback，不删除 volume；失败时保留服务与诊断证据。
+
+用户启动 MySQL/Jenkins bootstrap 后，Jenkins 启动时幂等创建或修复该 Job：Windows 使用 `scripts/trigger-platform-bootstrap.ps1`，Linux/macOS/Git Bash 使用 `scripts/trigger-platform-bootstrap.sh`，或在 Jenkins 页面点击 Build。AI 必须只使用这两个 helper，禁止直接 Docker、pip、npm、`runserver`、Vite 或 worker 启动命令。
+
+### 信任与故障边界
+
+Docker Socket 赋予 Jenkins controller 主机级 Docker 控制能力，因此仅允许受信任的本地开发/验收 controller 使用，绝不允许不受信任 SCM/PR Job 使用。`DOCKER_GID` 只解决 Socket 访问权限，禁止使用 `chmod 666 /var/run/docker.sock`。详情和 MySQL/Jenkins bootstrap 命令见 `docker/DEPLOYMENT.md`，这些命令只供主人/平台运维执行。
+
+失败时优先查看 Jenkins Build Summary 和结构化诊断：`.env` 缺失、Docker CLI/Compose/Socket、MySQL 未运行或不健康、依赖 build、应用 health、helper 认证/Job/timeout 都会给出修复方向。主人/平台运维修复根因后重新构建；AI 不得以宿主机命令旁路失败。Allure 是 Jenkins Allure 插件/Build 级归档入口，不新增常驻服务。
 
 ## 目标职责
 
 - 提供通用 Jenkinsfile、三条业务 Jenkinsfile 和可复用 Groovy 脚本。
 - 暴露 Jenkins 参数：模块路径、模块展示名、node id、重试次数、清理开关和报告兼容开关。
-- 调用 `api-test/tools/ci_runner.py` 执行 pytest 和失败重试。
+- 通过 `jenkins/scripts/api_runner_cli.py execute` 启动固定镜像 `aiapitest-api-runner:local`，由镜像内源码中的 `api-test/tools/ci_runner.py` 执行 pytest 和失败重试。
 - 归档 `api-test/runtime/ci-runs/<run_id>/` 下的运行产物。
 - 发布或归档 Allure 报告。
 - 兼容 Windows `bat` 和 Linux `sh`。
@@ -26,6 +51,8 @@ jenkins/
 │   └── test_pipeline_static.py
 └── scripts/
     ├── api-test-pipeline.groovy
+    ├── api_runner_cli.py
+    ├── api_runner_lifecycle.py
     ├── daily-full-module-pipeline.groovy
     ├── failed-rerun-pipeline.groovy
     └── module-rerun-pipeline.groovy
@@ -85,23 +112,18 @@ jenkins/
 
 ```text
 Checkout
-Prepare Python
-Install API Test Requirements
 Run API Tests
-Generate Allure Report
 Archive Runtime Artifacts
 Publish Allure
 ```
 
-`Run API Tests` 阶段由 Jenkins `timeout(time: 60, unit: 'MINUTES')` 包裹，避免 pytest、Allure 或外部依赖异常挂起时长期占用执行器。`ci_runner` 内部也对 pytest 子进程设置 45 分钟超时，对 Allure HTML 生成设置 10 分钟超时，给 summary、failed node ids 和 console 诊断留出落盘缓冲；pytest 或 Allure 超时会写入 `summary.json` 和 `console.log`，便于平台同步诊断。
+`Run API Tests` 阶段由 Jenkins `timeout(time: 60, unit: 'MINUTES')` 包裹，并通过固定的 `api_runner_cli.py execute` 命令委托 controller 标准库 helper。helper 先复用平台环境 Job 的同源 hash 算法校验 `aiapitest-api-runner:local` labels，再以 `docker create/start/wait/logs` 启动唯一 runner；容器不挂载 Jenkins workspace 源码、不读取根 `.env`，pytest、重试、summary 和 Allure 生成仍只由镜像内源码的 `ci_runner` 负责。
 
-`Install API Test Requirements` 会先创建 executor venv，再运行 `tools.install_missing_requirements`。Jenkins Linux 工具镜像通过 `AIAPITEST_PREINSTALLED_REQUIREMENTS=1` 启用 `--system-site-packages` 并复用预装的 `api-test/requirements.txt`；其它 Linux/Windows agent 保持隔离 venv。版本一致时直接输出 `All requirements already satisfied; skip pip install.`；requirements 变化时只在当前 executor venv 补缺失或版本不一致项。
-
-Compose Jenkins 默认通过 `JENKINS_EXECUTORS=40` 提供 40 个 controller executors，使四个现有平台 Job 均具备至少 10 个并发任务的容量。`configure-executors.groovy` 会在启动时移除这些 Job 的禁止并发属性；共享挂载仓库下，Pipeline 会把 Python 虚拟环境隔离到 `${JENKINS_PYTHON_VENV_DIR}/executor-<EXECUTOR_NUMBER>`，每次运行的 pytest cache 和 Allure 产物继续由 `RUN_ID` 隔离。
+Compose Jenkins 默认通过 `JENKINS_EXECUTORS=40` 提供 40 个 controller executors，使四个现有平台 Job 均具备至少 10 个并发任务的容量。`configure-executors.groovy` 会在启动时移除这些 Job 的禁止并发属性；并发隔离由包含 Job/build/run 标识的唯一 runner 容器和 `RUN_ID` 共同保证，controller 不创建业务 Python 环境或安装测试依赖。
 
 ## 运行产物
 
-每次构建都会把 `api-test/runtime/ci-runs/<run_id>/` 作为归档根目录。该目录至少应包含：
+每次构建都先从 runner 内的固定 run 目录把五项必需产物复制到 workspace staging，完整性校验通过后再原子落位到 `api-test/runtime/ci-runs/<run_id>/`。该目录至少应包含：
 
 - `summary.json`
 - `failed_nodeids.json`
@@ -109,11 +131,13 @@ Compose Jenkins 默认通过 `JENKINS_EXECUTORS=40` 提供 40 个 controller exe
 - `allure-results/`
 - `allure-report/`
 
-如果 Jenkins 安装了 Allure 插件，流水线会发布 `allure-results`。如果插件不存在，构建不会因为缺少插件中断，用户仍可通过归档产物查看报告。若 `summary.json` 标记 Allure HTML 未生成，构建会明确失败。
+runner 门禁、容器名称/ID、脱敏日志和导出诊断写入 `api-test/runtime/runner-lifecycle/<run_id>/` 并与标准 run 一起归档。导出成功后只删除本次 runner；导出失败时不创建虚假标准 run、不删除 runner，并在 lifecycle 证据中给出人工 `docker cp` 指引。
+
+如果 Jenkins 安装了 Allure 插件，流水线会发布 `allure-results`。如果插件不存在，构建不会因为缺少插件中断，用户仍可通过归档产物查看报告。若 `summary.json` 标记 Allure HTML 未生成，helper 会在产物成功回传和 runner 清理后明确失败。
 
 Jenkins 构建中不要使用 `allure open`。即使手工构建时勾选 `OPEN_REPORT`，共享 Pipeline 也会强制传入 `OPEN_REPORT=false`，报告查看统一通过 Jenkins Allure 插件入口或归档的 `allure-report/index.html`。
 
-本地报告默认保留 30 天。共享 Pipeline 会配置 Jenkins 构建和 artifact 保留 30 天，并把 `CI_RUN_RETENTION_DAYS` 传给 `ci_runner`；`ci_runner` 只会删除 `api-test/runtime/ci-runs/` 下超过保留期的历史 run 目录，当前 run 和 30 天内报告不会被删除。需要调整保留天数时，在本地 `.env` 或 Jenkins 私有环境变量中覆盖 `CI_RUN_RETENTION_DAYS`。
+Jenkins 构建和 artifact 默认保留 30 天，共享 Pipeline 同时把 `CI_RUN_RETENTION_DAYS` 传给 runner 内的 `ci_runner`。隔离 runner 看不到 workspace 的历史 run，因此本阶段不会自动删除宿主历史目录；长期运行时应结合 Jenkins workspace 运维策略观察容量。需要调整 Jenkins 保留天数时，在本地 `.env` 或 Jenkins 私有环境变量中覆盖 `CI_RUN_RETENTION_DAYS`。
 
 Jenkins 内展示 Allure 报告依赖 Allure Jenkins 插件。默认官方 Jenkins 镜像不包含该插件；本地需要 Jenkins 内报告页时，应使用 `docker-compose.jenkins-tools.yml` 构建工具链镜像，该镜像同时安装 Allure CLI 和 `allure-jenkins-plugin`。已有 Jenkins 容器如果仍显示 `Allure Jenkins plugin is not installed`，需要用工具链镜像重建 Jenkins 容器，但不要删除 `aiapitest-jenkins-home` 数据卷。
 
@@ -123,7 +147,7 @@ Jenkins 内展示 Allure 报告依赖 Allure Jenkins 插件。默认官方 Jenki
 
 本地 Docker Compose Jenkins 已将 `PROJECT_WORKSPACE` 指向的仓库挂载到 `AIAPITEST_LOCAL_WORKSPACE`，默认容器内路径为 `/workspace/AiApiTest-DWP`。`PROJECT_WORKSPACE` 必须是当前正在开发和验收的仓库根目录；如果它指向旧工作区，Jenkins 会加载旧代码，即使当前仓库已经提交和推送也不会生效。
 
-若 Jenkins 控制台里的 `summary.json` 显示报告路径位于 `/tmp/...`、`/var/jenkins_home/workspace/...` 或旧工作区，而当前宿主机仓库 `api-test/runtime/ci-runs/` 没有报告，说明 Job 没有在当前挂载仓库执行。应修正 `.env` 的 `PROJECT_WORKSPACE` 指向当前仓库根目录，重新 `docker compose up -d jenkins` 刷新挂载，再运行 `configure-local-mounted-jobs.groovy` 修正本地 Job。
+若 Jenkins 控制台里的 `summary.json` 显示报告路径位于 `/tmp/...`、`/var/jenkins_home/workspace/...` 或旧工作区，而当前宿主机仓库 `api-test/runtime/ci-runs/` 没有报告，说明 Job 没有在当前挂载仓库执行。主人/平台运维应修正 `.env` 的 `PROJECT_WORKSPACE` 指向当前仓库根目录，按 `docker/DEPLOYMENT.md` 的 bootstrap 流程刷新 Jenkins 挂载，再运行 `configure-local-mounted-jobs.groovy` 修正本地 Job；AI 只报告诊断并等待重新构建。
 
 ### 本地 Compose Jenkins
 
@@ -133,13 +157,13 @@ Jenkins 内展示 Allure 报告依赖 Allure Jenkins 插件。默认官方 Jenki
 
 Stage8 起，本地脚本会读取挂载仓库内的 `api-test/utils/package_module.yaml`，按 `JENKINS_DAILY_FULL_JOB_PREFIX-<package_name>` 创建每个模块的 Daily Job，并为每个 Job 注入 `JENKINS_MODULE_CASE_PATH=test_case/<package_name>`。该命名规则必须与后端 `sync_jenkins_job_bindings` 管理命令保持一致；否则 Daily discovery 会扫描到不存在的 Job。
 
-默认 `docker-compose.yml` 已把 `configure-local-mounted-jobs.groovy` 只读挂载到 Jenkins `init.groovy.d`。Jenkins 重启时会幂等创建或修复分模块 Daily Job，为每个 Job 配置唯一的 `0 2 * * *` 定时器，并移除遗留共享 Daily Job 的定时器但保留历史构建。修改模块 YAML 或 Job 前缀后，需要重启 Jenkins 并再次运行后端 `sync_jenkins_job_bindings`，确保 Jenkins Job 与数据库 binding 同名。
+默认 `docker-compose.yml` 已把 `configure-local-mounted-jobs.groovy` 只读挂载到 Jenkins `init.groovy.d`。Jenkins 启动时会幂等创建或修复 `AiApiTest-DWP-Platform-Bootstrap` 环境 Job，以及分模块 Daily Job；环境 Job 无 cron、固定加载 `jenkins/Jenkinsfile.platform-bootstrap` 并由该 Jenkinsfile 管理 `disableConcurrentBuilds`，分模块 Daily Job 各自配置唯一的 `0 2 * * *` 定时器。初始化仍会移除遗留共享 Daily Job 的定时器但保留历史构建。修改模块 YAML 或 Job 前缀后，需要重启 Jenkins 并再次运行后端 `sync_jenkins_job_bindings`，确保 Jenkins Job 与数据库 binding 同名。
 
 ### 远端 Jenkins
 
 远端 Jenkins 可以继续使用 SCM / Pipeline script path 加载 `jenkins/Jenkinsfile.*`，但远端网络、凭据和仓库地址必须由 Jenkins 自身配置维护，不写入本仓库。远端环境不要执行本地挂载 Job 配置脚本，除非同时配置了可用的 `AIAPITEST_LOCAL_WORKSPACE`。
 
-1. 本地 Compose 环境优先运行 `jenkins/scripts/configure-local-mounted-jobs.groovy`，生成或修正每日全量、失败重试、模块重试三条本地 Job。
+1. 本地 Compose Jenkins 启动时会运行 `jenkins/scripts/configure-local-mounted-jobs.groovy`，生成或修正环境、每日全量、失败重试、模块重试本地 Job；无需手工创建环境 Job。
 2. 如需手工创建本地内联 Pipeline，必须直接使用 `/workspace/AiApiTest-DWP`，不得先访问远端 Git。
 3. 在该 Job 环境变量中设置 `JENKINS_MODULE_CASE_PATH=<当前模块 pytest 路径>`，重载初始化脚本后确认参数和 `0 2 * * *` 定时器已写入 Job 配置；可再手工 Build 验证实际执行链路。
 4. 检查 console log、artifact 和 Allure 报告入口。

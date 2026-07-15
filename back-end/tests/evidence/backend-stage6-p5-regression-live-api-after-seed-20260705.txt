@@ -1,5 +1,0 @@
-login_user=<local-e2e-admin>
-module_status=200 total=2
-modules=test_gbif_case_module2,test_gbif_case
-first_failed_nodeids=test_case/test_gbif_case_module2/test_gbif_api_module2.py::TestGbifModule2API::test_deliberate_assertion_failure
-second_failed_nodeids=test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_deliberate_assertion_failure

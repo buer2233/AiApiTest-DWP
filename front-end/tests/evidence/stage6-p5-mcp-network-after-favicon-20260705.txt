@@ -1,3 +1,0 @@
-63. [GET] http://127.0.0.1:5173/api/v1/auth/me => [200] OK
-64. [GET] http://127.0.0.1:5173/api/v1/module-snapshots?environment_id=1&sort=pass_rate,-completed_at&page=1&per_page=20 => [200] OK
-65. [GET] http://127.0.0.1:5173/api/v1/test-environments?is_active=true => [200] OK

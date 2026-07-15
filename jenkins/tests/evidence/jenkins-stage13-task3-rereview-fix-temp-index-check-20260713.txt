@@ -1,4 +1,0 @@
-real_index_before=0
-temp_index_paths=28
-temp_index_diff_check_exit=0
-real_index_after=0

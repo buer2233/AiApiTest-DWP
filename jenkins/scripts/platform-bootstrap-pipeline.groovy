@@ -6,12 +6,12 @@ def runCliStatus(String command, int timeoutMinutes) {
     timeout(time: timeoutMinutes, unit: 'MINUTES') {
         if (isUnix()) {
             exitCode = sh(
-                script: "python jenkins/scripts/platform_bootstrap_cli.py ${command}",
+                script: "cd \"\$PLATFORM_BOOTSTRAP_SOURCE_WORKSPACE\" && python3 jenkins/scripts/platform_bootstrap_cli.py ${command}",
                 returnStatus: true
             )
         } else {
             exitCode = bat(
-                script: "python jenkins\\scripts\\platform_bootstrap_cli.py ${command}",
+                script: "cd /d \"%PLATFORM_BOOTSTRAP_SOURCE_WORKSPACE%\" && python jenkins\\scripts\\platform_bootstrap_cli.py ${command}",
                 returnStatus: true
             )
         }
@@ -28,13 +28,15 @@ def runCli(String command, int timeoutMinutes) {
 
 def call() {
     def buildId = env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"
+    def sourceWorkspace = env.PLATFORM_BOOTSTRAP_SOURCE_WORKSPACE ?: pwd()
     def evidenceDir = "runtime/platform-bootstrap/${buildId}"
     def primaryFailure = null
     def summaryFailure = null
     def archiveFailure = null
 
     withEnv([
-        "PLATFORM_BOOTSTRAP_WORKSPACE=${pwd()}",
+        "PLATFORM_BOOTSTRAP_SOURCE_WORKSPACE=${sourceWorkspace}",
+        "PLATFORM_BOOTSTRAP_WORKSPACE=${sourceWorkspace}",
         "PLATFORM_BOOTSTRAP_EVIDENCE_DIR=${pwd()}/${evidenceDir}",
         "PLATFORM_BOOTSTRAP_BUILD_ID=${buildId}",
         "PLATFORM_BOOTSTRAP_BUILD_URL=${env.BUILD_URL ?: ''}",

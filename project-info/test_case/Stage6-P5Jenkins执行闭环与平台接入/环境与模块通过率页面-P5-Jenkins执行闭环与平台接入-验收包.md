@@ -39,24 +39,24 @@
 
 | 阶段 | 命令 | 证据 | 结论 |
 | --- | --- | --- | --- |
-| 后端审查修复 RED | `pytest tests/test_metrics_jenkins_execution_api.py tests/test_metrics_jenkins_service.py ../jenkins/tests/test_pipeline_static.py` | `../../../back-end/tests/evidence/backend-stage6-p5-review-red-20260705.txt` | 11 failed, 24 passed |
-| 后端审查修复 GREEN | 同上 | `../../../back-end/tests/evidence/backend-stage6-p5-review-green-20260705.txt` | 35 passed |
-| 最终审查修复 RED | `pytest tests/test_metrics_jenkins_execution_api.py tests/test_metrics_jenkins_service.py ../jenkins/tests/test_pipeline_static.py` | `../../../back-end/tests/evidence/backend-stage6-p5-final-review-red-20260705.txt` | 缺少真实 discovery 服务函数触发失败 |
-| 最终审查修复 GREEN | 同上 | `../../../back-end/tests/evidence/backend-stage6-p5-final-review-green-20260705.txt` | 40 passed |
-| 后端全量 | `pytest` | `../../../back-end/tests/evidence/backend-stage6-p5-full-green-final-20260705.txt` | 123 passed, 5 warnings，覆盖率 89% |
-| api-test + Jenkins 静态契约 | `pytest tests/test_ci_runner.py ../jenkins/tests/test_pipeline_static.py` | `../../../api-test/tests/evidence/api-test-stage6-p5-regression-final-20260705.txt` | 33 passed |
-| 前端单元 | `npm run test:unit` | `../../../front-end/tests/evidence/stage6-p5-frontend-unit-final-20260705.txt` | 8 passed |
-| 前端 E2E | `npx playwright test --project=chromium` | `../../../front-end/tests/evidence/stage6-p5-frontend-playwright-final-20260705.txt` | 40 passed |
-| 前端构建 | `npm run build` | `../../../front-end/tests/evidence/stage6-p5-frontend-build-final-20260705.txt` | 构建通过；存在既有 chunk size warning |
+| 后端审查修复 RED | `pytest tests/test_metrics_jenkins_execution_api.py tests/test_metrics_jenkins_service.py ../jenkins/tests/test_pipeline_static.py` | `历史验证记录（backend-stage6-p5-review-red-20260705.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 11 failed, 24 passed |
+| 后端审查修复 GREEN | 同上 | `历史验证记录（backend-stage6-p5-review-green-20260705.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 35 passed |
+| 最终审查修复 RED | `pytest tests/test_metrics_jenkins_execution_api.py tests/test_metrics_jenkins_service.py ../jenkins/tests/test_pipeline_static.py` | `历史验证记录（backend-stage6-p5-final-review-red-20260705.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 缺少真实 discovery 服务函数触发失败 |
+| 最终审查修复 GREEN | 同上 | `历史验证记录（backend-stage6-p5-final-review-green-20260705.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 40 passed |
+| 后端全量 | `pytest` | `历史验证记录（backend-stage6-p5-full-green-final-20260705.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 123 passed, 5 warnings，覆盖率 89% |
+| api-test + Jenkins 静态契约 | `pytest tests/test_ci_runner.py ../jenkins/tests/test_pipeline_static.py` | `历史验证记录（api-test-stage6-p5-regression-final-20260705.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 33 passed |
+| 前端单元 | `npm run test:unit` | `历史验证记录（stage6-p5-frontend-unit-final-20260705.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 8 passed |
+| 前端 E2E | `npx playwright test --project=chromium` | `历史验证记录（stage6-p5-frontend-playwright-final-20260705.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 40 passed |
+| 前端构建 | `npm run build` | `历史验证记录（stage6-p5-frontend-build-final-20260705.txt，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` | 构建通过；存在既有 chunk size warning |
 
 ## 6. 截图证据
 
 | 截图 | 路径 |
 | --- | --- |
-| 模块操作桌面态 | `../../../front-end/tests/evidence/screenshots/stage6-p5-modules-actions-desktop-20260705.png` |
-| 用例重试弹窗 | `../../../front-end/tests/evidence/screenshots/stage6-p5-case-retry-dialog-20260705.png` |
-| Jenkins 任务弹窗桌面态 | `../../../front-end/tests/evidence/screenshots/stage6-p5-jenkins-tasks-desktop-20260705.png` |
-| Jenkins 任务弹窗移动态 | `../../../front-end/tests/evidence/screenshots/stage6-p5-jenkins-tasks-mobile-20260705.png` |
+| 模块操作桌面态 | `历史验证记录（screenshots/stage6-p5-modules-actions-desktop-20260705.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` |
+| 用例重试弹窗 | `历史验证记录（screenshots/stage6-p5-case-retry-dialog-20260705.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` |
+| Jenkins 任务弹窗桌面态 | `历史验证记录（screenshots/stage6-p5-jenkins-tasks-desktop-20260705.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` |
+| Jenkins 任务弹窗移动态 | `历史验证记录（screenshots/stage6-p5-jenkins-tasks-mobile-20260705.png，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）` |
 
 ## 7. 容器化兼容检查
 

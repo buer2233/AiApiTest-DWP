@@ -51,7 +51,7 @@
 - 完整证据：`./环境与模块通过率页面-模块快照日期与Jenkins自动同步修复-后端pytest覆盖率证据.txt`。
 - 结果：`209 passed`，总覆盖率 `91%`。
 - Stage12 核心模块覆盖率：`metrics/jenkins_service.py 91%`、`metrics/jenkins_sync.py 93%`、`sync_jenkins_results.py 96%`。
-- HTML 覆盖率：`../../../back-end/tests/evidence/htmlcov/index.html`。
+- HTML 覆盖率：`历史验证记录（htmlcov/index.html，原本地临时证据已清理；请查询对应历史 Jenkins 构建归档）`。
 - 覆盖内容：queueId/RUN_ID 恢复、queue pending、真实时间与 fallback、任务/锁状态、Daily discovery、重复幂等、唯一键冲突复用、单任务/单 Job 故障隔离、趋势当天窗口、权限与错误契约。
 - 证据强度限制：真实双进程并发未执行；`AC-S12-3.5` 不能仅凭模拟 `IntegrityError` 标完全通过。
 

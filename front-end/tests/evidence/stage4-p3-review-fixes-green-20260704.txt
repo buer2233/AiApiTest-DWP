@@ -1,6 +1,0 @@
-
-Running 1 test using 1 worker
-
-  ok 1 [chromium] › e2e\stage4-p3-case-detail-trend.spec.ts:289:3 › Stage4 P3 用例详情、状态审计与趋势数据 RED › 用例详情分页可请求后续页，并区分原始执行状态和展示状态 (2.6s)
-
-  1 passed (8.0s)

@@ -1,3 +1,0 @@
-## api-test incremental requirements regression
-.........                                                                [100%]
-9 passed in 0.16s

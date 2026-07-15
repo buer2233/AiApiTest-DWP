@@ -16,7 +16,7 @@ from .deploy import DeployService
 from .evidence import EvidenceStore
 from .health import HealthService
 from .jenkins_api import JenkinsApiClient, JenkinsTriggerConfig, TriggerOutcome
-from .models import Diagnostic, RunContext
+from .models import Diagnostic, RunContext, StageResult
 from .preflight import PreflightService
 from .security import Redactor
 from .summary import SummaryService
@@ -72,6 +72,34 @@ def _context_from_environment() -> RunContext:
         run_full_tests=parse_bool(os.environ.get("PLATFORM_BOOTSTRAP_RUN_FULL_TESTS", "false")),
         source_revision=os.environ.get("PLATFORM_BOOTSTRAP_SOURCE_REVISION", "unknown"),
     )
+
+
+def _emit_evidence_failure(command: str, target: Path) -> int:
+    """证据根目录不可用时仍输出脱敏、可操作的固定结构。"""
+    result = StageResult(
+        stage=command,
+        success=False,
+        diagnostics=(
+            Diagnostic(
+                stage=command,
+                code="EVIDENCE_STORE_UNAVAILABLE",
+                target=str(target),
+                reason="stage evidence storage is unavailable",
+                observed=(
+                    "evidence persistence failed without exposing filesystem error "
+                    "details"
+                ),
+                evidence=(),
+                suggestion=(
+                    "Repair Jenkins workspace permissions or the configured evidence "
+                    "directory, then rebuild."
+                ),
+                rerun="Rebuild AiApiTest-DWP-Platform-Bootstrap after the issue is resolved.",
+            ),
+        ),
+    )
+    print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+    return 1
 
 
 def run_stage(command: str, options=None) -> int:
@@ -146,23 +174,29 @@ def run_stage(command: str, options=None) -> int:
     except ConfigError:
         values = {}
     redactor = Redactor.from_env(values)
-    evidence = EvidenceStore(context.evidence_dir, redactor)
+    try:
+        evidence = EvidenceStore(context.evidence_dir, redactor)
+    except OSError:
+        return _emit_evidence_failure(command, context.evidence_dir)
     runner = SubprocessCommandRunner(redactor=redactor)
 
-    if command == "preflight":
-        result = PreflightService(runner, evidence).run(context)
-    elif command == "assure-dependencies":
-        result = DependencyAssuranceService(runner, evidence).run(context)
-    elif command == "deploy":
-        result = DeployService(runner, evidence).run(context)
-    elif command == "health":
-        result = HealthService(runner, UrllibHttpClient(), evidence).run(context, values)
-    elif command == "test":
-        result = TestService(runner, UrllibHttpClient(), evidence).run(context, values)
-    elif command == "summary":
-        result = SummaryService(evidence).run(context, values)
-    else:  # pragma: no cover - argparse already prevents this branch.
-        raise ValueError(f"unsupported command: {command}")
+    try:
+        if command == "preflight":
+            result = PreflightService(runner, evidence).run(context)
+        elif command == "assure-dependencies":
+            result = DependencyAssuranceService(runner, evidence).run(context)
+        elif command == "deploy":
+            result = DeployService(runner, evidence).run(context)
+        elif command == "health":
+            result = HealthService(runner, UrllibHttpClient(), evidence).run(context, values)
+        elif command == "test":
+            result = TestService(runner, UrllibHttpClient(), evidence).run(context, values)
+        elif command == "summary":
+            result = SummaryService(evidence).run(context, values)
+        else:  # pragma: no cover - argparse already prevents this branch.
+            raise ValueError(f"unsupported command: {command}")
+    except OSError:
+        return _emit_evidence_failure(command, context.evidence_dir)
     return 0 if result.success else 1
 
 

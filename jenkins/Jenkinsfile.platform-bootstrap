@@ -1,5 +1,7 @@
 // 统一平台环境启动 Pipeline 入口。
 // Checkout 前无法加载仓库 Groovy，因此这里只负责参数、禁止并发、workspace 获取和失败兜底归档。
+// 初始化 Job 只在挂载源码目录加载本文件，实际执行必须回到 Jenkins 可写 workspace。
+def call() {
 node {
     properties([
         disableConcurrentBuilds(),
@@ -30,7 +32,21 @@ node {
         }
         pipelineLoaded = true
         if (env.LOCAL_WORKSPACE_REPO == 'true') {
-            dir(localWorkspace) {
+            // durable-task、源码副本和证据必须在 Jenkins 可写 workspace 内，避免挂载目录旁创建 @tmp。
+            deleteDir()
+            if (isUnix()) {
+                sh "tar -C \"${localWorkspace}\" --exclude=.git --exclude='.pytest_tmp*' --exclude=.tmp --exclude=runtime --exclude=report --exclude=node_modules --exclude=.idea --no-same-owner -cf - . | tar -xf -"
+            } else {
+                bat """
+@echo off
+setlocal EnableDelayedExpansion
+robocopy "${localWorkspace}" . /E /XD .git .pytest_tmp* .tmp runtime report node_modules .idea
+set "ROBOCOPY_EXIT=!ERRORLEVEL!"
+if !ROBOCOPY_EXIT! GEQ 8 exit /B !ROBOCOPY_EXIT!
+exit /B 0
+"""
+            }
+            withEnv(["PLATFORM_BOOTSTRAP_SOURCE_WORKSPACE=${pwd()}"]) {
                 pipelineScript.call()
             }
         } else {
@@ -96,3 +112,6 @@ node {
         throw failure
     }
 }
+}
+
+return this

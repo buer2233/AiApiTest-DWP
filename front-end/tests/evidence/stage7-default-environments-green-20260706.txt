@@ -1,9 +1,0 @@
-
-Running 4 tests using 4 workers
-
-  ok 3 [chromium] › e2e\p1-auth.spec.ts:313:3 › P1 用户权限底座 › 未登录用户进入平台根路径时登录目标指向环境管理页 (4.4s)
-  ok 2 [chromium] › e2e\p1-auth.spec.ts:304:3 › P1 用户权限底座 › 已登录用户进入平台根路径时默认进入环境管理页 (4.7s)
-  ok 1 [chromium] › e2e\p1-auth.spec.ts:322:3 › P1 用户权限底座 › 带受保护 URL 的登录重定向仍优先回到原目标 (5.0s)
-  ok 4 [chromium] › e2e\p1-auth.spec.ts:287:3 › P1 用户权限底座 › 管理人员登录成功后默认进入环境管理页 (4.5s)
-
-  4 passed (13.0s)

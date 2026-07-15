@@ -1,6 +1,6 @@
 // Jenkins API 自动化测试 Pipeline 主脚本。
-// 本脚本负责定义 Jenkins 参数、兼容 Windows/Linux agent、调用 api-test CI 执行器、
-// 校验 Allure HTML 报告生成结果，并归档 runtime/ci-runs/<run_id> 下的运行产物。
+// 本脚本负责定义 Jenkins 参数、兼容 Windows/Linux agent、委托隔离 runner，
+// 并归档 runtime/ci-runs/<run_id> 与 runner-lifecycle/<run_id> 证据。
 
 def runCommand(String unixCommand, String windowsCommand) {
     // 根据 Jenkins agent 操作系统选择 sh 或 bat，避免在 Pipeline 中写死单一平台命令。
@@ -104,15 +104,8 @@ def call(Map config = [:]) {
     }
     properties(jobProperties)
 
-    def apiTestDir = env.JENKINS_API_TEST_DIR ?: 'api-test'
-    def pythonVenvRoot = env.JENKINS_PYTHON_VENV_DIR ?: '.venv'
-    def executorNumber = env.EXECUTOR_NUMBER ?: 'local'
-    // 固定挂载 workspace 会被并发构建共享，虚拟环境必须按 executor 隔离。
-    def pythonVenvDir = "${pythonVenvRoot}/executor-${executorNumber}"
-    def unixPython = "${pythonVenvDir}/bin/python"
-    def windowsPython = "${pythonVenvDir}\\Scripts\\python"
     def runId = params.RUN_ID?.trim() ?: env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"
-    def runDir = "${apiTestDir}/runtime/ci-runs/${runId}"
+    def runDir = "api-test/runtime/ci-runs/${runId}"
     def retryMode = config.get('mode', null) ?: params.RETRY_MODE
     def includeNodeIds = config.containsKey('includeNodeIds') ? config.includeNodeIds : true
     def pytestNodeIds = includeNodeIds ? (params.PYTEST_NODE_IDS ?: '') : ''
@@ -151,66 +144,54 @@ def call(Map config = [:]) {
             }
         }
 
-        stage('Prepare Python') {
-            // 先输出 Python 版本，便于 Jenkins 日志中定位 agent 工具链问题。
-            runCommand(
-                "cd ${apiTestDir} && python --version",
-                "cd ${apiTestDir} && python --version"
-            )
-        }
-
-        stage('Install API Test Requirements') {
-            // 仅工具镜像 Linux agent 继承预装依赖；其它 agent 保持隔离 venv。
-            def unixVenvOptions = env.AIAPITEST_PREINSTALLED_REQUIREMENTS == '1' ? '--system-site-packages ' : ''
-            runCommand(
-                "cd ${apiTestDir} && python -m venv ${unixVenvOptions}${pythonVenvDir} && ${unixPython} -m tools.install_missing_requirements requirements.txt",
-                "cd ${apiTestDir} && python -m venv ${pythonVenvDir} && ${windowsPython} -m tools.install_missing_requirements requirements.txt"
-            )
-        }
-
+        def primaryFailure = null
         try {
             stage('Run API Tests') {
-                // 用例断言失败是测试结果，不是 Jenkins 基础设施失败；ci_runner 会把失败明细写入 summary 和 Allure。
+                // 动态参数只通过 withEnv 传入，命令本身保持固定，避免 shell 二次解释。
                 timeout(time: 60, unit: 'MINUTES') {
                     runCommand(
-                        "cd ${apiTestDir} && ${unixPython} -m tools.ci_runner --from-jenkins-env",
-                        "cd ${apiTestDir} && ${windowsPython} -m tools.ci_runner --from-jenkins-env"
+                        "python3 jenkins/scripts/api_runner_cli.py execute",
+                        $/python jenkins\scripts\api_runner_cli.py execute/$
                     )
                 }
             }
-
-            stage('Generate Allure Report') {
-                // 读取 ci_runner 写出的 summary.json，显式校验 Allure HTML 是否生成成功。
-                runCommand(
-                    "cd ${apiTestDir} && ${unixPython} - <<'PY'\nimport json\nimport sys\nfrom pathlib import Path\nsummary_path = Path('runtime/ci-runs') / '${runId}' / 'summary.json'\nsummary = json.loads(summary_path.read_text(encoding='utf-8'))\nprint(json.dumps(summary, ensure_ascii=False, indent=2))\nif summary.get('allure_report_status') != 'generated':\n    print('Allure HTML report was not generated: ' + summary.get('allure_report_message', ''), file=sys.stderr)\n    raise SystemExit(1)\nPY",
-                    "cd ${apiTestDir} && ${windowsPython} -c \"import json, sys; from pathlib import Path; p=Path('runtime/ci-runs')/'${runId}'/'summary.json'; s=json.loads(p.read_text(encoding='utf-8')); print(json.dumps(s, ensure_ascii=False, indent=2)); status=s.get('allure_report_status'); msg=s.get('allure_report_message', ''); sys.exit(0 if status == 'generated' else (print('Allure HTML report was not generated: ' + msg, file=sys.stderr) or 1))\""
-                )
-            }
+        } catch (Throwable failure) {
+            primaryFailure = failure
         } finally {
             stage('Archive Runtime Artifacts') {
-                // 归档完整运行目录，便于后端或人工追踪 summary、Allure 原始结果和 HTML 报告。
-                archiveArtifacts(
-                    artifacts: "${runDir}/**",
-                    allowEmptyArchive: true,
-                    fingerprint: true
-                )
+                try {
+                    archiveArtifacts(
+                        artifacts: "${runDir}/**,api-test/runtime/runner-lifecycle/${runId}/**",
+                        allowEmptyArchive: true,
+                        fingerprint: true
+                    )
+                } catch (Throwable archiveFailure) {
+                    if (primaryFailure == null) {
+                        primaryFailure = archiveFailure
+                    } else {
+                        echo "Runtime archive also failed after the primary failure: ${archiveFailure.getMessage()}"
+                    }
+                }
+            }
+
+            stage('Publish Allure') {
+                try {
+                    // Jenkins 插件只负责展示，失败时保留 helper 已导出的原始和 HTML 产物。
+                    allure([
+                        commandline: 'Allure Commandline',
+                        includeProperties: false,
+                        jdk: '',
+                        resultPolicy: 'LEAVE_AS_IS',
+                        results: [[path: "${runDir}/allure-results"]]
+                    ])
+                } catch (Throwable ignored) {
+                    echo "Allure Jenkins plugin publish failed; runtime artifacts were archived instead: ${ignored.getMessage()}"
+                }
             }
         }
 
-        stage('Publish Allure') {
-            try {
-                // 如果 Jenkins 已安装 Allure 插件，则直接发布 allure-results。
-                allure([
-                    commandline: 'Allure Commandline',
-                    includeProperties: false,
-                    jdk: '',
-                    resultPolicy: 'LEAVE_AS_IS',
-                    results: [[path: "${runDir}/allure-results"]]
-                ])
-            } catch (Throwable ignored) {
-                // 插件缺失或 Allure Commandline 未配置时不中断归档链路，用户仍可下载 runtime 产物查看报告。
-                echo "Allure Jenkins plugin publish failed; runtime artifacts were archived instead: ${ignored.getMessage()}"
-            }
+        if (primaryFailure != null) {
+            throw primaryFailure
         }
     }
 }

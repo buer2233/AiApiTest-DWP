@@ -28,7 +28,7 @@ REQUIRED_ENV = {
     "BACKEND_API_BASE_URL": "https://api.example.invalid/api/v1",
 }
 
-LIMITED_FORMAT = "{{.Id}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}"
+LIMITED_FORMAT = "{{.Id}}|{{.State.Running}}|unknown"
 
 
 def limited_inspect(container):
@@ -109,8 +109,15 @@ def test_preflight_is_read_only_and_records_only_key_presence(tmp_path):
     context = make_context(tmp_path)
     write_env(context.env_file)
     responses = {
-        limited_inspect("aiapitest-jenkins"): (0, "jenkins-id|true|healthy"),
-        limited_inspect("aiapitest-mysql"): (0, "mysql-id|true|healthy"),
+        limited_inspect("aiapitest-jenkins"): (0, "jenkins-id|true|unknown"),
+        limited_inspect("aiapitest-mysql"): (0, "mysql-id|true|unknown"),
+        (
+            "docker",
+            "inspect",
+            "--format",
+            "{{.State.Health.Status}}",
+            "aiapitest-mysql",
+        ): (0, "healthy"),
         ("docker", "inspect", "aiapitest-jenkins"): (
             0,
             '[{"Id":"jenkins-id","State":{"Running":true,"Health":{"Status":"healthy"}}}]',
@@ -150,7 +157,7 @@ def test_mysql_stopped_and_socket_permission_have_frozen_codes(tmp_path):
     write_env(context.env_file)
     stopped = FakeRunner(
         {
-            limited_inspect("aiapitest-jenkins"): (0, "jenkins-id|true|healthy"),
+            limited_inspect("aiapitest-jenkins"): (0, "jenkins-id|true|unknown"),
             limited_inspect("aiapitest-mysql"): (0, "mysql-id|false|missing"),
             ("docker", "inspect", "aiapitest-jenkins"): (
                 0,
@@ -182,8 +189,15 @@ def test_mysql_unhealthy_collects_limited_health_and_tail_logs_without_config_en
     write_env(context.env_file)
     runner = FakeRunner(
         {
-            limited_inspect("aiapitest-jenkins"): (0, "jenkins-id|true|healthy"),
-            limited_inspect("aiapitest-mysql"): (0, "mysql-id|true|unhealthy"),
+            limited_inspect("aiapitest-jenkins"): (0, "jenkins-id|true|unknown"),
+            limited_inspect("aiapitest-mysql"): (0, "mysql-id|true|unknown"),
+            (
+                "docker",
+                "inspect",
+                "--format",
+                "{{.State.Health.Status}}",
+                "aiapitest-mysql",
+            ): (0, "unhealthy"),
             (
                 "docker",
                 "inspect",

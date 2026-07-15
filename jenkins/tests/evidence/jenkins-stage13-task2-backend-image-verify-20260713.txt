@@ -1,7 +1,0 @@
-ID=sha256:dee360066090685298ec6faa9e3dac811083cc468c26911d6ec38222ddc7b594 COMPONENT=backend DEPENDENCY=stage13-test INPUT=stage13-test SOURCE=stage13-test
-PIP_CHECK:
-No broken requirements found.
-PIP_CHECK_EXIT_CODE=0
-TARGET_TESTS:
-.....................                                                    [100%]
-TARGET_TESTS_EXIT_CODE=0

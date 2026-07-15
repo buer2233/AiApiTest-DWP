@@ -1,7 +1,0 @@
-usage: platform_bootstrap_cli.py trigger [-h] --build-all {true,false}
-                                         --run-full-tests {true,false}
-
-options:
-  -h, --help            show this help message and exit
-  --build-all {true,false}
-  --run-full-tests {true,false}

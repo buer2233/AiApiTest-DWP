@@ -114,7 +114,7 @@
   - 必须依据需求文档和详细功能测试用例开发。
   - 先编写后端接口 pytest 测试用例，再开发接口，再回归测试。
   - 严格遵循 TDD：RED -> GREEN -> REFACTOR。
-  - 阶段完成必须留存验证证据，而不是仅声称通过：保留 pytest 实际运行输出和测试覆盖率数据，作为该阶段完成的硬性产物。
+  - 阶段完成必须留存验证证据，而不是仅声称通过：保留 pytest 实际运行输出和测试覆盖率数据，作为该阶段完成的硬性产物。实际原始输出、日志和截图只保留为 Jenkins artifact，或临时放在 `docs/` 下专用临时目录并在任务完成后清理，严禁提交 Git；可提交的验收资料只登记 Job/build、摘要和 artifact 名称。
 
 ### 5. 前端开发阶段
 
@@ -124,7 +124,7 @@
   - 必须依据 UI 原型图、后端接口、需求文档和功能测试用例开发。
   - 先编写 Playwright 自然语言 UI 自动化测试用例，再开发前端页面，再回归测试。
   - 仍按 TDD 流程推进。
-  - 阶段完成必须留存验证证据，而不是仅声称通过：保留 Playwright 运行结果和关键页面截图，作为该阶段完成的硬性产物。
+  - 阶段完成必须留存验证证据，而不是仅声称通过：保留 Playwright 运行结果和关键页面截图，作为该阶段完成的硬性产物。实际原始输出、日志和截图只保留为 Jenkins artifact，或临时放在 `docs/` 下专用临时目录并在任务完成后清理，严禁提交 Git；可提交的验收资料只登记 Job/build、摘要和 artifact 名称。
 
 ## 非循环基础阶段
 
@@ -196,6 +196,16 @@
 - 示例配置必须使用占位符、环境变量或本地私有配置。
 - `.env`、报告、日志、抓包、运行时产物不得作为业务代码提交。
 - Jenkins、DRF、Vue 和 pytest 中都保持平台字段通用，不引入不可迁移的业务常量。
+- 不允许在项目根目录创建或放置临时文件、临时目录、pytest basetemp 或运行时测试数据；临时文件和临时目录必须放在 `docs/` 下的专用临时目录，并在任务完成后清理。
+
+## 平台环境唯一入口（强制）
+
+- 平台应用环境重启、依赖检查/安装、`backend`/`frontend`/`jenkins-sync-worker` 启动、停止或重建，以及平台冒烟/全量环境验收，AI 必须且只能触发固定 Jenkins 环境 Job。
+- 固定环境 Job 由本地 Compose Jenkins 启动时通过版本化 init Groovy 幂等创建或修复；主人启动 MySQL/Jenkins bootstrap 后只需在 Jenkins 页面点击构建，不得手工创建另一条旁路 Job。
+- Windows 唯一入口为 `scripts/trigger-platform-bootstrap.ps1`；Linux/macOS/Git Bash 唯一入口为 `scripts/trigger-platform-bootstrap.sh`。用户在 Jenkins 页面手工点击同一 Job 也使用相同 Pipeline、参数、阶段和结果契约。
+- AI 禁止直接执行应用服务 `docker compose up/restart/stop/down`、`docker build`、宿主机或运行容器的 `pip install`、`npm install/npm ci`，也禁止直接启动 Django `runserver`、Vite 或同步 worker 替代环境 Job。
+- MySQL 与 Jenkins 仅由主人/平台运维按 `docker/DEPLOYMENT.md` 完成 bootstrap；环境 Job/helper 永不管理这两个基础服务。AI 只能检查并反馈，不能代替主人/平台运维启动。
+- 禁止 `down -v`、volume 删除、`chmod 666 /var/run/docker.sock`、migration、初始化管理员、`collectstatic`、自动 rollback 或输出真实凭据。环境失败必须阅读 Jenkins 结构化诊断，引导主人修复后重新构建，不能旁路处理。
 
 ## 协作规则
 
