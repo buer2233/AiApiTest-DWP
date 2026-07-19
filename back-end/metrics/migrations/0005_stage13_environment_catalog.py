@@ -11,6 +11,9 @@ from django.db import migrations, models
 def normalize_existing_environment_urls(apps, schema_editor):
     TestEnvironment = apps.get_model("metrics", "TestEnvironment")
     seen_urls: set[str] = set()
+    pending_updates: list[tuple[int, str]] = []
+
+    # 先完成全量校验，避免后续记录非法时留下部分 URL 已写入的迁移状态。
     for environment in TestEnvironment.objects.order_by("id").iterator():
         normalized_url = environment.base_url.strip().rstrip("/")
         parsed = urlparse(normalized_url)
@@ -20,7 +23,10 @@ def normalize_existing_environment_urls(apps, schema_editor):
             raise RuntimeError(f"无法迁移重复测试环境 URL: {normalized_url}")
         seen_urls.add(normalized_url)
         if environment.base_url != normalized_url:
-            TestEnvironment.objects.filter(pk=environment.pk).update(base_url=normalized_url)
+            pending_updates.append((environment.id, normalized_url))
+
+    for environment_id, normalized_url in pending_updates:
+        TestEnvironment.objects.filter(pk=environment_id).update(base_url=normalized_url)
 
 
 def new_catalog_request_id() -> str:

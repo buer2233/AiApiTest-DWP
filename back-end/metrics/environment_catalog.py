@@ -411,6 +411,26 @@ def _require_running(attempt: EnvironmentCatalogSyncAttempt) -> None:
         raise EnvironmentCatalogStateError("同步回调只允许处理 running 请求。")
 
 
+def _mark_attempt_failed_locked(
+    locked_attempt: EnvironmentCatalogSyncAttempt,
+    *,
+    error_code: str,
+    error_summary: str,
+) -> EnvironmentCatalogSyncAttempt:
+    """在调用方的原子事务内持久化失败状态并释放活动请求键。"""
+    locked_attempt.status = locked_attempt.Status.FAILED
+    locked_attempt.error_code = error_code
+    locked_attempt.error_summary = error_summary
+    locked_attempt.finished_at = timezone.now()
+    locked_attempt.save()
+    state = _locked_state()
+    state.status = EnvironmentCatalogState.Status.FAILED
+    state.last_error_code = error_code
+    state.last_error_summary = error_summary
+    state.save()
+    return locked_attempt
+
+
 def complete_mysql_to_yaml_sync_attempt(
     attempt: EnvironmentCatalogSyncAttempt,
     *,
@@ -424,6 +444,8 @@ def complete_mysql_to_yaml_sync_attempt(
     resolved_commit_sha = _validate_git_sha(commit_sha, field_name="commit_sha")
     with transaction.atomic():
         locked_attempt = EnvironmentCatalogSyncAttempt.objects.select_for_update().get(pk=attempt.pk)
+        if locked_attempt.direction != locked_attempt.Direction.MYSQL_TO_YAML:
+            raise EnvironmentCatalogStateError("同步请求方向与写回回调不一致。")
         if locked_attempt.status == locked_attempt.Status.SYNCED:
             return locked_attempt
         _require_running(locked_attempt)
@@ -461,31 +483,46 @@ def complete_yaml_to_mysql_sync_attempt(
     observed_yaml_blob_sha: str,
     commit_sha: str = "",
 ) -> tuple[EnvironmentCatalogSyncAttempt, CatalogImportResult]:
-    """处理 YAML 导入回调，先验证完整目录再开启数据库事务。"""
-    normalized_catalog = normalize_catalog(catalog)
+    """处理 YAML 导入回调，目录校验失败需同步落库为 failed。"""
     observed_sha = _validate_git_sha(observed_yaml_blob_sha, field_name="observed_yaml_blob_sha")
     if commit_sha:
         _validate_git_sha(commit_sha, field_name="commit_sha")
+    validation_error: EnvironmentCatalogValidationError | None = None
     with transaction.atomic():
         locked_attempt = EnvironmentCatalogSyncAttempt.objects.select_for_update().get(pk=attempt.pk)
+        if locked_attempt.status == locked_attempt.Status.SYNCED:
+            return locked_attempt, CatalogImportResult(0, 0, 0)
         _require_running(locked_attempt)
         if locked_attempt.direction != locked_attempt.Direction.YAML_TO_MYSQL:
             raise EnvironmentCatalogStateError("同步请求方向与导入回调不一致。")
-        result = _apply_normalized_catalog(normalized_catalog)
-        locked_attempt.status = locked_attempt.Status.SYNCED
-        locked_attempt.observed_yaml_blob_sha = observed_sha
-        locked_attempt.commit_sha = commit_sha
-        locked_attempt.finished_at = timezone.now()
-        locked_attempt.save()
-        state = _locked_state()
-        state.status = EnvironmentCatalogState.Status.SYNCED
-        state.yaml_blob_sha = observed_sha
-        state.last_commit_sha = commit_sha
-        state.last_synced_at = locked_attempt.finished_at
-        state.last_error_code = ""
-        state.last_error_summary = ""
-        state.save()
-    return locked_attempt, result
+        try:
+            normalized_catalog = normalize_catalog(catalog)
+        except EnvironmentCatalogValidationError as exc:
+            _mark_attempt_failed_locked(
+                locked_attempt,
+                error_code=exc.code,
+                error_summary="环境目录校验失败，请修正配置后重试。",
+            )
+            validation_error = exc
+        else:
+            result = _apply_normalized_catalog(normalized_catalog)
+            locked_attempt.status = locked_attempt.Status.SYNCED
+            locked_attempt.observed_yaml_blob_sha = observed_sha
+            locked_attempt.commit_sha = commit_sha
+            locked_attempt.finished_at = timezone.now()
+            locked_attempt.save()
+            state = _locked_state()
+            state.status = EnvironmentCatalogState.Status.SYNCED
+            state.yaml_blob_sha = observed_sha
+            state.last_commit_sha = commit_sha
+            state.last_synced_at = locked_attempt.finished_at
+            state.last_error_code = ""
+            state.last_error_summary = ""
+            state.save()
+            return locked_attempt, result
+    if validation_error is not None:
+        raise validation_error
+    raise RuntimeError("环境目录导入回调未产生结果。")
 
 
 def fail_sync_attempt(
@@ -501,16 +538,11 @@ def fail_sync_attempt(
             return locked_attempt
         if locked_attempt.status not in locked_attempt.ACTIVE_STATUSES:
             raise EnvironmentCatalogStateError("终态同步请求不能标记为 failed。")
-        locked_attempt.status = locked_attempt.Status.FAILED
-        locked_attempt.error_code = error_code
-        locked_attempt.error_summary = error_summary
-        locked_attempt.finished_at = timezone.now()
-        locked_attempt.save()
-        state = _locked_state()
-        state.status = EnvironmentCatalogState.Status.FAILED
-        state.last_error_code = error_code
-        state.last_error_summary = error_summary
-        state.save()
+        _mark_attempt_failed_locked(
+            locked_attempt,
+            error_code=error_code,
+            error_summary=error_summary,
+        )
     return locked_attempt
 
 
