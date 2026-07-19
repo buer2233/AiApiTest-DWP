@@ -8,6 +8,7 @@ from tools.environment_catalog import (
     dump_environment_catalog,
     git_blob_sha,
     load_environment_catalog,
+    verify_yaml_blob_sha,
 )
 
 
@@ -68,6 +69,30 @@ def test_environment_catalog_git_blob_sha_uses_yaml_content_not_repository_head(
     ).hexdigest()
 
     assert git_blob_sha(yaml_content) == expected
+
+
+def test_verify_yaml_blob_sha_returns_observed_sha_when_expected_content_matches():
+    yaml_content = "stage13-qa:\n  base_url: https://stage13-qa.example.invalid/api\n"
+
+    observed_sha = verify_yaml_blob_sha(yaml_content, git_blob_sha(yaml_content))
+
+    assert observed_sha == git_blob_sha(yaml_content)
+
+
+def test_verify_yaml_blob_sha_reports_structured_conflict_without_repository_access():
+    yaml_content = "stage13-qa:\n  base_url: https://stage13-qa.example.invalid/api\n"
+    expected_sha = "0" * 40
+
+    with pytest.raises(EnvironmentCatalogValidationError) as exc_info:
+        verify_yaml_blob_sha(yaml_content, expected_sha)
+
+    assert exc_info.value.code == "yaml_blob_sha_conflict"
+    assert exc_info.value.diagnostic == {
+        "code": "yaml_blob_sha_conflict",
+        "message": "YAML Git blob SHA does not match the expected value.",
+        "expected_yaml_blob_sha": expected_sha,
+        "observed_yaml_blob_sha": git_blob_sha(yaml_content),
+    }
 
 
 def test_versioned_package_environment_catalog_is_valid():
