@@ -179,7 +179,7 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 | `GET /api/v1/environment-catalog-sync-attempts/{id}` | admin | 无 | 单次同步状态、错误、Jenkins 与提交信息 | `404`、`403` |
 | `POST /api/v1/environment-catalog-sync-attempts/{id}/retry` | admin | 无；冲突态先导入 YAML 或重新创建写请求 | `202`：新请求 | `409 sync_not_retryable/environment_config_sync_busy`、`403` |
 
-内部 Jenkins 契约不向浏览器开放：专用同步 Job 以私有服务令牌读取导出快照、回传 YAML 导入结果或 Git 推送结果。后端从不读取容器外文件；Daily 父 Job 从 YAML 校验环境但不访问 MySQL。既有 `GET /test-environments/{id}/summary`、任务列表与父级 Allure URL 保持兼容，Daily 不增加模块子任务 API。
+内部 Jenkins 契约不向浏览器开放：专用同步 Job 仅以私有服务令牌调用 `GET {JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL}/api/v1/internal/environment-catalog-sync-attempts/{sync_request_id}/export/` 和 `POST {JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL}/api/v1/internal/environment-catalog-sync-attempts/{sync_request_id}/callback/`。服务基址只从私有环境变量读取，不能作为 Jenkins 构建参数、浏览器响应或日志字段；`sync_request_id` 必须是安全不透明标识，专用 Job 在调用命令前校验其格式和 40 位小写 blob SHA。后端从不读取容器外文件；Daily 父 Job 从 YAML 校验环境但不访问 MySQL。既有 `GET /test-environments/{id}/summary`、任务列表与父级 Allure URL 保持兼容，Daily 不增加模块子任务 API。
 
 ## §8 UI 字段级规格
 
