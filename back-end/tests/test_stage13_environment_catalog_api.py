@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import importlib
+from unittest.mock import patch
 
 import pytest
 from django.test import override_settings
 from rest_framework.test import APIClient
 
+from metrics.jenkins_service import JenkinsServiceError
 from metrics.models import EnvironmentCatalogState, EnvironmentCatalogSyncAttempt, TestEnvironment as MetricEnvironment
 from tests.conftest import TEST_PASSWORD
 
@@ -74,7 +76,9 @@ def test_admin_crud_creates_immutable_sync_attempt_and_rejects_the_last_active_e
     admin_client,
     admin_user,
     catalog_state,
+    monkeypatch,
 ):
+    monkeypatch.setattr("metrics.views.trigger_jenkins_build", lambda **kwargs: {"queue_id": "catalog-queue"})
     existing = create_environment(env_key="stage13-existing")
 
     created = admin_client.post(
@@ -99,7 +103,7 @@ def test_admin_crud_creates_immutable_sync_attempt_and_rejects_the_last_active_e
     attempt_id = created.data["data"]["sync_attempt"]["id"]
     attempt = EnvironmentCatalogSyncAttempt.objects.get(id=attempt_id)
     assert attempt.direction == EnvironmentCatalogSyncAttempt.Direction.MYSQL_TO_YAML
-    assert attempt.status == EnvironmentCatalogSyncAttempt.Status.PENDING
+    assert attempt.status == EnvironmentCatalogSyncAttempt.Status.QUEUED
     assert attempt.requested_by == admin_user
     assert attempt.payload_json["stage13-qa"]["base_url"] == "https://stage13-qa.example.invalid/api"
     assert created.data["data"]["sync_attempt"]["jenkins_build_url"] == ""
@@ -144,7 +148,9 @@ def test_catalog_sync_attempt_audit_retry_and_member_permission_boundaries(
     admin_user,
     member_user,
     catalog_state,
+    monkeypatch,
 ):
+    monkeypatch.setattr("metrics.views.trigger_jenkins_build", lambda **kwargs: {"queue_id": "catalog-retry-queue"})
     create_environment(env_key="stage13-audit")
     attempt = catalog_service().create_mysql_to_yaml_sync_attempt(requested_by=admin_user)
     catalog_service().fail_sync_attempt(
@@ -164,7 +170,7 @@ def test_catalog_sync_attempt_audit_retry_and_member_permission_boundaries(
     assert audit.data["data"]["jenkins_build_url"] == "https://ci.example.invalid/job/environment-catalog/41/"
     assert retried.status_code == 202
     assert retried.data["data"]["id"] != attempt.id
-    assert retried.data["data"]["status"] == "pending"
+    assert retried.data["data"]["status"] == "queued"
     assert retried.data["data"]["jenkins_build_url"] == ""
 
     member_client = login_client(member_user)
@@ -175,6 +181,60 @@ def test_catalog_sync_attempt_audit_retry_and_member_permission_boundaries(
     ]:
         assert response.status_code == 403
         assert response.data["error"]["code"] == "admin_required"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("failure_kind", "expected_error_code"),
+    [
+        ("jenkins_error", "jenkins_dispatch_failed"),
+        ("missing_queue_id", "jenkins_queue_id_missing"),
+    ],
+)
+def test_environment_catalog_dispatch_failure_ends_attempt_and_retry_requeues_it(
+    admin_client,
+    catalog_state,
+    failure_kind,
+    expected_error_code,
+):
+    with patch("metrics.views.trigger_jenkins_build") as trigger_build:
+        trigger_build.side_effect = (
+            [
+                JenkinsServiceError("https://internal.example.invalid/secret-token")
+                if failure_kind == "jenkins_error"
+                else {},
+                {"queue_id": "recovered-queue"},
+            ]
+        )
+        created = admin_client.post(
+            "/api/v1/test-environments",
+            {
+                "env_key": f"dispatch-{failure_kind}",
+                "url_name": "调度失败环境",
+                "base_url": f"https://dispatch-{failure_kind}.example.invalid/api",
+                "url_desc": "验证调度失败回收同步键",
+            },
+            format="json",
+        )
+
+        assert created.status_code == 202
+        assert "internal.example.invalid" not in str(created.data)
+        attempt = EnvironmentCatalogSyncAttempt.objects.get(id=created.data["data"]["sync_attempt"]["id"])
+        assert attempt.status == EnvironmentCatalogSyncAttempt.Status.FAILED
+        assert attempt.error_code == expected_error_code
+        assert attempt.error_summary == "环境目录同步任务未能排队，请重试。"
+
+        retried = admin_client.post(
+            f"/api/v1/environment-catalog-sync-attempts/{attempt.id}/retry",
+            {},
+            format="json",
+        )
+
+    assert retried.status_code == 202
+    retried_attempt = EnvironmentCatalogSyncAttempt.objects.get(id=retried.data["data"]["id"])
+    assert retried_attempt.status == EnvironmentCatalogSyncAttempt.Status.QUEUED
+    assert retried_attempt.queue_id == "recovered-queue"
+    assert trigger_build.call_count == 2
 
 
 @pytest.mark.django_db
@@ -289,3 +349,62 @@ def test_internal_callback_schema_error_fails_queued_attempt_and_allows_admin_re
     assert attempt.status == EnvironmentCatalogSyncAttempt.Status.FAILED
     retry = admin_client.post(f"/api/v1/environment-catalog-sync-attempts/{attempt.id}/retry", {}, format="json")
     assert retry.status_code == 202
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("direction", "payload"),
+    [
+        (
+            EnvironmentCatalogSyncAttempt.Direction.YAML_TO_MYSQL,
+            {
+                "direction": "yaml_to_mysql",
+                "expected_yaml_blob_sha": INITIAL_YAML_BLOB_SHA,
+                "observed_yaml_blob_sha": "b" * 40,
+                "catalog": {"invalid-entry": {}},
+            },
+        ),
+        (
+            EnvironmentCatalogSyncAttempt.Direction.MYSQL_TO_YAML,
+            {
+                "direction": "mysql_to_yaml",
+                "expected_yaml_blob_sha": INITIAL_YAML_BLOB_SHA,
+                "observed_yaml_blob_sha": 1,
+                "written_yaml_blob_sha": "b" * 40,
+                "commit_sha": "c" * 40,
+            },
+        ),
+    ],
+    ids=["yaml_invalid_catalog", "mysql_invalid_sha_type"],
+)
+def test_internal_callback_semantic_error_fails_attempt_and_releases_the_retry_key(
+    admin_client,
+    catalog_state,
+    direction,
+    payload,
+):
+    create_environment(env_key=f"semantic-callback-{direction}")
+    attempt_factory = (
+        catalog_service().create_yaml_to_mysql_sync_attempt
+        if direction == EnvironmentCatalogSyncAttempt.Direction.YAML_TO_MYSQL
+        else catalog_service().create_mysql_to_yaml_sync_attempt
+    )
+    attempt = attempt_factory()
+    catalog_service().mark_sync_attempt_queued(attempt, queue_id=f"semantic-{direction}")
+
+    with override_settings(ENVIRONMENT_CATALOG_SERVICE_TOKEN="service-token-for-tests"):
+        callback = APIClient().post(
+            f"/api/v1/internal/environment-catalog-sync-attempts/{attempt.request_id}/callback/",
+            payload,
+            format="json",
+            HTTP_AUTHORIZATION="Bearer service-token-for-tests",
+        )
+
+    assert callback.status_code == 400
+    assert callback.data["error"]["code"] == "validation_error"
+    assert "service-token-for-tests" not in str(callback.data)
+    attempt.refresh_from_db()
+    assert attempt.status == EnvironmentCatalogSyncAttempt.Status.FAILED
+    retry = admin_client.post(f"/api/v1/environment-catalog-sync-attempts/{attempt.id}/retry", {}, format="json")
+    assert retry.status_code == 202
+    assert retry.data["data"]["id"] != attempt.id

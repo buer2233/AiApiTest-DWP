@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import signal
 from io import StringIO
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 from django.core.management import call_command
@@ -219,6 +219,57 @@ def test_sync_jenkins_job_bindings_keeps_only_one_active_global_daily_binding(mo
     assert canonical.job_full_name == "AiApiTest-DWP-Daily-Full-Module"
     assert duplicate.is_active is False
     assert legacy_module_binding.is_active is True
+
+
+def test_global_daily_binding_lock_uses_mysql_advisory_lock_and_releases_it():
+    from metrics.management.commands.sync_jenkins_job_bindings import (
+        GLOBAL_DAILY_BINDING_LOCK_NAME,
+        GLOBAL_DAILY_BINDING_LOCK_TIMEOUT_SECONDS,
+        global_daily_binding_lock,
+    )
+
+    with patch("metrics.management.commands.sync_jenkins_job_bindings.connection") as connection:
+        connection.vendor = "mysql"
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (1,)
+
+        with global_daily_binding_lock():
+            pass
+
+    assert cursor.execute.call_args_list == [
+        call(
+            "SELECT GET_LOCK(%s, %s)",
+            [GLOBAL_DAILY_BINDING_LOCK_NAME, GLOBAL_DAILY_BINDING_LOCK_TIMEOUT_SECONDS],
+        ),
+        call("SELECT RELEASE_LOCK(%s)", [GLOBAL_DAILY_BINDING_LOCK_NAME]),
+    ]
+
+
+def test_global_daily_binding_lock_rejects_mysql_lock_timeout():
+    from metrics.management.commands.sync_jenkins_job_bindings import global_daily_binding_lock
+
+    with patch("metrics.management.commands.sync_jenkins_job_bindings.connection") as connection:
+        connection.vendor = "mysql"
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (0,)
+
+        with pytest.raises(CommandError, match="global Daily"):
+            with global_daily_binding_lock():
+                pass
+
+    cursor.execute.assert_called_once()
+
+
+def test_global_daily_binding_lock_keeps_sqlite_pytest_compatible():
+    from metrics.management.commands.sync_jenkins_job_bindings import global_daily_binding_lock
+
+    with patch("metrics.management.commands.sync_jenkins_job_bindings.connection") as connection:
+        connection.vendor = "sqlite"
+
+        with global_daily_binding_lock():
+            pass
+
+    connection.cursor.assert_not_called()
 
 
 @pytest.mark.django_db

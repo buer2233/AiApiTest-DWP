@@ -922,6 +922,25 @@ def resolve_daily_parent_environment(binding: JenkinsJobBinding, build_result: d
     return environment
 
 
+def validate_existing_daily_parent_task(task: JenkinsTask, environment: TestEnvironment) -> None:
+    """防止历史脏数据绕过 Daily 父任务的类型、模块和环境不变量。"""
+    if (
+        task.task_type != TestRun.RunType.DAILY_FULL
+        or task.module_id is not None
+        or task.environment_id != environment.id
+        or task.run_id is None
+    ):
+        raise DailyParentEnvironmentError("Existing Daily parent task does not match the resolved environment.")
+    run = task.run
+    if (
+        run is None
+        or run.run_type != TestRun.RunType.DAILY_FULL
+        or run.module_id is not None
+        or run.environment_id != environment.id
+    ):
+        raise DailyParentEnvironmentError("Existing Daily parent task does not match the resolved environment.")
+
+
 def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_result: dict) -> tuple[JenkinsTask, bool]:
     # 先验证 global binding 与构建环境，避免既有任务路径绕过 Daily 约束。
     environment = resolve_daily_parent_environment(binding, build_result)
@@ -931,6 +950,7 @@ def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_re
         build_number=build_number,
     ).first()
     if task is not None:
+        validate_existing_daily_parent_task(task, environment)
         return task, False
 
     run_key = build_result.get("run_id") or f"daily_full-{environment.id}-{build_number}"
@@ -964,6 +984,7 @@ def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_re
         )
         if task is None:
             raise
+        validate_existing_daily_parent_task(task, environment)
         return task, False
 
 
@@ -985,7 +1006,19 @@ def catalog_error_response(exc: catalog_service.EnvironmentCatalogError) -> Resp
 
 
 def dispatch_environment_catalog_sync_attempt(attempt: EnvironmentCatalogSyncAttempt) -> EnvironmentCatalogSyncAttempt:
-    """仅经 Jenkins API 排队专用配置同步 Job；失败时保留已提交的 pending 审计。"""
+    """仅经 Jenkins API 排队专用配置同步 Job；排队失败时终结审计以释放重试键。"""
+
+    def fail_dispatch(error_code: str) -> EnvironmentCatalogSyncAttempt:
+        try:
+            return catalog_service.fail_sync_attempt(
+                attempt,
+                error_code=error_code,
+                error_summary="环境目录同步任务未能排队，请重试。",
+            )
+        except catalog_service.EnvironmentCatalogStateError as exc:
+            logger.warning("Environment catalog dispatch state rejected: error_type=%s", type(exc).__name__)
+            return EnvironmentCatalogSyncAttempt.objects.get(pk=attempt.pk)
+
     job_full_name = os.environ.get(
         "JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME",
         "AiApiTest-DWP-Environment-Catalog-Sync",
@@ -1004,10 +1037,10 @@ def dispatch_environment_catalog_sync_attempt(attempt: EnvironmentCatalogSyncAtt
     except JenkinsServiceError as exc:
         # 外部异常文本可能包含地址或凭据，只记录异常类型。
         logger.warning("Environment catalog sync dispatch failed: error_type=%s", type(exc).__name__)
-        return attempt
+        return fail_dispatch("jenkins_dispatch_failed")
     queue_id = str(queue.get("queue_id") or "").strip()
     if not queue_id:
-        return attempt
+        return fail_dispatch("jenkins_queue_id_missing")
     try:
         return catalog_service.mark_sync_attempt_queued(attempt, queue_id=queue_id)
     except catalog_service.EnvironmentCatalogStateError as exc:

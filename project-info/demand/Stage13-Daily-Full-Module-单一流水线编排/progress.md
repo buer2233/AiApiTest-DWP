@@ -1,5 +1,11 @@
 # Stage13-Daily-Full-Module-单一流水线编排：进度记录
 
+## 2026-07-20
+
+- Task 4 最终审查整改完成：回调语义失败回归直接验证现有服务层已正确落为 `failed`；Jenkins 调度异常与空 queue id 现在释放同步键；Daily 已有父任务在正常命中和并发回退均验证 task/run 形态；MySQL 首次 global Daily binding 创建使用 advisory lock，SQLite 保持兼容。
+- TDD 证据：回调语义参数化 `2 passed`；调度失败参数化 `2 passed`；Daily 任务形态与回退 `9 passed`；绑定锁与既有命令回归 `5 passed`。
+- 扩大回归：`tests/test_stage13_environment_catalog_api.py`、`tests/test_metrics_jenkins_execution_api.py`、`tests/test_metrics_commands.py` 全部通过；`py_compile`、Ruff 和 `git diff --check` 通过。未运行 migration、Docker、应用服务或 Jenkins。
+
 ## 2026-07-19
 
 - 已读取 Issue，确认按 M/L 档完整 loop 处理，尚未修改任何 Jenkins Job 或 Pipeline。
