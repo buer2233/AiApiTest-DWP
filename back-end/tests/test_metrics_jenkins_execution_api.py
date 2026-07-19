@@ -241,6 +241,119 @@ def create_daily_parent_task(
     )
 
 
+def daily_parent_build_result(task, environment) -> dict:
+    return {
+        "job_full_name": task.job_full_name,
+        "build_number": task.build_number,
+        "run_id": f"daily-discovery-{task.id}",
+        "target_base_url": f"  {environment.base_url}/  ",
+    }
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "malformed_shape",
+    [
+        "task_type",
+        "task_module",
+        "run_missing",
+        "run_type",
+        "run_module",
+        "task_environment",
+        "run_environment",
+    ],
+)
+def test_daily_discovery_rejects_malformed_existing_global_parent_task(p5_context, malformed_shape):
+    from metrics.views import DailyParentEnvironmentError, create_or_get_daily_task_from_discovery
+
+    JenkinsTask = metric_model("JenkinsTask")
+    TestEnvironment = metric_model("TestEnvironment")
+    TestRun = metric_model("TestRun")
+    binding = create_daily_parent_binding()
+    existing_task = create_daily_parent_task(p5_context, build_number=503)
+    other_environment = TestEnvironment.objects.create(
+        env_key=f"daily-invalid-{malformed_shape}",
+        env_name="Daily 异常父任务环境",
+        base_url=f"https://daily-invalid-{malformed_shape}.example.invalid/api",
+        is_active=True,
+    )
+
+    if malformed_shape == "task_type":
+        JenkinsTask.objects.filter(pk=existing_task.pk).update(
+            task_type="module_rerun",
+            module=p5_context["module"],
+        )
+    elif malformed_shape == "task_module":
+        JenkinsTask.objects.filter(pk=existing_task.pk).update(module=p5_context["module"])
+    elif malformed_shape == "run_missing":
+        JenkinsTask.objects.filter(pk=existing_task.pk).update(run=None)
+    elif malformed_shape == "run_type":
+        TestRun.objects.filter(pk=existing_task.run_id).update(
+            run_type="module_rerun",
+            module=p5_context["module"],
+        )
+    elif malformed_shape == "run_module":
+        TestRun.objects.filter(pk=existing_task.run_id).update(module=p5_context["module"])
+    elif malformed_shape == "task_environment":
+        JenkinsTask.objects.filter(pk=existing_task.pk).update(environment=other_environment)
+    else:
+        TestRun.objects.filter(pk=existing_task.run_id).update(environment=other_environment)
+
+    task_count = JenkinsTask.objects.count()
+    run_count = TestRun.objects.count()
+    with pytest.raises(DailyParentEnvironmentError):
+        create_or_get_daily_task_from_discovery(
+            binding,
+            daily_parent_build_result(existing_task, p5_context["environment"]),
+        )
+
+    assert JenkinsTask.objects.count() == task_count
+    assert TestRun.objects.count() == run_count
+
+
+@pytest.mark.django_db
+def test_daily_discovery_returns_valid_existing_global_parent_task_idempotently(p5_context):
+    from metrics.views import create_or_get_daily_task_from_discovery
+
+    binding = create_daily_parent_binding()
+    existing_task = create_daily_parent_task(p5_context, build_number=504)
+
+    task, created = create_or_get_daily_task_from_discovery(
+        binding,
+        daily_parent_build_result(existing_task, p5_context["environment"]),
+    )
+
+    assert task.id == existing_task.id
+    assert created is False
+
+
+@pytest.mark.django_db
+def test_daily_discovery_integrity_error_fallback_rejects_malformed_existing_parent_task(p5_context):
+    from metrics.views import DailyParentEnvironmentError, create_or_get_daily_task_from_discovery
+
+    class EmptyInitialLookup:
+        def filter(self, *args, **kwargs):
+            return self
+
+        def first(self):
+            return None
+
+    JenkinsTask = metric_model("JenkinsTask")
+    binding = create_daily_parent_binding()
+    existing_task = create_daily_parent_task(p5_context, build_number=505)
+    JenkinsTask.objects.filter(pk=existing_task.pk).update(module=p5_context["module"])
+
+    with patch("metrics.views.JenkinsTask.objects.select_related", return_value=EmptyInitialLookup()), pytest.raises(
+        DailyParentEnvironmentError
+    ):
+        create_or_get_daily_task_from_discovery(
+            binding,
+            daily_parent_build_result(existing_task, p5_context["environment"]),
+        )
+
+    assert JenkinsTask.objects.count() == 1
+
+
 def daily_parent_summary(context: dict, *, primary_status: str = "passed", other_status: str = "passed") -> dict:
     def module_detail(module, execution_status: str) -> dict:
         failed_count = 1 if execution_status == "failed" else 0

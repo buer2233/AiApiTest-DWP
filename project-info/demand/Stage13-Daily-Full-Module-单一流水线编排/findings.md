@@ -1,5 +1,11 @@
 # Stage13-Daily-Full-Module-单一流水线编排：调查发现
 
+## 2026-07-20 Task 4 最终审查整改
+
+- 最终审查范围冻结为四项后端韧性缺口：回调语义校验失败必须终结 attempt、Jenkins 调度异常或无 queue id 必须释放同步键、Daily 既有任务两条查询路径均须验证父任务形态、首次 global Daily binding 创建须有 MySQL 跨事务互斥。
+- 不新增 migration；global binding 采用 MySQL advisory lock，并保留 SQLite pytest 兼容分支。
+- 新增的回调语义错误回归已直接通过，证实服务层已有失败落库和重试键释放逻辑，不修改该项生产代码。
+
 ## 已确认事实
 
 - Issue 状态为待处理，并明确要求进入完整需求 loop。
