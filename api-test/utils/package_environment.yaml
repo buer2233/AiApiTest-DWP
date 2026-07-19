@@ -1,0 +1,4 @@
+gbif-public:
+  base_url: https://api.gbif.org
+  url_desc: GBIF public API test environment
+  url_name: GBIF Public API

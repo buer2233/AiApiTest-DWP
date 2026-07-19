@@ -8,6 +8,7 @@ import time
 import pytest
 
 from tools import ci_runner
+from tools.environment_catalog import EnvironmentCatalogValidationError
 from tools.sensitive_data import redact_sensitive_text
 
 
@@ -91,6 +92,110 @@ def test_build_pytest_command_rejects_negative_rerun_count(tmp_path):
             allure_results_dir=tmp_path / "allure-results",
             retry_count=-1,
         )
+
+
+def test_build_pytest_command_passes_normalized_base_url_to_pytest(tmp_path):
+    """Daily Worker 必须复用既有 --base-url 覆盖机制。"""
+    allure_results_dir = tmp_path / "runtime" / "ci-runs" / "run-base-url" / "allure-results"
+
+    command = ci_runner.build_pytest_command(
+        targets=["test_case/test_gbif_case"],
+        allure_results_dir=allure_results_dir,
+        base_url="https://stage13-qa.example.invalid/api/",
+    )
+
+    assert command[-2:] == ["--base-url", "https://stage13-qa.example.invalid/api"]
+
+
+def _write_environment_catalog(api_test_root, yaml_content):
+    catalog_path = api_test_root / "utils" / "package_environment.yaml"
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_text(yaml_content, encoding="utf-8")
+
+
+def test_build_run_request_from_jenkins_env_normalizes_target_base_url(tmp_path):
+    """Jenkins 传入的目标 URL 必须在执行前完成既有规则校验和规范化。"""
+    env = {
+        "RETRY_MODE": "module",
+        "RUN_ID": "stage13-target-base-url",
+        "TARGET_BASE_URL": "https://stage13-qa.example.invalid/api/",
+    }
+    _write_environment_catalog(
+        tmp_path,
+        """
+stage13-qa:
+  base_url: https://stage13-qa.example.invalid/api
+  url_name: Stage13 QA
+  url_desc: 自动化回归测试环境
+""".lstrip(),
+    )
+
+    request = ci_runner.build_run_request_from_jenkins_env(env, api_test_root=tmp_path)
+
+    assert request.base_url == "https://stage13-qa.example.invalid/api"
+
+
+@pytest.mark.parametrize(
+    "target_base_url",
+    [
+        "https://unregistered.example.invalid/api",
+        "https://user:password@stage13-qa.example.invalid/api",
+    ],
+)
+def test_build_run_request_from_jenkins_env_rejects_unregistered_target_base_url(tmp_path, target_base_url):
+    _write_environment_catalog(
+        tmp_path,
+        """
+stage13-qa:
+  base_url: https://stage13-qa.example.invalid/api
+  url_name: Stage13 QA
+  url_desc: 自动化回归测试环境
+""".lstrip(),
+    )
+    env = {
+        "RETRY_MODE": "module",
+        "RUN_ID": "stage13-unregistered-target",
+        "TARGET_BASE_URL": target_base_url,
+    }
+
+    with pytest.raises(ValueError, match="registered environment"):
+        ci_runner.build_run_request_from_jenkins_env(env, api_test_root=tmp_path)
+
+
+def test_build_run_request_from_jenkins_env_rejects_invalid_environment_catalog(tmp_path):
+    _write_environment_catalog(
+        tmp_path,
+        """
+stage13-qa:
+  base_url: https://stage13-qa.example.invalid/api
+  url_name: Stage13 QA
+  url_desc: 自动化回归测试环境
+  secret_hint: forbidden
+""".lstrip(),
+    )
+    env = {
+        "RETRY_MODE": "module",
+        "RUN_ID": "stage13-invalid-catalog",
+        "TARGET_BASE_URL": "https://stage13-qa.example.invalid/api",
+    }
+
+    with pytest.raises(EnvironmentCatalogValidationError) as exc_info:
+        ci_runner.build_run_request_from_jenkins_env(env, api_test_root=tmp_path)
+
+    assert exc_info.value.code == "unknown_environment_field"
+
+
+def test_build_run_request_from_jenkins_env_keeps_empty_target_base_url_as_default(tmp_path):
+    """空 TARGET_BASE_URL 必须继续使用私有配置默认值，避免改变既有调用。"""
+    env = {
+        "RETRY_MODE": "module",
+        "RUN_ID": "stage13-default-base-url",
+        "TARGET_BASE_URL": " ",
+    }
+
+    request = ci_runner.build_run_request_from_jenkins_env(env, api_test_root=tmp_path)
+
+    assert request.base_url is None
 
 
 def test_run_ci_tests_defaults_to_current_python_interpreter(tmp_path, monkeypatch):
@@ -345,6 +450,7 @@ def test_write_summary_creates_required_summary_json(tmp_path):
         "allure_report_status": "unknown",
         "allure_report_message": "",
         "case_results": [],
+        "error_count": 0,
     }
     assert summary == expected
     assert json.loads((run_dir / "summary.json").read_text(encoding="utf-8")) == expected
@@ -359,6 +465,7 @@ def test_parse_pytest_summary_counts_from_console_output():
     assert ci_runner.parse_pytest_summary_counts(console_output) == {
         "total_count": 5,
         "failed_count": 2,
+        "error_count": 1,
         "passed_count": 2,
         "skipped_count": 1,
         "duration_seconds": 12.34,
@@ -389,6 +496,7 @@ def test_run_ci_tests_writes_count_fields_into_summary(tmp_path, monkeypatch):
 
     assert summary["total_count"] == 4
     assert summary["failed_count"] == 1
+    assert summary["error_count"] == 0
     assert summary["passed_count"] == 2
     assert summary["skipped_count"] == 1
     assert summary["duration_seconds"] == 12.34
