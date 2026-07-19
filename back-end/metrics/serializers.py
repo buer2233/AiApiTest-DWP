@@ -7,7 +7,17 @@ import urllib.parse
 from rest_framework import serializers
 
 from common.serializers import PaginationMetaSerializer
-from metrics.models import JenkinsJobBinding, JenkinsTask, ModuleExecutionLock, ModuleRunHistory, ModuleSnapshot, TestCaseResult, TestEnvironment
+from metrics.models import (
+    EnvironmentCatalogState,
+    EnvironmentCatalogSyncAttempt,
+    JenkinsJobBinding,
+    JenkinsTask,
+    ModuleExecutionLock,
+    ModuleRunHistory,
+    ModuleSnapshot,
+    TestCaseResult,
+    TestEnvironment,
+)
 
 
 ACTIVE_TASK_STATUSES = {"queued", "running", "canceling"}
@@ -44,6 +54,102 @@ class TestEnvironmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestEnvironment
         fields = ["id", "env_key", "env_name", "base_url"]
+
+
+class EnvironmentCatalogEnvironmentSerializer(serializers.ModelSerializer):
+    """Stage13 环境管理接口使用 YAML 同名字段，同时保留旧 env_name 兼容字段。"""
+
+    url_name = serializers.CharField(source="env_name")
+
+    class Meta:
+        model = TestEnvironment
+        fields = ["id", "env_key", "env_name", "url_name", "base_url", "url_desc", "is_active"]
+
+
+class StrictFieldsSerializer(serializers.Serializer):
+    """拒绝 DRF 默认忽略的未知字段，避免环境配置被悄然丢弃。"""
+
+    def validate(self, attrs):
+        unknown_fields = set(self.initial_data) - set(self.fields)
+        if unknown_fields:
+            raise serializers.ValidationError("请求包含未允许字段。")
+        return super().validate(attrs)
+
+
+class TestEnvironmentCreateRequestSerializer(StrictFieldsSerializer):
+    env_key = serializers.CharField(min_length=1, max_length=64, trim_whitespace=True)
+    url_name = serializers.CharField(min_length=1, max_length=128, trim_whitespace=True)
+    base_url = serializers.CharField(min_length=1, max_length=512, trim_whitespace=True)
+    url_desc = serializers.CharField(min_length=1, trim_whitespace=True)
+
+
+class TestEnvironmentUpdateRequestSerializer(StrictFieldsSerializer):
+    url_name = serializers.CharField(min_length=1, max_length=128, trim_whitespace=True, required=False)
+    base_url = serializers.CharField(min_length=1, max_length=512, trim_whitespace=True, required=False)
+    url_desc = serializers.CharField(min_length=1, trim_whitespace=True, required=False)
+    is_active = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if not attrs:
+            raise serializers.ValidationError("至少提供一个可更新字段。")
+        return attrs
+
+
+class EnvironmentCatalogStateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnvironmentCatalogState
+        fields = [
+            "status",
+            "yaml_blob_sha",
+            "last_commit_sha",
+            "last_synced_at",
+            "last_error_code",
+            "last_error_summary",
+        ]
+
+
+class EnvironmentCatalogSyncAttemptSerializer(serializers.ModelSerializer):
+    requested_by = serializers.CharField(source="requested_by.display_name", allow_null=True)
+
+    class Meta:
+        model = EnvironmentCatalogSyncAttempt
+        fields = [
+            "id",
+            "request_id",
+            "direction",
+            "status",
+            "expected_yaml_blob_sha",
+            "observed_yaml_blob_sha",
+            "queue_id",
+            "build_number",
+            "jenkins_build_url",
+            "job_full_name",
+            "commit_sha",
+            "requested_by",
+            "error_code",
+            "error_summary",
+            "created_at",
+            "finished_at",
+        ]
+
+
+class EnvironmentCatalogWriteResponseSerializer(serializers.Serializer):
+    environment = EnvironmentCatalogEnvironmentSerializer()
+    sync_attempt = EnvironmentCatalogSyncAttemptSerializer()
+
+
+class EnvironmentCatalogWriteEnvelopeSerializer(serializers.Serializer):
+    data = EnvironmentCatalogWriteResponseSerializer()
+
+
+class EnvironmentCatalogSyncAttemptResponseSerializer(serializers.Serializer):
+    data = EnvironmentCatalogSyncAttemptSerializer()
+
+
+class EnvironmentCatalogListResponseSerializer(serializers.Serializer):
+    data = EnvironmentCatalogEnvironmentSerializer(many=True)
+    catalog_state = EnvironmentCatalogStateSerializer()
 
 
 class EnvironmentSummarySerializer(serializers.Serializer):

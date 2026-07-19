@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import logging
+import os
+import re
+import secrets
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Max, Sum
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
@@ -30,6 +34,8 @@ from metrics.jenkins_service import (
 from metrics.module_metadata import build_filter_options_from_package_module_yaml
 from metrics.models import (
     CaseStatusAudit,
+    EnvironmentCatalogState,
+    EnvironmentCatalogSyncAttempt,
     EnvironmentSnapshot,
     JenkinsJobBinding,
     JenkinsTask,
@@ -38,13 +44,21 @@ from metrics.models import (
     ModuleSnapshot,
     TestCaseResult,
     TestEnvironment,
+    TestModule,
     TestRun,
+    normalize_environment_base_url,
 )
 from metrics.serializers import (
     CaseResultListResponseSerializer,
     CaseResultSerializer,
     CaseStatusUpdateRequestSerializer,
     CaseStatusUpdateResponseSerializer,
+    EnvironmentCatalogEnvironmentSerializer,
+    EnvironmentCatalogListResponseSerializer,
+    EnvironmentCatalogStateSerializer,
+    EnvironmentCatalogSyncAttemptResponseSerializer,
+    EnvironmentCatalogSyncAttemptSerializer,
+    EnvironmentCatalogWriteEnvelopeSerializer,
     EnvironmentSummarySerializer,
     EnvironmentSummaryResponseSerializer,
     JenkinsTaskListResponseSerializer,
@@ -57,9 +71,11 @@ from metrics.serializers import (
     ModuleTrendResponseSerializer,
     ModuleSnapshotListResponseSerializer,
     ModuleSnapshotSerializer,
-    TestEnvironmentListResponseSerializer,
+    TestEnvironmentCreateRequestSerializer,
+    TestEnvironmentUpdateRequestSerializer,
     TestEnvironmentSerializer,
 )
+from metrics import environment_catalog as catalog_service
 
 
 SORT_FIELDS = {
@@ -591,7 +607,7 @@ def normalize_module_summary(summary: dict) -> tuple[dict | None, str | None]:
     }, None
 
 
-def apply_module_summary(task: JenkinsTask, summary: dict) -> str | None:
+def apply_module_summary(task: JenkinsTask, summary: dict, *, module: TestModule | None = None) -> str | None:
     if task.task_type not in {TestRun.RunType.MODULE_RERUN, TestRun.RunType.DAILY_FULL}:
         return None
     normalized_summary, case_sync_warning = normalize_module_summary(summary)
@@ -605,12 +621,15 @@ def apply_module_summary(task: JenkinsTask, summary: dict) -> str | None:
     case_results = normalized_summary["case_results"]
     completed_at = task.finished_at or timezone.now()
     duration_seconds = normalized_summary["duration_seconds"]
-    snapshot = ModuleSnapshot.objects.select_for_update().get(environment=task.environment, module=task.module)
+    resolved_module = module or task.module
+    if resolved_module is None:
+        return "Jenkins Daily parent summary is missing module context; current module metrics were preserved."
+    snapshot = ModuleSnapshot.objects.select_for_update().get(environment=task.environment, module=resolved_module)
     history_duration = Decimal(str(duration_seconds)) if duration_seconds is not None else None
     history_pass_rate = calculate_pass_rate(total_count, failed_count)
     ModuleRunHistory.objects.update_or_create(
         environment=task.environment,
-        module=task.module,
+        module=resolved_module,
         source_run=task.run,
         run_date=timezone.localtime(completed_at).date(),
         run_type=task.task_type,
@@ -650,7 +669,7 @@ def apply_module_summary(task: JenkinsTask, summary: dict) -> str | None:
     )
     TestCaseResult.objects.select_for_update().filter(
         environment=task.environment,
-        module=task.module,
+        module=resolved_module,
         is_current=True,
     ).update(
         is_current=False,
@@ -668,7 +687,7 @@ def apply_module_summary(task: JenkinsTask, summary: dict) -> str | None:
         )
         TestCaseResult.objects.create(
             environment=task.environment,
-            module=task.module,
+            module=resolved_module,
             module_snapshot=snapshot,
             source_run=task.run,
             node_id=case_result["node_id"],
@@ -683,6 +702,56 @@ def apply_module_summary(task: JenkinsTask, summary: dict) -> str | None:
         )
     refresh_environment_snapshot(task.environment)
     return None
+
+
+class DailyParentEnvironmentError(RuntimeError):
+    """父构建未提供可精确匹配的环境时，禁止猜测并创建平台任务。"""
+
+
+def apply_daily_parent_summary(task: JenkinsTask, summary: dict) -> str | None:
+    """把 Daily 父摘要按模块投影，单模块异常不回滚其他模块。"""
+    if task.module_id is not None or task.environment_id is None:
+        return "Jenkins Daily parent context is invalid; current module metrics were preserved."
+    module_details = summary.get("modules")
+    if not isinstance(module_details, list) or not module_details:
+        return "Jenkins Daily parent summary modules is missing or invalid; current module metrics were preserved."
+    warnings: list[str] = []
+    if summary.get("module_count") != len(module_details):
+        warnings.append("Jenkins Daily parent summary module_count is invalid; current module metrics were preserved.")
+
+    modules = {
+        module.package_name: module for module in TestModule.objects.filter(is_active=True).order_by("id")
+    }
+    received_keys: set[str] = set()
+    for detail in module_details:
+        if not isinstance(detail, dict):
+            warnings.append("Jenkins Daily parent summary contains an invalid module detail; current module metrics were preserved.")
+            continue
+        module_key = detail.get("module_key")
+        if not isinstance(module_key, str) or not module_key:
+            warnings.append("Jenkins Daily parent summary contains a module with an invalid key; current module metrics were preserved.")
+            continue
+        if module_key in received_keys:
+            warnings.append(f"{module_key}: duplicate module detail was ignored; current module metrics were preserved.")
+            continue
+        received_keys.add(module_key)
+        module = modules.get(module_key)
+        if module is None:
+            warnings.append(f"{module_key}: unknown module detail was ignored; current module metrics were preserved.")
+            continue
+        try:
+            # 每个模块使用保存点，单模块数据库异常不影响已成功的模块投影。
+            with transaction.atomic():
+                warning = apply_module_summary(task, detail, module=module)
+        except (ModuleSnapshot.DoesNotExist, DatabaseError):
+            warnings.append(f"{module_key}: module projection failed; current module metrics were preserved.")
+            continue
+        if warning:
+            warnings.append(f"{module_key}: {warning}")
+
+    if received_keys != set(modules):
+        warnings.append("Jenkins Daily parent summary is missing module details; current module metrics were preserved.")
+    return "; ".join(warnings) if warnings else None
 
 
 def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
@@ -761,7 +830,7 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
             task.status = TestRun.Status.FAILED
             if not task.error_summary:
                 task.error_summary = "Jenkins summary artifact is missing."
-        elif summary.get("allure_report_status") != "generated":
+        elif task.task_type != TestRun.RunType.DAILY_FULL and summary.get("allure_report_status") != "generated":
             task.status = TestRun.Status.FAILED
             allure_message = summary.get("allure_report_message") or summary.get("allure_report_status") or "unknown"
             task.error_summary = f"Allure HTML report was not generated: {allure_message}"
@@ -774,6 +843,14 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
 
         if task.task_type == TestRun.RunType.FAILED_RERUN and task.status in {TestRun.Status.SUCCESS, TestRun.Status.TEST_FAILED}:
             apply_failed_rerun_summary(task, failed_nodeids)
+        elif task.task_type == TestRun.RunType.DAILY_FULL and task.status in {
+            TestRun.Status.SUCCESS,
+            TestRun.Status.TEST_FAILED,
+        }:
+            case_sync_warning = apply_daily_parent_summary(task, summary)
+            if case_sync_warning:
+                task.status = TestRun.Status.FAILED
+                task.error_summary = case_sync_warning
         elif task.status in {TestRun.Status.SUCCESS, TestRun.Status.TEST_FAILED}:
             case_sync_warning = apply_module_summary(task, summary)
             if case_sync_warning:
@@ -813,7 +890,12 @@ def discover_jenkins_builds(*, job_full_names: list[str] | None = None, date: st
     resolved_job_names = job_full_names
     if resolved_job_names is None:
         resolved_job_names = list(
-            JenkinsJobBinding.objects.filter(task_type=TestRun.RunType.DAILY_FULL, is_active=True)
+            JenkinsJobBinding.objects.filter(
+                task_type=TestRun.RunType.DAILY_FULL,
+                environment__isnull=True,
+                module__isnull=True,
+                is_active=True,
+            )
             .order_by("job_full_name")
             .values_list("job_full_name", flat=True)
             .distinct()
@@ -821,6 +903,25 @@ def discover_jenkins_builds(*, job_full_names: list[str] | None = None, date: st
     if not resolved_job_names:
         return []
     return discover_jenkins_builds_from_jenkins(job_full_names=resolved_job_names, date=date)
+
+
+def resolve_daily_parent_environment(binding: JenkinsJobBinding, build_result: dict) -> TestEnvironment:
+    """只接受构建产物中的精确环境 URL，空默认值不能由平台猜测。"""
+    if binding.environment_id:
+        if binding.environment and binding.environment.is_active:
+            return binding.environment
+        raise DailyParentEnvironmentError("Daily parent binding environment is inactive.")
+    raw_target_url = build_result.get("target_base_url")
+    if not isinstance(raw_target_url, str) or not raw_target_url.strip():
+        raise DailyParentEnvironmentError("Daily parent result does not contain a resolved target_base_url.")
+    try:
+        target_url = normalize_environment_base_url(raw_target_url)
+    except ValueError as exc:
+        raise DailyParentEnvironmentError("Daily parent target_base_url is invalid.") from exc
+    environment = TestEnvironment.objects.filter(is_active=True, base_url=target_url).first()
+    if environment is None:
+        raise DailyParentEnvironmentError("Daily parent target_base_url is not an active environment.")
+    return environment
 
 
 def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_result: dict) -> tuple[JenkinsTask, bool]:
@@ -832,20 +933,21 @@ def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_re
     if task is not None:
         return task, False
 
-    run_key = build_result.get("run_id") or f"daily_full-{binding.environment_id}-{binding.module_id}-{build_number}"
+    environment = resolve_daily_parent_environment(binding, build_result)
+    run_key = build_result.get("run_id") or f"daily_full-{environment.id}-{build_number}"
     try:
         with transaction.atomic():
             run = TestRun.objects.create(
                 run_key=run_key,
                 run_type=TestRun.RunType.DAILY_FULL,
-                environment=binding.environment,
-                module=binding.module,
+                environment=environment,
+                module=None,
                 status=TestRun.Status.RUNNING,
             )
             task = JenkinsTask.objects.create(
                 run=run,
-                environment=binding.environment,
-                module=binding.module,
+                environment=environment,
+                module=None,
                 task_type=TestRun.RunType.DAILY_FULL,
                 trigger_source=JenkinsTask.TriggerSource.JENKINS_CRON,
                 job_full_name=binding.job_full_name,
@@ -866,6 +968,67 @@ def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_re
         return task, False
 
 
+def catalog_error_response(exc: catalog_service.EnvironmentCatalogError) -> Response:
+    """将目录服务的稳定错误码映射为冻结浏览器 API 契约。"""
+    if isinstance(exc, catalog_service.EnvironmentCatalogBusyError):
+        return api_error_response("environment_config_sync_busy", "已有活动的环境配置同步请求。", status.HTTP_409_CONFLICT)
+    if isinstance(exc, catalog_service.EnvironmentCatalogDuplicateError):
+        return api_error_response("duplicate_environment", "环境 key 或 base_url 已存在。", status.HTTP_409_CONFLICT)
+    if isinstance(exc, catalog_service.EnvironmentCatalogSyncNotRetryableError):
+        return api_error_response("sync_not_retryable", "当前同步请求不可直接重试。", status.HTTP_409_CONFLICT)
+    if isinstance(exc, catalog_service.EnvironmentCatalogStateError):
+        return api_error_response("invalid_sync_state", "同步请求状态不允许此操作。", status.HTTP_409_CONFLICT)
+    if isinstance(exc, catalog_service.EnvironmentCatalogValidationError):
+        if exc.code == "last_active_environment":
+            return api_error_response("last_active_environment", str(exc), status.HTTP_409_CONFLICT)
+        return api_error_response("validation_error", str(exc), status.HTTP_400_BAD_REQUEST)
+    return api_error_response("environment_catalog_error", "环境目录操作失败。", status.HTTP_400_BAD_REQUEST)
+
+
+def dispatch_environment_catalog_sync_attempt(attempt: EnvironmentCatalogSyncAttempt) -> EnvironmentCatalogSyncAttempt:
+    """仅经 Jenkins API 排队专用配置同步 Job；失败时保留已提交的 pending 审计。"""
+    job_full_name = os.environ.get(
+        "JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME",
+        "AiApiTest-DWP-Environment-Catalog-Sync",
+    ).strip()
+    if not job_full_name:
+        return attempt
+    try:
+        queue = trigger_jenkins_build(
+            job_full_name=job_full_name,
+            parameters={
+                "SYNC_DIRECTION": attempt.direction,
+                "SYNC_REQUEST_ID": attempt.request_id,
+                "EXPECTED_YAML_BLOB_SHA": attempt.expected_yaml_blob_sha,
+            },
+        )
+    except JenkinsServiceError as exc:
+        # 外部异常文本可能包含地址或凭据，只记录异常类型。
+        logger.warning("Environment catalog sync dispatch failed: error_type=%s", type(exc).__name__)
+        return attempt
+    queue_id = str(queue.get("queue_id") or "").strip()
+    if not queue_id:
+        return attempt
+    try:
+        return catalog_service.mark_sync_attempt_queued(attempt, queue_id=queue_id)
+    except catalog_service.EnvironmentCatalogStateError as exc:
+        logger.warning("Environment catalog queue state rejected: error_type=%s", type(exc).__name__)
+        return EnvironmentCatalogSyncAttempt.objects.get(pk=attempt.pk)
+
+
+def environment_catalog_write_response(environment: TestEnvironment, attempt: EnvironmentCatalogSyncAttempt) -> Response:
+    attempt = dispatch_environment_catalog_sync_attempt(attempt)
+    return Response(
+        {
+            "data": {
+                "environment": EnvironmentCatalogEnvironmentSerializer(environment).data,
+                "sync_attempt": EnvironmentCatalogSyncAttemptSerializer(attempt).data,
+            }
+        },
+        status=status.HTTP_202_ACCEPTED,
+    )
+
+
 class TestEnvironmentListView(APIView):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = []
@@ -873,21 +1036,321 @@ class TestEnvironmentListView(APIView):
     @extend_schema(
         tags=["通过率"],
         summary="查询测试环境列表",
-        description="登录用户查询可用测试环境列表。P2 默认只有模拟测试环境。",
+        description="登录用户查询环境；member 只读取启用环境，响应带目录状态。",
         parameters=[
-            OpenApiParameter("is_active", OpenApiTypes.BOOL, OpenApiParameter.QUERY, description="是否只查询启用环境"),
+            OpenApiParameter("is_active", OpenApiTypes.BOOL, OpenApiParameter.QUERY, description="是否筛选启用环境"),
         ],
         responses={
-            200: TestEnvironmentListResponseSerializer,
+            200: EnvironmentCatalogListResponseSerializer,
+            400: OpenApiResponse(ApiErrorResponseSerializer, description="is_active 参数非法：validation_error"),
             401: OpenApiResponse(ApiErrorResponseSerializer, description="未登录或 Cookie 无效"),
         },
     )
     def get(self, request):
+        raw_is_active = request.query_params.get("is_active")
+        if raw_is_active is not None and raw_is_active.lower() not in {"true", "false"}:
+            return api_error_response("validation_error", "is_active 仅支持 true 或 false。", status.HTTP_400_BAD_REQUEST)
         queryset = TestEnvironment.objects.all()
-        is_active = request.query_params.get("is_active")
-        if is_active is not None:
-            queryset = queryset.filter(is_active=is_active.lower() in {"1", "true", "yes"})
-        return Response({"data": TestEnvironmentSerializer(queryset, many=True).data})
+        if is_admin(request.user):
+            if raw_is_active is not None:
+                queryset = queryset.filter(is_active=raw_is_active.lower() == "true")
+        else:
+            queryset = queryset.filter(is_active=True)
+        catalog_state, _ = EnvironmentCatalogState.objects.get_or_create(
+            catalog_key=EnvironmentCatalogState.CATALOG_KEY
+        )
+        return Response(
+            {
+                "data": EnvironmentCatalogEnvironmentSerializer(queryset, many=True).data,
+                "catalog_state": EnvironmentCatalogStateSerializer(catalog_state).data,
+            }
+        )
+
+    @extend_schema(
+        tags=["通过率"],
+        summary="新增测试环境并发起 YAML 写回",
+        request=TestEnvironmentCreateRequestSerializer,
+        responses={
+            202: EnvironmentCatalogWriteEnvelopeSerializer,
+            400: OpenApiResponse(ApiErrorResponseSerializer, description="请求参数非法：validation_error"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
+            409: OpenApiResponse(ApiErrorResponseSerializer, description="环境重复或已有活动同步"),
+        },
+    )
+    def post(self, request):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+        serializer = TestEnvironmentCreateRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error_response("validation_error", "请求参数校验失败。", status.HTTP_400_BAD_REQUEST)
+        try:
+            environment, attempt = catalog_service.create_environment_with_sync(
+                requested_by=request.user,
+                **serializer.validated_data,
+            )
+        except catalog_service.EnvironmentCatalogError as exc:
+            return catalog_error_response(exc)
+        return environment_catalog_write_response(environment, attempt)
+
+
+class TestEnvironmentDetailView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    def _get_environment(self, environment_id: int) -> TestEnvironment | None:
+        return TestEnvironment.objects.filter(id=environment_id).first()
+
+    @extend_schema(
+        tags=["通过率"],
+        summary="编辑测试环境并发起 YAML 写回",
+        request=TestEnvironmentUpdateRequestSerializer,
+        responses={
+            202: EnvironmentCatalogWriteEnvelopeSerializer,
+            400: OpenApiResponse(ApiErrorResponseSerializer, description="请求参数非法：validation_error"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
+            404: OpenApiResponse(ApiErrorResponseSerializer, description="环境不存在：environment_not_found"),
+            409: OpenApiResponse(ApiErrorResponseSerializer, description="同步冲突或最后一个启用环境不可停用"),
+        },
+    )
+    def patch(self, request, environment_id: int):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+        environment = self._get_environment(environment_id)
+        if environment is None:
+            return api_error_response("environment_not_found", "测试环境不存在。", status.HTTP_404_NOT_FOUND)
+        serializer = TestEnvironmentUpdateRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error_response("validation_error", "请求参数校验失败。", status.HTTP_400_BAD_REQUEST)
+        values = serializer.validated_data
+        try:
+            updated, attempt = catalog_service.update_environment_with_sync(
+                environment,
+                url_name=values.get("url_name", environment.env_name),
+                base_url=values.get("base_url", environment.base_url),
+                url_desc=values.get("url_desc", environment.url_desc),
+                is_active=values.get("is_active", environment.is_active),
+                requested_by=request.user,
+            )
+        except catalog_service.EnvironmentCatalogError as exc:
+            return catalog_error_response(exc)
+        return environment_catalog_write_response(updated, attempt)
+
+    @extend_schema(
+        tags=["通过率"],
+        summary="逻辑停用测试环境并发起 YAML 写回",
+        responses={
+            202: EnvironmentCatalogWriteEnvelopeSerializer,
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
+            404: OpenApiResponse(ApiErrorResponseSerializer, description="环境不存在：environment_not_found"),
+            409: OpenApiResponse(ApiErrorResponseSerializer, description="同步冲突或最后一个启用环境不可停用"),
+        },
+    )
+    def delete(self, request, environment_id: int):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+        environment = self._get_environment(environment_id)
+        if environment is None:
+            return api_error_response("environment_not_found", "测试环境不存在。", status.HTTP_404_NOT_FOUND)
+        try:
+            updated, attempt = catalog_service.set_environment_active_with_sync(
+                environment,
+                is_active=False,
+                requested_by=request.user,
+            )
+        except catalog_service.EnvironmentCatalogError as exc:
+            return catalog_error_response(exc)
+        return environment_catalog_write_response(updated, attempt)
+
+
+class TestEnvironmentSyncFromYamlView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    @extend_schema(
+        tags=["通过率"],
+        summary="发起隔离 checkout 的 YAML 环境导入",
+        responses={
+            202: EnvironmentCatalogSyncAttemptResponseSerializer,
+            400: OpenApiResponse(ApiErrorResponseSerializer, description="请求体必须为空：validation_error"),
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
+            409: OpenApiResponse(ApiErrorResponseSerializer, description="已有活动同步：environment_config_sync_busy"),
+        },
+    )
+    def post(self, request):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+        if request.data:
+            return api_error_response("validation_error", "同步导入请求不接受请求体。", status.HTTP_400_BAD_REQUEST)
+        try:
+            attempt = catalog_service.create_yaml_to_mysql_sync_attempt(requested_by=request.user)
+        except catalog_service.EnvironmentCatalogError as exc:
+            return catalog_error_response(exc)
+        attempt = dispatch_environment_catalog_sync_attempt(attempt)
+        return Response({"data": EnvironmentCatalogSyncAttemptSerializer(attempt).data}, status=status.HTTP_202_ACCEPTED)
+
+
+class EnvironmentCatalogSyncAttemptDetailView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    @extend_schema(
+        tags=["通过率"],
+        summary="查询环境目录同步审计",
+        responses={
+            200: EnvironmentCatalogSyncAttemptResponseSerializer,
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
+            404: OpenApiResponse(ApiErrorResponseSerializer, description="同步请求不存在：environment_catalog_sync_not_found"),
+        },
+    )
+    def get(self, request, attempt_id: int):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+        attempt = EnvironmentCatalogSyncAttempt.objects.select_related("requested_by").filter(id=attempt_id).first()
+        if attempt is None:
+            return api_error_response("environment_catalog_sync_not_found", "环境目录同步请求不存在。", status.HTTP_404_NOT_FOUND)
+        return Response({"data": EnvironmentCatalogSyncAttemptSerializer(attempt).data})
+
+
+class EnvironmentCatalogSyncAttemptRetryView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
+
+    @extend_schema(
+        tags=["通过率"],
+        summary="重试失败的环境目录同步请求",
+        responses={
+            202: EnvironmentCatalogSyncAttemptResponseSerializer,
+            403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
+            404: OpenApiResponse(ApiErrorResponseSerializer, description="同步请求不存在：environment_catalog_sync_not_found"),
+            409: OpenApiResponse(ApiErrorResponseSerializer, description="同步请求不可重试或已有活动同步"),
+        },
+    )
+    def post(self, request, attempt_id: int):
+        if not is_admin(request.user):
+            return api_error_response("admin_required", "需要管理人员权限。", status.HTTP_403_FORBIDDEN)
+        attempt = EnvironmentCatalogSyncAttempt.objects.filter(id=attempt_id).first()
+        if attempt is None:
+            return api_error_response("environment_catalog_sync_not_found", "环境目录同步请求不存在。", status.HTTP_404_NOT_FOUND)
+        try:
+            retry_attempt = catalog_service.retry_sync_attempt(attempt, requested_by=request.user)
+        except catalog_service.EnvironmentCatalogError as exc:
+            return catalog_error_response(exc)
+        retry_attempt = dispatch_environment_catalog_sync_attempt(retry_attempt)
+        return Response({"data": EnvironmentCatalogSyncAttemptSerializer(retry_attempt).data}, status=status.HTTP_202_ACCEPTED)
+
+
+SAFE_CATALOG_REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+
+
+class InternalEnvironmentCatalogView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def authorize(self, request) -> Response | None:
+        configured_token = settings.ENVIRONMENT_CATALOG_SERVICE_TOKEN
+        authorization = request.headers.get("Authorization", "")
+        expected = f"Bearer {configured_token}" if configured_token else ""
+        if not expected or not secrets.compare_digest(authorization, expected):
+            return api_error_response("internal_service_unauthorized", "内部服务令牌无效。", status.HTTP_403_FORBIDDEN)
+        return None
+
+    def get_attempt(self, sync_request_id: str) -> EnvironmentCatalogSyncAttempt | Response:
+        if not SAFE_CATALOG_REQUEST_ID.fullmatch(sync_request_id):
+            return api_error_response("validation_error", "同步请求标识非法。", status.HTTP_400_BAD_REQUEST)
+        attempt = EnvironmentCatalogSyncAttempt.objects.filter(request_id=sync_request_id).first()
+        if attempt is None:
+            return api_error_response("environment_catalog_sync_not_found", "环境目录同步请求不存在。", status.HTTP_404_NOT_FOUND)
+        return attempt
+
+
+class EnvironmentCatalogSyncExportView(InternalEnvironmentCatalogView):
+    """固定 Jenkins Job 下载冻结的 MySQL 写回目录，不使用浏览器 JWT。"""
+
+    @extend_schema(exclude=True)
+    def get(self, request, sync_request_id: str):
+        unauthorized = self.authorize(request)
+        if unauthorized is not None:
+            return unauthorized
+        attempt = self.get_attempt(sync_request_id)
+        if isinstance(attempt, Response):
+            return attempt
+        if attempt.direction != EnvironmentCatalogSyncAttempt.Direction.MYSQL_TO_YAML:
+            return api_error_response("invalid_sync_direction", "当前同步请求不支持导出。", status.HTTP_409_CONFLICT)
+        try:
+            if attempt.status == EnvironmentCatalogSyncAttempt.Status.QUEUED:
+                attempt = catalog_service.mark_sync_attempt_running(attempt)
+            elif attempt.status != EnvironmentCatalogSyncAttempt.Status.RUNNING:
+                raise catalog_service.EnvironmentCatalogStateError("同步请求不能导出。")
+        except catalog_service.EnvironmentCatalogError as exc:
+            return catalog_error_response(exc)
+        # CLI 约定顶层直接为 YAML mapping，不能包裹浏览器 data 信封。
+        return Response(attempt.payload_json)
+
+
+class EnvironmentCatalogSyncCallbackView(InternalEnvironmentCatalogView):
+    """只处理固定 Jenkins Job 的结构化结果，不返回令牌、内部 URL 或工作区路径。"""
+
+    def invalid_callback_schema_response(self, attempt: EnvironmentCatalogSyncAttempt) -> Response:
+        """把活动请求释放为 failed，避免错误回调永久占用同步键。"""
+        if attempt.status in attempt.ACTIVE_STATUSES:
+            try:
+                catalog_service.fail_sync_attempt(
+                    attempt,
+                    error_code="callback_schema_invalid",
+                    error_summary="同步回调字段校验失败，请修正后重试。",
+                )
+            except catalog_service.EnvironmentCatalogError:
+                # 终态并发完成时维持既有状态，浏览器仍只收到脱敏的 400 语义。
+                pass
+        return api_error_response("validation_error", "同步回调字段非法。", status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(exclude=True)
+    def post(self, request, sync_request_id: str):
+        unauthorized = self.authorize(request)
+        if unauthorized is not None:
+            return unauthorized
+        attempt = self.get_attempt(sync_request_id)
+        if isinstance(attempt, Response):
+            return attempt
+        payload = request.data
+        if not isinstance(payload, dict) or payload.get("direction") != attempt.direction:
+            return self.invalid_callback_schema_response(attempt)
+        if payload.get("expected_yaml_blob_sha") != attempt.expected_yaml_blob_sha:
+            return self.invalid_callback_schema_response(attempt)
+        if attempt.direction == EnvironmentCatalogSyncAttempt.Direction.YAML_TO_MYSQL:
+            allowed = {"direction", "expected_yaml_blob_sha", "observed_yaml_blob_sha", "catalog", "commit_sha"}
+            required = {"observed_yaml_blob_sha", "catalog"}
+        else:
+            allowed = {
+                "direction",
+                "expected_yaml_blob_sha",
+                "observed_yaml_blob_sha",
+                "written_yaml_blob_sha",
+                "commit_sha",
+            }
+            required = {"observed_yaml_blob_sha", "written_yaml_blob_sha"}
+        if set(payload) - allowed or required - set(payload):
+            return self.invalid_callback_schema_response(attempt)
+        try:
+            if attempt.status == EnvironmentCatalogSyncAttempt.Status.QUEUED:
+                attempt = catalog_service.mark_sync_attempt_running(attempt)
+            if attempt.direction == EnvironmentCatalogSyncAttempt.Direction.YAML_TO_MYSQL:
+                completed, _ = catalog_service.complete_yaml_to_mysql_sync_attempt(
+                    attempt,
+                    catalog=payload["catalog"],
+                    observed_yaml_blob_sha=payload["observed_yaml_blob_sha"],
+                    commit_sha=payload.get("commit_sha", ""),
+                )
+            else:
+                completed = catalog_service.complete_mysql_to_yaml_sync_attempt(
+                    attempt,
+                    observed_yaml_blob_sha=payload["observed_yaml_blob_sha"],
+                    written_yaml_blob_sha=payload["written_yaml_blob_sha"],
+                    commit_sha=payload.get("commit_sha"),
+                )
+        except catalog_service.EnvironmentCatalogError as exc:
+            return catalog_error_response(exc)
+        return Response({"data": EnvironmentCatalogSyncAttemptSerializer(completed).data})
 
 
 class EnvironmentSummaryView(APIView):
@@ -1494,6 +1957,8 @@ class JenkinsTaskBulkSyncView(APIView):
         daily_job_names = list(
             JenkinsJobBinding.objects.filter(
                 task_type=TestRun.RunType.DAILY_FULL,
+                environment__isnull=True,
+                module__isnull=True,
                 is_active=True,
             )
             .order_by("job_full_name")
@@ -1538,12 +2003,22 @@ class JenkinsTaskBulkSyncView(APIView):
                 continue
             binding = JenkinsJobBinding.objects.select_related("environment", "module").filter(
                 task_type=TestRun.RunType.DAILY_FULL,
+                environment__isnull=True,
+                module__isnull=True,
                 job_full_name=job_full_name,
                 is_active=True,
             ).first()
             if binding is None:
                 continue
-            task, created = create_or_get_daily_task_from_discovery(binding, build_result)
+            try:
+                task, created = create_or_get_daily_task_from_discovery(binding, build_result)
+            except DailyParentEnvironmentError as exc:
+                logger.warning(
+                    "Jenkins Daily parent was skipped: job_index=%s error_type=%s",
+                    job_full_name,
+                    type(exc).__name__,
+                )
+                continue
             if created:
                 created_count += 1
             else:

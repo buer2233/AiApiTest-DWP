@@ -89,3 +89,15 @@ def test_openapi_schema_includes_metrics_contract(api_client):
     assert "单个 Job" in bulk_sync_post["responses"]["200"]["description"]
     assert "歧义" in bulk_sync_post["responses"]["200"]["description"]
     assert "全部配置 Job" in bulk_sync_post["responses"]["503"]["description"]
+
+
+def test_openapi_schema_excludes_internal_catalog_contract_and_keeps_browser_catalog_contract(api_client):
+    response = api_client.get("/api/schema/", HTTP_ACCEPT="application/json")
+
+    assert response.status_code == 200
+    paths = response.data["paths"]
+    assert "/api/v1/test-environments" in paths
+    assert "/api/v1/environment-catalog-sync-attempts/{attempt_id}" in paths
+    assert "/api/v1/environment-catalog-sync-attempts/{attempt_id}/retry" in paths
+    assert "/api/v1/internal/environment-catalog-sync-attempts/{sync_request_id}/export/" not in paths
+    assert "/api/v1/internal/environment-catalog-sync-attempts/{sync_request_id}/callback/" not in paths

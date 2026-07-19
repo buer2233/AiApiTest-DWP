@@ -19,10 +19,10 @@ def test_sync_cycle_discovers_daily_build_and_is_idempotent():
 
     context = create_p3_metric_context(suffix="-sync-cycle")
     binding = JenkinsJobBinding.objects.create(
-        environment=context["environment"],
-        module=context["module"],
+        environment=None,
+        module=None,
         task_type=MetricRun.RunType.DAILY_FULL,
-        job_full_name="AiApiTest-DWP-Daily-Full-Module-test_gbif_case-sync-cycle",
+        job_full_name="AiApiTest-DWP-Daily-Full-Module",
         is_active=True,
     )
     discovered = {
@@ -32,28 +32,51 @@ def test_sync_cycle_discovers_daily_build_and_is_idempotent():
         "jenkins_result": "SUCCESS",
         "building": False,
         "run_id": "jenkins-daily-88",
+        "target_base_url": context["environment"].base_url,
     }
     terminal_result = {
         "jenkins_result": "SUCCESS",
         "finished_at": context["now"],
         "summary": {
             "status": "passed",
-            "total_count": 1,
+            "module_count": 2,
+            "total_count": 2,
             "failed_count": 0,
-            "passed_count": 1,
+            "passed_count": 2,
             "skipped_count": 0,
-            "duration_seconds": 3.2,
             "failed_nodeids": [],
-            "case_results": [
+            "modules": [
                 {
-                    "node_id": "test_case/test_gbif_case/test_daily.py::test_daily_passed",
-                    "case_name": "test_daily_passed",
-                    "execution_status": "passed",
-                    "error_type": "",
-                    "error_message_summary": "",
-                }
+                    "module_key": context["module"].package_name,
+                    "total_count": 1,
+                    "failed_count": 0,
+                    "passed_count": 1,
+                    "skipped_count": 0,
+                    "duration_seconds": 3.2,
+                    "case_results": [{
+                        "node_id": "test_case/test_gbif_case/test_daily.py::test_daily_passed",
+                        "case_name": "test_daily_passed",
+                        "execution_status": "passed",
+                        "error_type": "",
+                        "error_message_summary": "",
+                    }],
+                },
+                {
+                    "module_key": context["other_module"].package_name,
+                    "total_count": 1,
+                    "failed_count": 0,
+                    "passed_count": 1,
+                    "skipped_count": 0,
+                    "duration_seconds": 3.2,
+                    "case_results": [{
+                        "node_id": "test_case/test_other_case/test_daily.py::test_daily_passed",
+                        "case_name": "test_daily_passed",
+                        "execution_status": "passed",
+                        "error_type": "",
+                        "error_message_summary": "",
+                    }],
+                },
             ],
-            "allure_report_status": "generated",
         },
         "failed_nodeids": [],
     }
@@ -119,34 +142,27 @@ def test_sync_cycle_continues_after_one_active_task_service_error(caplog):
 
 
 @pytest.mark.django_db
-def test_sync_cycle_continues_after_one_daily_job_discovery_error(caplog):
+def test_sync_cycle_records_the_single_daily_job_discovery_error_without_leaking_details(caplog):
     from metrics.jenkins_service import JenkinsServiceError
     from metrics.jenkins_sync import run_jenkins_sync_cycle
 
-    context = create_p3_metric_context(suffix="-sync-job-isolation")
-    for module, job_name in [
-        (context["module"], "A-Failing-Daily-Job"),
-        (context["other_module"], "B-Healthy-Daily-Job"),
-    ]:
-        JenkinsJobBinding.objects.create(
-            environment=context["environment"],
-            module=module,
-            task_type=MetricRun.RunType.DAILY_FULL,
-            job_full_name=job_name,
-            is_active=True,
-        )
+    binding = JenkinsJobBinding.objects.create(
+        environment=None,
+        module=None,
+        task_type=MetricRun.RunType.DAILY_FULL,
+        job_full_name="AiApiTest-DWP-Daily-Full-Module",
+        is_active=True,
+    )
 
-    def discover_one_job(*, job_full_names, date=None):
-        if job_full_names == ["A-Failing-Daily-Job"]:
-            raise JenkinsServiceError("internal URL must not be logged")
-        return []
-
-    with patch("metrics.jenkins_sync.discover_jenkins_builds", side_effect=discover_one_job) as discover, caplog.at_level(
+    with patch(
+        "metrics.jenkins_sync.discover_jenkins_builds",
+        side_effect=JenkinsServiceError("internal URL must not be logged"),
+    ) as discover, caplog.at_level(
         "WARNING", logger="metrics.jenkins_sync"
     ):
         result = run_jenkins_sync_cycle()
 
-    assert discover.call_count == 2
+    discover.assert_called_once_with(job_full_names=[binding.job_full_name])
     assert result["failed"] == 1
     assert "binding_id=" in caplog.text
     assert "error_type=JenkinsServiceError" in caplog.text
@@ -202,23 +218,23 @@ def test_daily_discovery_reuses_task_created_by_another_worker_after_unique_conf
 
     context = create_p3_metric_context(suffix="-sync-race")
     binding = JenkinsJobBinding.objects.create(
-        environment=context["environment"],
-        module=context["module"],
+        environment=None,
+        module=None,
         task_type=MetricRun.RunType.DAILY_FULL,
-        job_full_name="AiApiTest-DWP-Daily-Full-Module-sync-race",
+        job_full_name="AiApiTest-DWP-Daily-Full-Module",
         is_active=True,
     )
     existing_run = MetricRun.objects.create(
         run_key="jenkins-sync-race-88",
         run_type=MetricRun.RunType.DAILY_FULL,
         environment=context["environment"],
-        module=context["module"],
+        module=None,
         status=MetricRun.Status.RUNNING,
     )
     existing_task = JenkinsTask.objects.create(
         run=existing_run,
         environment=context["environment"],
-        module=context["module"],
+        module=None,
         task_type=MetricRun.RunType.DAILY_FULL,
         trigger_source=JenkinsTask.TriggerSource.JENKINS_CRON,
         job_full_name=binding.job_full_name,
@@ -240,9 +256,12 @@ def test_daily_discovery_reuses_task_created_by_another_worker_after_unique_conf
                 "job_full_name": binding.job_full_name,
                 "build_number": 88,
                 "run_id": "jenkins-sync-race-88",
+                "target_base_url": context["environment"].base_url,
             },
         )
 
     assert created is False
     assert task.id == existing_task.id
+    assert task.module is None
+    assert task.run.module is None
     assert MetricRun.objects.count() == initial_run_count

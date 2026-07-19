@@ -105,12 +105,16 @@ def test_environment_list_is_login_readable_for_admin_and_member(admin_client, m
         response = client.get("/api/v1/test-environments")
 
         assert response.status_code == 200
+        assert response.data["catalog_state"]["status"] == "synced"
         assert response.data["data"] == [
             {
                 "id": environment.id,
                 "env_key": "mock-gbif",
                 "env_name": "模拟测试环境",
+                "url_name": "模拟测试环境",
                 "base_url": "https://api.gbif.org",
+                "url_desc": "未提供环境描述",
+                "is_active": True,
             }
         ]
 
