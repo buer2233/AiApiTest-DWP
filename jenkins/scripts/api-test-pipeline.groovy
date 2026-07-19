@@ -51,6 +51,16 @@ def buildParameterDefinitions(Map config) {
         )
     }
 
+    if (config.get('includeTargetBaseUrl', false)) {
+        definitions.add(
+            string(
+                name: 'TARGET_BASE_URL',
+                defaultValue: '',
+                description: 'Optional registered environment URL; validated by api-test before execution'
+            )
+        )
+    }
+
     if (includeNodeIds) {
         definitions.add(
             text(
@@ -102,6 +112,17 @@ def call(Map config = [:]) {
     if (jobTriggers) {
         jobProperties.add(pipelineTriggers(jobTriggers))
     }
+    def throttleCategory = config.get('throttleCategory', '')
+    if (throttleCategory) {
+        // 分类由 init Groovy 版本化为 10 并发；满额时 Jenkins Queue 负责等待。
+        jobProperties.add(throttleJobProperty(
+            categories: [throttleCategory],
+            maxConcurrentPerNode: 0,
+            maxConcurrentTotal: 0,
+            throttleEnabled: true,
+            throttleOption: 'category'
+        ))
+    }
     properties(jobProperties)
 
     def runId = params.RUN_ID?.trim() ?: env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"
@@ -132,6 +153,7 @@ def call(Map config = [:]) {
         "OPEN_REPORT=false",
         "RUN_ID=${runId}",
         "MODULE_NAME=${params.MODULE_NAME ?: ''}",
+        "TARGET_BASE_URL=${params.TARGET_BASE_URL ?: ''}",
         "CI_RUN_RETENTION_DAYS=${ciRunRetentionDays}",
         'CI_RUNNER_ENV=jenkins'
     ]) {

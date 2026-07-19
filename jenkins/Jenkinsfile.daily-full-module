@@ -1,5 +1,4 @@
-// 每日全量模块执行 Jenkins Pipeline 入口。
-// Jenkins Job 使用本文件时，应为每个模块配置独立 Job 和 CASE_PATH。
+// 唯一 Daily 父 Pipeline 入口。模块只能由无定时 Worker 执行。
 node {
     if (env.LOCAL_WORKSPACE_REPO == 'true') {
         echo "Using local mounted repository at ${pwd()}"

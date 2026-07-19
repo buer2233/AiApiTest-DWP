@@ -15,6 +15,7 @@ RUN apt-get update \
         git \
         gnupg \
         python3 \
+        python3-yaml \
         python-is-python3 \
         unzip \
     && install -m 0755 -d /etc/apt/keyrings \
@@ -31,8 +32,8 @@ RUN apt-get update \
     && chown jenkins:jenkins /workspace \
     && rm -rf /tmp/allure-commandline.zip /var/lib/apt/lists/*
 
-# 预装 Jenkins Allure 插件，使 Pipeline 中的 allure(...) 步骤能在 Jenkins 内展示报告。
-RUN jenkins-plugin-cli --plugins allure-jenkins-plugin
+# 预装报告、跨 Job 工件回收和按分类限流插件；限流满额时由 Jenkins Queue 等待。
+RUN jenkins-plugin-cli --plugins allure-jenkins-plugin copyartifact throttle-concurrents
 
 COPY jenkins/scripts/configure-allure-commandline.groovy /usr/share/jenkins/ref/init.groovy.d/configure-allure-commandline.groovy
 

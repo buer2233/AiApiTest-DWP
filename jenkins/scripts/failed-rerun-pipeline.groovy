@@ -7,7 +7,8 @@ def call() {
         mode: 'selected',
         includeNodeIds: true,
         requireNodeIds: true,
-        emptyNodeIdsMessage: 'PYTEST_NODE_IDS is required for failed rerun'
+        emptyNodeIdsMessage: 'PYTEST_NODE_IDS is required for failed rerun',
+        throttleCategory: 'aiapitest-failed-rerun'
     ])
 }
 

@@ -1,0 +1,8 @@
+// 环境目录同步入口。始终从干净的 SCM checkout 运行，不使用开发挂载工作区。
+node {
+    deleteDir()
+    checkout scm
+
+    def pipelineScript = load 'jenkins/scripts/environment-catalog-sync-pipeline.groovy'
+    pipelineScript.call()
+}

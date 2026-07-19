@@ -11,15 +11,13 @@ JENKINS_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = JENKINS_ROOT.parent
 
 BUSINESS_PIPELINES = {
-    "daily-full-module": {
-        "jenkinsfile": "Jenkinsfile.daily-full-module",
-        "script": "daily-full-module-pipeline.groovy",
+    "daily-full-module-worker": {
+        "jenkinsfile": "Jenkinsfile.daily-full-module-worker",
+        "script": "daily-full-module-worker-pipeline.groovy",
         "retry_mode": "none",
-        "must_have": ["CASE_PATH", "MODULE_NAME", "RETRY_COUNT", "CLEAN_ALLURE", "OPEN_REPORT"],
+        "must_have": ["CASE_PATH", "MODULE_NAME", "TARGET_BASE_URL", "RETRY_COUNT", "CLEAN_ALLURE", "OPEN_REPORT"],
         "must_not_have": ["choice(\n                name: 'RETRY_MODE'", "all-failed"],
-        "cron": "cron('0 2 * * *')",
-        "case_path_env": "JENKINS_MODULE_CASE_PATH",
-        "empty_case_path_message": "CASE_PATH is required for this Jenkins job",
+        "empty_case_path_message": "CASE_PATH is required for Daily Worker",
     },
     "failed-rerun": {
         "jenkinsfile": "Jenkinsfile.failed-rerun",
@@ -327,52 +325,54 @@ def test_local_mounted_job_config_script_uses_workspace_without_git_checkout():
     assert "AiApiTest-DWP-Daily-Full-Module" in script
     assert "AiApiTest-DWP-Failed-Rerun" in script
     assert "AiApiTest-DWP-Module-Rerun" in script
-    assert "package_module.yaml" in script
-    assert "JENKINS_MODULE_CASE_PATH=${module.casePath}" in script
+    assert "dailyFullParentJobName" in script
+    assert "dailyFullWorkerJobName" in script
+    assert "environmentCatalogSyncJobName" in script
     assert "CpsFlowDefinition" in script
     assert "dir('${mountedWorkspace}')" in script
     assert "ws('${mountedWorkspace}')" not in script
-    assert "def pipelineInvocation = \"\"\"def pipelineScript" in script
+    assert "def invocation = \"\"\"def pipelineScript" in script
     assert "pipelineScript = load '${config.scriptPath}'" in script
     assert "pipelineScript.call()" in script
     assert "git branch:" not in script
     assert "github.com" not in script
 
 
-def test_local_mounted_job_config_creates_daily_job_per_module():
-    """本地 Daily Job 名必须与后端 sync_jenkins_job_bindings 的每模块 binding 保持一致。"""
+def test_local_mounted_job_config_creates_one_daily_parent_and_one_worker():
+    """Stage13 只创建一个定时 Daily 父 Job 和一个无定时 Worker。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
-    assert "JENKINS_DAILY_FULL_JOB_PREFIX" in script
-    assert "package_module.yaml" in script
-    assert "dailyModuleConfigs" in script
-    assert "name: \"${dailyFullJobPrefix}-${module.packageName}\"" in script
-    assert "JENKINS_MODULE_CASE_PATH=${module.casePath}" in script
+    assert "JENKINS_DAILY_FULL_JOB_NAME" in script
+    assert "JENKINS_DAILY_FULL_WORKER_JOB_NAME" in script
+    assert "name: dailyFullParentJobName" in script
+    assert "name: dailyFullWorkerJobName" in script
+    assert "dailyCron: true" in script
+    assert "dailyCron: false" in script
+    assert "dailyModuleConfigs" not in script
     assert "test_case/test_gbif_case_module2" not in script
 
 
-def test_local_mounted_job_config_sets_daily_cron_and_disables_legacy_shared_cron():
-    """分模块 Daily Job 初始化即带 cron，遗留共享 Job 只保留历史构建。"""
+def test_local_mounted_job_config_sets_daily_parent_cron_and_preserves_legacy_jobs():
+    """仅 Daily 父 Job 定时；旧分模块 Job 和其历史保持不变。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
     assert "TimerTrigger" in script
     assert "0 2 * * *" in script
-    assert "legacyDailyJob" in script
     assert "setTriggers" in script
     assert "instanceof TimerTrigger" in script
     assert "removeTrigger" not in script
+    assert "Preserving legacy per-module Daily Jobs" in script
+    assert ".delete()" not in script
 
 
-def test_local_mounted_job_config_preserves_legacy_cron_until_daily_jobs_are_ready():
-    """模块 YAML 或分模块 Job 不完整时必须保留 legacy cron，避免凌晨任务整体断档。"""
+def test_local_mounted_job_config_does_not_reparse_module_yaml_or_mutate_legacy_jobs():
+    """模块发现移交 Task 1；init 不能创建或调整旧的分模块定时 Job。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
-    assert "org.yaml.snakeyaml.Yaml" in script
-    assert "dailyConfigReady" in script
-    assert "configuredDailyJobNames" in script
-    assert "dailyCronMigrationReady" in script
-    assert "Preserved legacy Daily Job timer" in script
-    assert script.index("if (dailyCronMigrationReady)") < script.index("legacyDailyJob.setTriggers")
+    assert "package_module.yaml" not in script
+    assert "org.yaml.snakeyaml.Yaml" not in script
+    assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" in script
+    assert "Legacy Daily removal approval is recorded" in script
 
 
 def test_local_mounted_job_config_auto_creates_platform_bootstrap_from_jenkinsfile():
@@ -398,13 +398,17 @@ def test_local_init_forcibly_repairs_only_declared_platform_bootstrap_job():
     assert "if (!(config.forceReplace || shouldReplaceExistingJob(job)))" in script
 
 
-def test_platform_bootstrap_job_keeps_jenkinsfile_owned_concurrency_control():
-    """业务 Job 可并发，环境 Job 的禁止并发属性只由其 Jenkinsfile 建立。"""
+def test_local_init_configures_category_throttles_and_global_sync_serialization():
+    """三类业务 Job 使用独立分类限流，目录同步 Job 使用全局串行属性。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
     assert "allowConcurrent: false" in script
-    assert "if (config.allowConcurrent)" in script
-    assert script.index("if (config.allowConcurrent)") < script.index("removeProperty")
+    assert "ThrottleJobProperty" in script
+    assert "ThrottleCategory(dailyWorkerThrottleCategory, 10, 10)" in script
+    assert "ThrottleCategory(moduleRerunThrottleCategory, 10, 10)" in script
+    assert "ThrottleCategory(failedRerunThrottleCategory, 10, 10)" in script
+    assert "if (config.throttleCategory)" in script
+    assert "new DisableConcurrentBuildsJobProperty()" in script
 
 
 def test_local_mounted_job_loads_from_mount_but_calls_pipeline_in_writable_workspace():
@@ -474,21 +478,24 @@ def test_jenkins_readme_describes_image_runner_instead_of_legacy_venv():
         assert required in readme
 
 
-def test_daily_full_module_pipeline_is_scheduled_and_fixed_to_none_mode():
-    """每日全量脚本必须配置凌晨 2 点 cron，并固定使用 RETRY_MODE=none。"""
-    script = read_required_text(
-        JENKINS_ROOT / "scripts" / BUSINESS_PIPELINES["daily-full-module"]["script"]
+def test_daily_full_module_parent_and_worker_keep_their_separate_contracts():
+    """父任务只调度聚合，Worker 才固定执行单模块 none 模式。"""
+    parent = read_required_text(JENKINS_ROOT / "scripts" / "daily-full-module-pipeline.groovy")
+    worker = read_required_text(
+        JENKINS_ROOT / "scripts" / BUSINESS_PIPELINES["daily-full-module-worker"]["script"]
     )
 
-    assert BUSINESS_PIPELINES["daily-full-module"]["cron"] in script
-    assert "RETRY_MODE=none" in script
-    assert "mode: 'none'" in script
-    assert "includeModuleName: true" in script
-    assert "includeNodeIds: false" in script
-    assert "requireCasePath: true" in script
-    assert BUSINESS_PIPELINES["daily-full-module"]["case_path_env"] in script
-    assert BUSINESS_PIPELINES["daily-full-module"]["empty_case_path_message"] in script
-    assert "PYTEST_NODE_IDS" not in script
+    assert "cron('0 2 * * *')" in parent
+    assert "parallel workerBranches" in parent
+    assert "daily_full_module_cli.py" in parent
+    assert "mode: 'none'" in worker
+    assert "includeModuleName: true" in worker
+    assert "includeNodeIds: false" in worker
+    assert "includeTargetBaseUrl: true" in worker
+    assert "requireCasePath: true" in worker
+    assert BUSINESS_PIPELINES["daily-full-module-worker"]["empty_case_path_message"] in worker
+    assert "PYTEST_NODE_IDS" not in worker
+    assert "cron('0 2 * * *')" not in worker
     shared = read_pipeline_files()["api-test-pipeline.groovy"]
     assert "casePathDefaultEnv" in shared
     assert "error(emptyCasePathMessage)" in shared
@@ -498,10 +505,10 @@ def test_daily_full_module_pipeline_is_scheduled_and_fixed_to_none_mode():
     assert "casePathDefaultEnv ? ''" in case_path_default_block
     assert "JENKINS_DEFAULT_CASE_PATH" in case_path_default_block
     assert "test_case/test_gbif_case" in case_path_default_block
-    for parameter in BUSINESS_PIPELINES["daily-full-module"]["must_have"]:
+    for parameter in BUSINESS_PIPELINES["daily-full-module-worker"]["must_have"]:
         assert parameter in shared
-    for forbidden in BUSINESS_PIPELINES["daily-full-module"]["must_not_have"]:
-        assert forbidden not in script
+    for forbidden in BUSINESS_PIPELINES["daily-full-module-worker"]["must_not_have"]:
+        assert forbidden not in worker
 
 
 def test_failed_rerun_pipeline_requires_node_ids_and_uses_selected_mode():

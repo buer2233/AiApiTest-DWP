@@ -6,7 +6,8 @@ def call() {
     sharedPipeline.call([
         mode: 'module',
         includeModuleName: true,
-        includeNodeIds: false
+        includeNodeIds: false,
+        throttleCategory: 'aiapitest-module-rerun'
     ])
 }
 
