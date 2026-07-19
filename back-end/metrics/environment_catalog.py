@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
-from django.db import IntegrityError, transaction
+from django.db import DataError, IntegrityError, transaction
 from django.utils import timezone
 
 from metrics.models import (
@@ -25,6 +25,9 @@ from metrics.models import (
 CATALOG_KEY = EnvironmentCatalogState.CATALOG_KEY
 CATALOG_FIELDS = frozenset({"base_url", "url_name", "url_desc"})
 _GIT_SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+_ENV_KEY_MAX_LENGTH = TestEnvironment._meta.get_field("env_key").max_length
+_ENV_NAME_MAX_LENGTH = TestEnvironment._meta.get_field("env_name").max_length
+_BASE_URL_MAX_LENGTH = TestEnvironment._meta.get_field("base_url").max_length
 
 
 class EnvironmentCatalogError(RuntimeError):
@@ -77,7 +80,10 @@ def git_blob_sha(content: bytes) -> str:
 
 def _validate_git_sha(value: str | None, *, field_name: str) -> str:
     if not isinstance(value, str) or not _GIT_SHA_PATTERN.fullmatch(value):
-        raise EnvironmentCatalogValidationError(f"{field_name} 必须是 40 位小写十六进制 Git SHA。")
+        raise EnvironmentCatalogValidationError(
+            f"{field_name} 必须是 40 位小写十六进制 Git SHA。",
+            code=f"invalid_{field_name}",
+        )
     return value
 
 
@@ -113,6 +119,8 @@ def normalize_catalog(catalog: Mapping[str, object]) -> dict[str, dict[str, str]
         if not isinstance(raw_env_key, str) or not raw_env_key.strip():
             raise EnvironmentCatalogValidationError("环境 env_key 必须是非空字符串。", code="invalid_environment_key")
         env_key = raw_env_key.strip()
+        if len(env_key) > _ENV_KEY_MAX_LENGTH:
+            raise EnvironmentCatalogValidationError("环境 env_key 长度超过限制。", code="environment_key_too_long")
         if env_key in normalized:
             raise EnvironmentCatalogValidationError("环境目录包含重复 env_key。", code="duplicate_environment_key")
         if not isinstance(raw_entry, Mapping):
@@ -130,10 +138,14 @@ def normalize_catalog(catalog: Mapping[str, object]) -> dict[str, dict[str, str]
             if not isinstance(value, str) or not value.strip():
                 raise EnvironmentCatalogValidationError("环境目录字段不能为空。", code="empty_environment_field")
             entry[field_name] = value.strip()
+        if len(entry["url_name"]) > _ENV_NAME_MAX_LENGTH:
+            raise EnvironmentCatalogValidationError("环境 url_name 长度超过限制。", code="environment_name_too_long")
         try:
             entry["base_url"] = normalize_environment_base_url(entry["base_url"])
         except ValueError as exc:
             raise EnvironmentCatalogValidationError(str(exc), code="invalid_base_url") from exc
+        if len(entry["base_url"]) > _BASE_URL_MAX_LENGTH:
+            raise EnvironmentCatalogValidationError("环境 base_url 长度超过限制。", code="environment_base_url_too_long")
         if entry["base_url"] in seen_urls:
             raise EnvironmentCatalogValidationError("环境目录包含重复 base_url。", code="duplicate_base_url")
         seen_urls.add(entry["base_url"])
@@ -460,6 +472,18 @@ def _mark_attempt_failed_locked(
     return locked_attempt
 
 
+def _mark_callback_parameter_validation_failed_locked(
+    locked_attempt: EnvironmentCatalogSyncAttempt,
+    validation_error: EnvironmentCatalogValidationError,
+) -> EnvironmentCatalogSyncAttempt:
+    """回调参数错误使用固定摘要落库，避免把原始输入写入审计记录。"""
+    return _mark_attempt_failed_locked(
+        locked_attempt,
+        error_code=validation_error.code,
+        error_summary="同步回调参数校验失败，请修正后重试。",
+    )
+
+
 def complete_mysql_to_yaml_sync_attempt(
     attempt: EnvironmentCatalogSyncAttempt,
     *,
@@ -468,9 +492,7 @@ def complete_mysql_to_yaml_sync_attempt(
     commit_sha: str,
 ) -> EnvironmentCatalogSyncAttempt:
     """处理 Jenkins 写回回调；冲突绝不覆盖状态中原有 YAML SHA。"""
-    observed_sha = _validate_git_sha(observed_yaml_blob_sha, field_name="observed_yaml_blob_sha")
-    written_sha = _validate_git_sha(written_yaml_blob_sha, field_name="written_yaml_blob_sha")
-    resolved_commit_sha = _validate_git_sha(commit_sha, field_name="commit_sha")
+    callback_error: EnvironmentCatalogValidationError | None = None
     with transaction.atomic():
         locked_attempt = EnvironmentCatalogSyncAttempt.objects.select_for_update().get(pk=attempt.pk)
         if locked_attempt.direction != locked_attempt.Direction.MYSQL_TO_YAML:
@@ -478,30 +500,40 @@ def complete_mysql_to_yaml_sync_attempt(
         if locked_attempt.status == locked_attempt.Status.SYNCED:
             return locked_attempt
         _require_running(locked_attempt)
-        state = _locked_state()
-        locked_attempt.observed_yaml_blob_sha = observed_sha
-        locked_attempt.finished_at = timezone.now()
-        if observed_sha != locked_attempt.expected_yaml_blob_sha:
-            locked_attempt.status = locked_attempt.Status.CONFLICT
-            locked_attempt.error_code = "yaml_blob_sha_conflict"
-            locked_attempt.error_summary = "当前 YAML blob SHA 与请求冻结值不一致。"
-            locked_attempt.save()
-            state.status = EnvironmentCatalogState.Status.CONFLICT
-            state.last_error_code = locked_attempt.error_code
-            state.last_error_summary = locked_attempt.error_summary
-            state.save()
-            return locked_attempt
+        try:
+            observed_sha = _validate_git_sha(observed_yaml_blob_sha, field_name="observed_yaml_blob_sha")
+            written_sha = _validate_git_sha(written_yaml_blob_sha, field_name="written_yaml_blob_sha")
+            resolved_commit_sha = _validate_git_sha(commit_sha, field_name="commit_sha")
+        except EnvironmentCatalogValidationError as exc:
+            _mark_callback_parameter_validation_failed_locked(locked_attempt, exc)
+            callback_error = exc
+        else:
+            state = _locked_state()
+            locked_attempt.observed_yaml_blob_sha = observed_sha
+            locked_attempt.finished_at = timezone.now()
+            if observed_sha != locked_attempt.expected_yaml_blob_sha:
+                locked_attempt.status = locked_attempt.Status.CONFLICT
+                locked_attempt.error_code = "yaml_blob_sha_conflict"
+                locked_attempt.error_summary = "当前 YAML blob SHA 与请求冻结值不一致。"
+                locked_attempt.save()
+                state.status = EnvironmentCatalogState.Status.CONFLICT
+                state.last_error_code = locked_attempt.error_code
+                state.last_error_summary = locked_attempt.error_summary
+                state.save()
+                return locked_attempt
 
-        locked_attempt.status = locked_attempt.Status.SYNCED
-        locked_attempt.commit_sha = resolved_commit_sha
-        locked_attempt.save()
-        state.status = EnvironmentCatalogState.Status.SYNCED
-        state.yaml_blob_sha = written_sha
-        state.last_commit_sha = resolved_commit_sha
-        state.last_synced_at = locked_attempt.finished_at
-        state.last_error_code = ""
-        state.last_error_summary = ""
-        state.save()
+            locked_attempt.status = locked_attempt.Status.SYNCED
+            locked_attempt.commit_sha = resolved_commit_sha
+            locked_attempt.save()
+            state.status = EnvironmentCatalogState.Status.SYNCED
+            state.yaml_blob_sha = written_sha
+            state.last_commit_sha = resolved_commit_sha
+            state.last_synced_at = locked_attempt.finished_at
+            state.last_error_code = ""
+            state.last_error_summary = ""
+            state.save()
+    if callback_error is not None:
+        raise callback_error
     return locked_attempt
 
 
@@ -513,9 +545,6 @@ def complete_yaml_to_mysql_sync_attempt(
     commit_sha: str = "",
 ) -> tuple[EnvironmentCatalogSyncAttempt, CatalogImportResult]:
     """处理 YAML 导入回调，目录校验失败需同步落库为 failed。"""
-    observed_sha = _validate_git_sha(observed_yaml_blob_sha, field_name="observed_yaml_blob_sha")
-    if commit_sha:
-        _validate_git_sha(commit_sha, field_name="commit_sha")
     callback_error: EnvironmentCatalogError | None = None
     with transaction.atomic():
         locked_attempt = EnvironmentCatalogSyncAttempt.objects.select_for_update().get(pk=attempt.pk)
@@ -525,18 +554,15 @@ def complete_yaml_to_mysql_sync_attempt(
             return locked_attempt, CatalogImportResult(0, 0, 0)
         _require_running(locked_attempt)
         try:
-            normalized_catalog = normalize_catalog(catalog)
+            observed_sha = _validate_git_sha(observed_yaml_blob_sha, field_name="observed_yaml_blob_sha")
+            if commit_sha:
+                _validate_git_sha(commit_sha, field_name="commit_sha")
         except EnvironmentCatalogValidationError as exc:
-            _mark_attempt_failed_locked(
-                locked_attempt,
-                error_code=exc.code,
-                error_summary="环境目录校验失败，请修正配置后重试。",
-            )
+            _mark_callback_parameter_validation_failed_locked(locked_attempt, exc)
             callback_error = exc
         else:
             try:
-                with transaction.atomic():
-                    result = _apply_normalized_catalog(normalized_catalog)
+                normalized_catalog = normalize_catalog(catalog)
             except EnvironmentCatalogValidationError as exc:
                 _mark_attempt_failed_locked(
                     locked_attempt,
@@ -544,31 +570,42 @@ def complete_yaml_to_mysql_sync_attempt(
                     error_summary="环境目录校验失败，请修正配置后重试。",
                 )
                 callback_error = exc
-            except IntegrityError:
-                callback_error = EnvironmentCatalogError(
-                    "环境目录投影失败，请修正后重试。",
-                    code="environment_catalog_projection_failed",
-                )
-                _mark_attempt_failed_locked(
-                    locked_attempt,
-                    error_code=callback_error.code,
-                    error_summary="环境目录投影失败，请修正后重试。",
-                )
             else:
-                locked_attempt.status = locked_attempt.Status.SYNCED
-                locked_attempt.observed_yaml_blob_sha = observed_sha
-                locked_attempt.commit_sha = commit_sha
-                locked_attempt.finished_at = timezone.now()
-                locked_attempt.save()
-                state = _locked_state()
-                state.status = EnvironmentCatalogState.Status.SYNCED
-                state.yaml_blob_sha = observed_sha
-                state.last_commit_sha = commit_sha
-                state.last_synced_at = locked_attempt.finished_at
-                state.last_error_code = ""
-                state.last_error_summary = ""
-                state.save()
-                return locked_attempt, result
+                try:
+                    with transaction.atomic():
+                        result = _apply_normalized_catalog(normalized_catalog)
+                except EnvironmentCatalogValidationError as exc:
+                    _mark_attempt_failed_locked(
+                        locked_attempt,
+                        error_code=exc.code,
+                        error_summary="环境目录校验失败，请修正配置后重试。",
+                    )
+                    callback_error = exc
+                except (DataError, IntegrityError):
+                    callback_error = EnvironmentCatalogError(
+                        "环境目录投影失败，请修正后重试。",
+                        code="environment_catalog_projection_failed",
+                    )
+                    _mark_attempt_failed_locked(
+                        locked_attempt,
+                        error_code=callback_error.code,
+                        error_summary="环境目录投影失败，请修正后重试。",
+                    )
+                else:
+                    locked_attempt.status = locked_attempt.Status.SYNCED
+                    locked_attempt.observed_yaml_blob_sha = observed_sha
+                    locked_attempt.commit_sha = commit_sha
+                    locked_attempt.finished_at = timezone.now()
+                    locked_attempt.save()
+                    state = _locked_state()
+                    state.status = EnvironmentCatalogState.Status.SYNCED
+                    state.yaml_blob_sha = observed_sha
+                    state.last_commit_sha = commit_sha
+                    state.last_synced_at = locked_attempt.finished_at
+                    state.last_error_code = ""
+                    state.last_error_summary = ""
+                    state.save()
+                    return locked_attempt, result
     if callback_error is not None:
         raise callback_error
     raise RuntimeError("环境目录导入回调未产生结果。")

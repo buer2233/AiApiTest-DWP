@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from django.core.management import call_command
-from django.db import IntegrityError
+from django.db import DataError, IntegrityError
 from django.test import override_settings
 
 from metrics.models import JenkinsTask, TestEnvironment, TestModule, TestRun
@@ -476,7 +476,11 @@ def test_yaml_import_callback_allows_existing_environments_to_swap_base_urls():
 
 
 @pytest.mark.django_db
-def test_yaml_import_persistence_error_marks_attempt_failed_without_partial_projection_and_allows_retry(monkeypatch):
+@pytest.mark.parametrize("persistence_error", [IntegrityError, DataError])
+def test_yaml_import_persistence_error_marks_attempt_failed_without_partial_projection_and_allows_retry(
+    monkeypatch,
+    persistence_error,
+):
     service = catalog_service_module()
     existing = create_environment(env_key="persistence-existing", base_url="https://persistence-existing.example.invalid")
     service.EnvironmentCatalogState.objects.create(
@@ -491,7 +495,7 @@ def test_yaml_import_persistence_error_marks_attempt_failed_without_partial_proj
 
     def raise_on_new_environment_save(environment, *args, **kwargs):
         if environment.env_key == "persistence-new":
-            raise IntegrityError("database failure detail must not be exposed")
+            raise persistence_error("database failure detail must not be exposed")
         return original_save(environment, *args, **kwargs)
 
     monkeypatch.setattr(service.TestEnvironment, "save", raise_on_new_environment_save)
@@ -569,6 +573,201 @@ def test_yaml_import_rejects_a_synced_mysql_to_yaml_attempt_without_side_effects
     assert state.status == state.Status.SYNCED
     assert state.updated_at == state_updated_at
     assert TestEnvironment.objects.filter(env_key="unexpected").exists() is False
+
+
+@pytest.mark.parametrize(
+    ("invalid_field", "callback_kwargs"),
+    [
+        (
+            "observed_yaml_blob_sha",
+            {
+                "observed_yaml_blob_sha": "invalid-observed",
+                "written_yaml_blob_sha": "b" * 40,
+                "commit_sha": "c" * 40,
+            },
+        ),
+        (
+            "written_yaml_blob_sha",
+            {
+                "observed_yaml_blob_sha": "a" * 40,
+                "written_yaml_blob_sha": "invalid-written",
+                "commit_sha": "c" * 40,
+            },
+        ),
+        (
+            "commit_sha",
+            {
+                "observed_yaml_blob_sha": "a" * 40,
+                "written_yaml_blob_sha": "b" * 40,
+                "commit_sha": "invalid-commit",
+            },
+        ),
+    ],
+)
+@pytest.mark.django_db
+def test_invalid_mysql_callback_sha_marks_running_attempt_failed_and_allows_retry(invalid_field, callback_kwargs):
+    service = catalog_service_module()
+    create_environment(env_key="invalid-mysql-sha", base_url="https://invalid-mysql-sha.example.invalid")
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_mysql_to_yaml_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id=f"queue-invalid-mysql-{invalid_field}")
+    service.mark_sync_attempt_running(attempt, build_number=110, jenkins_build_url="")
+
+    with pytest.raises(service.EnvironmentCatalogValidationError) as raised:
+        service.complete_mysql_to_yaml_sync_attempt(attempt, **callback_kwargs)
+
+    attempt.refresh_from_db()
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    assert raised.value.code == f"invalid_{invalid_field}"
+    assert attempt.status == attempt.Status.FAILED
+    assert attempt.error_code == f"invalid_{invalid_field}"
+    assert attempt.error_summary == "同步回调参数校验失败，请修正后重试。"
+    assert attempt.active_attempt_key is None
+    assert attempt.finished_at is not None
+    assert state.status == state.Status.FAILED
+    assert state.yaml_blob_sha == "a" * 40
+    assert state.last_error_code == f"invalid_{invalid_field}"
+    assert service.retry_sync_attempt(attempt).status == attempt.Status.PENDING
+
+
+@pytest.mark.parametrize(
+    ("invalid_field", "observed_yaml_blob_sha", "commit_sha"),
+    [
+        ("observed_yaml_blob_sha", "invalid-observed", ""),
+        ("commit_sha", "b" * 40, "invalid-commit"),
+    ],
+)
+@pytest.mark.django_db
+def test_invalid_yaml_callback_sha_marks_running_attempt_failed_without_projection_and_allows_retry(
+    invalid_field,
+    observed_yaml_blob_sha,
+    commit_sha,
+):
+    service = catalog_service_module()
+    baseline = create_environment(env_key="invalid-yaml-sha", base_url="https://invalid-yaml-sha.example.invalid")
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_yaml_to_mysql_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id=f"queue-invalid-yaml-{invalid_field}")
+    service.mark_sync_attempt_running(attempt, build_number=111, jenkins_build_url="")
+
+    with pytest.raises(service.EnvironmentCatalogValidationError) as raised:
+        service.complete_yaml_to_mysql_sync_attempt(
+            attempt,
+            catalog={
+                "unexpected-yaml-import": catalog_entry(
+                    base_url="https://unexpected-yaml-import.example.invalid",
+                    url_name="不应导入",
+                    url_desc="SHA 非法",
+                )
+            },
+            observed_yaml_blob_sha=observed_yaml_blob_sha,
+            commit_sha=commit_sha,
+        )
+
+    attempt.refresh_from_db()
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    baseline.refresh_from_db()
+    assert raised.value.code == f"invalid_{invalid_field}"
+    assert attempt.status == attempt.Status.FAILED
+    assert attempt.error_code == f"invalid_{invalid_field}"
+    assert attempt.error_summary == "同步回调参数校验失败，请修正后重试。"
+    assert attempt.active_attempt_key is None
+    assert state.status == state.Status.FAILED
+    assert state.last_error_code == f"invalid_{invalid_field}"
+    assert baseline.is_active is True
+    assert TestEnvironment.objects.filter(env_key="unexpected-yaml-import").exists() is False
+    assert service.retry_sync_attempt(attempt).status == attempt.Status.PENDING
+
+
+@pytest.mark.parametrize(
+    ("catalog", "expected_code"),
+    [
+        (
+            {
+                "e" * 65: catalog_entry(
+                    base_url="https://long-key.example.invalid",
+                    url_name="名称",
+                    url_desc="描述",
+                )
+            },
+            "environment_key_too_long",
+        ),
+        (
+            {
+                "long-name": catalog_entry(
+                    base_url="https://long-name.example.invalid",
+                    url_name="n" * 129,
+                    url_desc="描述",
+                )
+            },
+            "environment_name_too_long",
+        ),
+        (
+            {
+                "long-url": catalog_entry(
+                    base_url="https://" + "a" * 505 + ".invalid",
+                    url_name="名称",
+                    url_desc="描述",
+                )
+            },
+            "environment_base_url_too_long",
+        ),
+    ],
+)
+def test_normalize_catalog_enforces_model_field_lengths(catalog, expected_code):
+    service = catalog_service_module()
+
+    with pytest.raises(service.EnvironmentCatalogValidationError) as raised:
+        service.normalize_catalog(catalog)
+
+    assert raised.value.code == expected_code
+
+
+@pytest.mark.django_db
+def test_yaml_callback_too_long_catalog_field_marks_attempt_failed_without_projection_and_allows_retry():
+    service = catalog_service_module()
+    baseline = create_environment(env_key="too-long-callback", base_url="https://too-long-callback.example.invalid")
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_yaml_to_mysql_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id="queue-too-long-callback")
+    service.mark_sync_attempt_running(attempt, build_number=112, jenkins_build_url="")
+
+    with pytest.raises(service.EnvironmentCatalogValidationError) as raised:
+        service.complete_yaml_to_mysql_sync_attempt(
+            attempt,
+            catalog={
+                "k" * 65: catalog_entry(
+                    base_url="https://too-long-import.example.invalid",
+                    url_name="不应导入",
+                    url_desc="字段超长",
+                )
+            },
+            observed_yaml_blob_sha="b" * 40,
+        )
+
+    attempt.refresh_from_db()
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    baseline.refresh_from_db()
+    assert raised.value.code == "environment_key_too_long"
+    assert attempt.status == attempt.Status.FAILED
+    assert attempt.error_code == "environment_key_too_long"
+    assert attempt.active_attempt_key is None
+    assert state.status == state.Status.FAILED
+    assert baseline.is_active is True
+    assert TestEnvironment.objects.count() == 1
+    assert service.retry_sync_attempt(attempt).status == attempt.Status.PENDING
 
 
 def test_environment_url_migration_validates_all_rows_before_persisting_any_update():
