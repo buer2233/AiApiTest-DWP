@@ -318,6 +318,159 @@ def test_yaml_import_callback_updates_projection_and_catalog_blob_sha():
 
 
 @pytest.mark.django_db
+def test_invalid_yaml_callback_marks_running_attempt_failed_without_projection_and_allows_retry():
+    service = catalog_service_module()
+    baseline_environment = create_environment(env_key="callback-baseline", base_url="https://callback-baseline.example.invalid")
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_yaml_to_mysql_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id="queue-invalid-import")
+    service.mark_sync_attempt_running(attempt, build_number=104, jenkins_build_url="")
+
+    with pytest.raises(service.EnvironmentCatalogValidationError) as raised:
+        service.complete_yaml_to_mysql_sync_attempt(
+            attempt,
+            catalog={
+                "invalid": {
+                    "base_url": "https://invalid.example.invalid",
+                    "url_name": "非法导入",
+                    "url_desc": "不应投影",
+                    "secret_hint": "must-not-persist",
+                }
+            },
+            observed_yaml_blob_sha="b" * 40,
+        )
+
+    assert raised.value.code == "unknown_environment_field"
+    attempt.refresh_from_db()
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    baseline_environment.refresh_from_db()
+    assert attempt.status == attempt.Status.FAILED
+    assert attempt.error_code == "unknown_environment_field"
+    assert attempt.finished_at is not None
+    assert attempt.active_attempt_key is None
+    assert state.status == state.Status.FAILED
+    assert state.last_error_code == "unknown_environment_field"
+    assert baseline_environment.is_active is True
+    assert TestEnvironment.objects.count() == 1
+    retry_attempt = service.retry_sync_attempt(attempt)
+    assert retry_attempt.status == retry_attempt.Status.PENDING
+
+
+@pytest.mark.django_db
+def test_mysql_to_yaml_callback_rejects_a_running_yaml_to_mysql_attempt_without_side_effects():
+    service = catalog_service_module()
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_yaml_to_mysql_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id="queue-wrong-direction")
+    service.mark_sync_attempt_running(attempt, build_number=105, jenkins_build_url="")
+
+    with pytest.raises(service.EnvironmentCatalogStateError):
+        service.complete_mysql_to_yaml_sync_attempt(
+            attempt,
+            observed_yaml_blob_sha="a" * 40,
+            written_yaml_blob_sha="b" * 40,
+            commit_sha="c" * 40,
+        )
+
+    attempt.refresh_from_db()
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    assert attempt.status == attempt.Status.RUNNING
+    assert attempt.observed_yaml_blob_sha is None
+    assert attempt.finished_at is None
+    assert state.status == state.Status.RUNNING
+    assert state.yaml_blob_sha == "a" * 40
+
+
+@pytest.mark.django_db
+def test_successful_yaml_callback_is_idempotent_without_reprojecting_environments():
+    service = catalog_service_module()
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_yaml_to_mysql_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id="queue-idempotent-import")
+    service.mark_sync_attempt_running(attempt, build_number=106, jenkins_build_url="")
+    catalog = {
+        "idempotent-qa": catalog_entry(
+            base_url="https://idempotent-qa.example.invalid/api",
+            url_name="幂等导入环境",
+            url_desc="幂等导入描述",
+        )
+    }
+
+    completed, first_result = service.complete_yaml_to_mysql_sync_attempt(
+        attempt,
+        catalog=catalog,
+        observed_yaml_blob_sha="b" * 40,
+    )
+    environment = TestEnvironment.objects.get(env_key="idempotent-qa")
+    environment_updated_at = environment.updated_at
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    state_updated_at = state.updated_at
+
+    repeated, repeated_result = service.complete_yaml_to_mysql_sync_attempt(
+        completed,
+        catalog=catalog,
+        observed_yaml_blob_sha="b" * 40,
+    )
+
+    environment.refresh_from_db()
+    state.refresh_from_db()
+    assert first_result.created_count == 1
+    assert repeated.pk == completed.pk
+    assert repeated_result == service.CatalogImportResult(0, 0, 0)
+    assert TestEnvironment.objects.count() == 1
+    assert environment.updated_at == environment_updated_at
+    assert state.updated_at == state_updated_at
+
+
+def test_environment_url_migration_validates_all_rows_before_persisting_any_update():
+    migration = importlib.import_module("metrics.migrations.0005_stage13_environment_catalog")
+    first = type("HistoricalEnvironment", (), {"id": 1, "base_url": "https://first.example.invalid/"})()
+    second = type("HistoricalEnvironment", (), {"id": 2, "base_url": "not-a-valid-url"})()
+    updates: list[tuple[int, dict[str, str]]] = []
+
+    class FakeObjects:
+        def order_by(self, *args):
+            return self
+
+        def iterator(self):
+            return iter([first, second])
+
+        def filter(self, *, pk: int):
+            class FakeUpdate:
+                def update(self, **values):
+                    updates.append((pk, values))
+
+            return FakeUpdate()
+
+    class FakeHistoricalEnvironment:
+        objects = FakeObjects()
+
+    class FakeApps:
+        @staticmethod
+        def get_model(app_label: str, model_name: str):
+            assert (app_label, model_name) == ("metrics", "TestEnvironment")
+            return FakeHistoricalEnvironment
+
+    with pytest.raises(RuntimeError, match="非法测试环境 URL"):
+        migration.normalize_existing_environment_urls(FakeApps(), None)
+
+    assert first.base_url == "https://first.example.invalid/"
+    assert updates == []
+
+
+@pytest.mark.django_db
 def test_invalid_yaml_catalog_projection_has_zero_database_side_effects():
     service = catalog_service_module()
     create_environment(env_key="baseline", base_url="https://baseline.example.invalid")
