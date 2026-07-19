@@ -87,6 +87,7 @@ SORT_FIELDS = {
     "-failed_count",
 }
 CASE_STATUSES = {"failed", "passed", "skipped"}
+BULK_SYNC_JENKINS_UNAVAILABLE_MESSAGE = "Jenkins 服务暂不可用，请稍后重试。"
 logger = logging.getLogger(__name__)
 
 
@@ -2023,7 +2024,7 @@ class JenkinsTaskBulkSyncView(APIView):
         if daily_job_names and discovery_success_count == 0:
             return api_error_response(
                 "jenkins_unavailable",
-                str(first_discovery_error),
+                BULK_SYNC_JENKINS_UNAVAILABLE_MESSAGE,
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
@@ -2082,7 +2083,7 @@ class JenkinsTaskBulkSyncView(APIView):
         if discovered and synced_count == 0 and first_sync_error is not None:
             return api_error_response(
                 "jenkins_unavailable",
-                str(first_sync_error),
+                BULK_SYNC_JENKINS_UNAVAILABLE_MESSAGE,
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 

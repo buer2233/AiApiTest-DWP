@@ -1620,11 +1620,12 @@ def test_bulk_sync_fetches_daily_artifacts_with_discovered_run_id(admin_client, 
     assert fetch_result.call_args.args[0].run.run_key == "jenkins-AiApiTest-DWP-Daily-Full-Module-88"
 
 
-def test_bulk_sync_returns_readable_error_when_daily_discovery_unavailable(admin_client, p5_context):
+def test_bulk_sync_redacts_daily_discovery_service_error_from_response_and_log(admin_client, p5_context, caplog):
     create_daily_parent_binding()
+    raw_error = "GET https://internal.example.invalid/jenkins?token=secret-token"
 
     with patch("metrics.views.discover_jenkins_builds") as discover_builds:
-        discover_builds.side_effect = JenkinsServiceError("JENKINS_API_BASE_URL is not configured")
+        discover_builds.side_effect = JenkinsServiceError(raw_error)
         response = admin_client.post(
             "/api/v1/jenkins-tasks/sync",
             {"discover_daily": True, "date": "2026-07-05"},
@@ -1633,7 +1634,9 @@ def test_bulk_sync_returns_readable_error_when_daily_discovery_unavailable(admin
 
     assert response.status_code == 503
     assert response.data["error"]["code"] == "jenkins_unavailable"
-    assert "JENKINS_API_BASE_URL is not configured" in response.data["error"]["message"]
+    assert response.data["error"]["message"] == "Jenkins 服务暂不可用，请稍后重试。"
+    assert raw_error not in str(response.data)
+    assert raw_error not in caplog.text
     assert metric_model("JenkinsTask").objects.count() == 0
 
 
@@ -1704,7 +1707,7 @@ def test_bulk_sync_continues_when_one_discovered_build_cannot_fetch_artifacts(ad
     assert synced_task.status == "running"
 
 
-def test_bulk_sync_fetch_error_keeps_existing_daily_task_status(admin_client, p5_context):
+def test_bulk_sync_redacts_artifact_service_error_and_keeps_existing_daily_task_status(admin_client, p5_context, caplog):
     create_daily_parent_binding()
     existing_task = create_daily_parent_task(
         p5_context,
@@ -1712,6 +1715,7 @@ def test_bulk_sync_fetch_error_keeps_existing_daily_task_status(admin_client, p5
         queue_id="daily-queue",
         build_number=88,
     )
+    raw_error = "GET https://internal.example.invalid/artifact?token=secret-token"
 
     with patch("metrics.views.discover_jenkins_builds") as discover_builds, patch(
         "metrics.views.fetch_jenkins_task_result"
@@ -1725,7 +1729,7 @@ def test_bulk_sync_fetch_error_keeps_existing_daily_task_status(admin_client, p5
                 "target_base_url": p5_context["environment"].base_url,
             }
         ]
-        fetch_result.side_effect = JenkinsServiceError("Jenkins artifact unavailable")
+        fetch_result.side_effect = JenkinsServiceError(raw_error)
         response = admin_client.post(
             "/api/v1/jenkins-tasks/sync",
             {"discover_daily": True, "date": "2026-07-05"},
@@ -1734,7 +1738,9 @@ def test_bulk_sync_fetch_error_keeps_existing_daily_task_status(admin_client, p5
 
     assert response.status_code == 503
     assert response.data["error"]["code"] == "jenkins_unavailable"
-    assert "Jenkins artifact unavailable" in response.data["error"]["message"]
+    assert response.data["error"]["message"] == "Jenkins 服务暂不可用，请稍后重试。"
+    assert raw_error not in str(response.data)
+    assert raw_error not in caplog.text
     existing_task.refresh_from_db()
     assert existing_task.status == "running"
     assert existing_task.module is None
