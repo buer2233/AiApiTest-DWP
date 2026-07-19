@@ -33,6 +33,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+import config
+
+from tools.environment_catalog import load_environment_catalog
 from tools.pytest_nodeids import load_lastfailed, normalize_nodeids, write_nodeids
 from tools.sensitive_data import redact_sensitive_text
 
@@ -65,6 +68,7 @@ class RunRequest:
     pytest_timeout_seconds: int = DEFAULT_PYTEST_TIMEOUT_SECONDS
     allure_timeout_seconds: int = DEFAULT_ALLURE_TIMEOUT_SECONDS
     retention_days: int = DEFAULT_CI_RUN_RETENTION_DAYS
+    base_url: str | None = None
 
 
 def build_pytest_command(
@@ -73,6 +77,7 @@ def build_pytest_command(
     clean: bool = True,
     retry_count: int = 0,
     python_executable: str = "python",
+    base_url: str | None = None,
 ) -> list[str]:
     """构建 pytest 执行命令。
     Args:
@@ -81,6 +86,7 @@ def build_pytest_command(
         clean: 是否清理 Allure 结果目录
         retry_count: 失败重试次数
         python_executable: Python 解释器路径
+        base_url: 已校验的目标环境 URL；为空时沿用 config.py 私有默认值
     Returns:
         pytest 命令行参数列表
     Raises:
@@ -106,6 +112,8 @@ def build_pytest_command(
         command.append("--clean-alluredir")
     if retry_count > 0:
         command.extend(["--reruns", str(retry_count)])
+    if base_url:
+        command.extend(["--base-url", config.validate_base_url(base_url)])
     return command
 
 
@@ -195,6 +203,25 @@ def _parse_retention_days(raw_value: str | None) -> int:
     return retention_days
 
 
+def _normalize_optional_base_url(raw_value: str | None) -> str | None:
+    """规范化可选 URL；空值保留为 None 以继续使用私有默认配置。"""
+    if raw_value is None or not str(raw_value).strip():
+        return None
+    return config.validate_base_url(str(raw_value).strip())
+
+
+def _validate_jenkins_target_base_url(raw_value: str | None, api_test_root: Path) -> str | None:
+    """仅允许 Jenkins 使用环境目录中已登记的非空目标 URL。"""
+    target_base_url = _normalize_optional_base_url(raw_value)
+    if target_base_url is None:
+        return None
+    catalog = load_environment_catalog(Path(api_test_root) / "utils" / "package_environment.yaml")
+    registered_urls = {environment["base_url"] for environment in catalog.values()}
+    if target_base_url not in registered_urls:
+        raise ValueError("TARGET_BASE_URL must match a registered environment.")
+    return target_base_url
+
+
 def parse_pytest_summary_counts(console_output: str) -> dict[str, int | float]:
     """从 pytest 控制台最终摘要中解析统计字段。
 
@@ -210,6 +237,7 @@ def parse_pytest_summary_counts(console_output: str) -> dict[str, int | float]:
         return {
             "total_count": 0,
             "failed_count": 0,
+            "error_count": 0,
             "passed_count": 0,
             "skipped_count": 0,
             "duration_seconds": 0.0,
@@ -232,6 +260,7 @@ def parse_pytest_summary_counts(console_output: str) -> dict[str, int | float]:
     return {
         "total_count": total_count,
         "failed_count": failed_count,
+        "error_count": counts["error"],
         "passed_count": counts["passed"],
         "skipped_count": counts["skipped"],
         "duration_seconds": duration_seconds,
@@ -244,7 +273,7 @@ def build_run_request_from_jenkins_env(
 ) -> RunRequest:
     """从 Jenkins 环境变量构建 CI 运行请求。
     支持的环境变量：RETRY_MODE、RUN_ID/BUILD_TAG/BUILD_NUMBER、
-    CASE_PATH、PYTEST_NODE_IDS、RETRY_COUNT、CLEAN_ALLURE、OPEN_REPORT
+    CASE_PATH、PYTEST_NODE_IDS、RETRY_COUNT、CLEAN_ALLURE、OPEN_REPORT、TARGET_BASE_URL
     Args:
         env: 环境变量字典，默认读取 os.environ
         api_test_root: api-test 根目录路径
@@ -271,6 +300,7 @@ def build_run_request_from_jenkins_env(
         # Jenkins 非交互环境不能执行 allure open，否则 Allure Web server 会常驻并卡住 Pipeline。
         open_report=False,
         retention_days=_parse_retention_days(source.get("CI_RUN_RETENTION_DAYS")),
+        base_url=_validate_jenkins_target_base_url(source.get("TARGET_BASE_URL"), Path(api_test_root)),
     )
 
 
@@ -358,6 +388,7 @@ def write_summary(
         "allure_report_status": allure_report_status,
         "allure_report_message": allure_report_message,
         "case_results": list(case_results or []),
+        "error_count": 0,
     }
     if count_fields:
         summary.update(count_fields)
@@ -485,6 +516,7 @@ def merge_case_result_counts(case_results: list[dict], parsed_counts: dict[str, 
     return {
         "total_count": len(case_results),
         "failed_count": sum(status in {"failed", "error"} for status in statuses),
+        "error_count": statuses.count("error"),
         "passed_count": statuses.count("passed"),
         "skipped_count": statuses.count("skipped"),
         "duration_seconds": parsed_counts.get("duration_seconds", 0.0),
@@ -614,6 +646,7 @@ def run_ci_tests(request: RunRequest, python_executable: str | None = None) -> d
         clean=request.clean,
         retry_count=request.retry_count,
         python_executable=python_executable or sys.executable,
+        base_url=request.base_url,
     )
     try:
         result = run_pytest_streaming(
@@ -692,6 +725,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--retry-count", type=int, default=0, help="pytest-rerunfailures retry count")
     parser.add_argument("--run-id", default=None, help="external run id for runtime/ci-runs")
+    parser.add_argument("--base-url", default=None, help="override config.base_url for this CI run")
     parser.add_argument(
         "--clean",
         action=argparse.BooleanOptionalAction,
@@ -735,6 +769,7 @@ def main(argv: list[str] | None = None) -> int:
         retry_count=args.retry_count,
         clean=args.clean,
         open_report=args.open_report,
+        base_url=_normalize_optional_base_url(args.base_url),
     )
     summary = run_ci_tests(request)
     return int(summary["return_code"])
