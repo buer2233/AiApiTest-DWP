@@ -253,6 +253,21 @@ def test_aggregate_daily_run_preserves_existing_parent_allure_archive(tmp_path):
         {"failed_nodeids": ["test_case/test_alpha.py::test_failure", 1]},
         {"status": "passed", "return_code": 1},
         {"status": "failed", "return_code": 0},
+        {"failed_nodeids": ["test_case/test_alpha.py::test_failure"]},
+        {"status": "failed", "return_code": 1, "failed_nodeids": [""]},
+        {
+            "status": "failed",
+            "return_code": 1,
+            "failed_nodeids": ["  test_case/test_alpha.py::test_failure  "],
+        },
+        {
+            "status": "failed",
+            "return_code": 1,
+            "failed_nodeids": [
+                "test_case/test_alpha.py::test_failure",
+                "test_case/test_alpha.py::test_failure",
+            ],
+        },
     ],
 )
 def test_aggregate_daily_run_rejects_invalid_worker_summary_contract(tmp_path, summary_overrides):

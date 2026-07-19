@@ -8,6 +8,8 @@ from pathlib import Path
 
 import yaml
 
+from tools.pytest_nodeids import normalize_nodeids
+
 
 VALID_WORKER_STATUSES = {"passed", "failed"}
 
@@ -133,10 +135,18 @@ def _load_worker_summary(artifact: DailyWorkerArtifact) -> dict:
         raise DailyAggregationError(
             "invalid_worker_summary", "模块 Worker failed_nodeids 元素必须是字符串。", module_key=artifact.module_key
         )
+    if normalize_nodeids(payload["failed_nodeids"]) != payload["failed_nodeids"]:
+        raise DailyAggregationError(
+            "invalid_worker_summary", "模块 Worker failed_nodeids 必须非空、去空白且不重复。", module_key=artifact.module_key
+        )
     status = payload["status"]
     if not isinstance(status, str) or status not in VALID_WORKER_STATUSES:
         raise DailyAggregationError(
             "invalid_worker_summary", "模块 Worker status 非法。", module_key=artifact.module_key
+        )
+    if status == "passed" and payload["failed_nodeids"]:
+        raise DailyAggregationError(
+            "invalid_worker_summary", "通过的模块 Worker 不能包含 failed_nodeids。", module_key=artifact.module_key
         )
     return_code = payload["return_code"]
     if type(return_code) is not int:
