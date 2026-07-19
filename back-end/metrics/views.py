@@ -923,6 +923,8 @@ def resolve_daily_parent_environment(binding: JenkinsJobBinding, build_result: d
 
 
 def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_result: dict) -> tuple[JenkinsTask, bool]:
+    # 先验证 global binding 与构建环境，避免既有任务路径绕过 Daily 约束。
+    environment = resolve_daily_parent_environment(binding, build_result)
     build_number = build_result.get("build_number")
     task = JenkinsTask.objects.select_related("run").filter(
         job_full_name=binding.job_full_name,
@@ -931,7 +933,6 @@ def create_or_get_daily_task_from_discovery(binding: JenkinsJobBinding, build_re
     if task is not None:
         return task, False
 
-    environment = resolve_daily_parent_environment(binding, build_result)
     run_key = build_result.get("run_id") or f"daily_full-{environment.id}-{build_number}"
     try:
         with transaction.atomic():
