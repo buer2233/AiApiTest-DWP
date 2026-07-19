@@ -52,6 +52,9 @@
 - Q14：Jenkins 环境配置同步 Job 自动提交并推送受控主干。该 Job 必须在工作区干净、远端可快进时执行；若 Git 提交或推送失败，MySQL 保持已提交但标记为待同步，并返回可观察的结构化诊断。MySQL 与手工 YAML 同时变更的冲突处理尚待确认。
 - Q15：以 `package_environment.yaml` 的 SHA 修订号作为 MySQL 写回前置条件。SHA 与记录值不一致时拒绝自动覆盖，管理员必须先导入 YAML 或基于最新 YAML 重新提交平台 CRUD，避免任何一方静默覆盖。
 - 独立审查补充：环境配置同步 Job 不能写 `LOCAL_WORKSPACE_REPO` 的开发挂载目录，必须使用隔离且干净的 SCM checkout；SHA 使用 YAML Git blob SHA 而不是仓库 HEAD，避免无关提交造成伪冲突。当前硬编码 `seed_environment` 必须改为从随镜像复制的环境 YAML 建立初始 MySQL 投影。
+- Task 2 独立审查确认 6 项阻断根因：Throttle Category 漏传节点/标签配额列表；Git SCM 的 `UserRemoteConfig` 凭据参数位置与 `GitSCM` 构造签名错误；旧分模块 Daily Job 的 TimerTrigger 未在升级时移除；Worker 复用共享 Allure 发布且缺少父构建来源验证；环境同步的 `merge-base` 祖先方向错误，可能在远端已领先时先写 YAML 和本地提交再于 push 失败。必须以先红后绿的 Jenkins 静态测试逐项关闭。
+- Task 2 第二轮独立审查确认首轮修复仍有 4 项阻断：旧分模块 Job 手工构建会由共享 Daily 脚本重新写入 cron；同步请求标识、blob SHA 与 URL 参数可进入 shell；自由 URL 参数可携带服务令牌触发 SSRF；SCM checkout 后的裸 `git fetch/push` 不会复用 Jenkins Git 凭据。修复必须将服务端点固定为私有配置、严格校验调用参数、以独立最小权限 Git push 凭据包装 shell Git，并只由唯一父 Job 配置 cron。
+- Task 2 第二轮安全修复与第三次独立审查已关闭全部阻断：父脚本按 `JENKINS_DAILY_FULL_JOB_NAME` 限定 cron；内部导出/回调端点只从私有服务基址加已校验请求 ID 构造；方向、请求 ID、blob SHA 在命令前严校验；checkout 与 fetch/push 凭据分离，后者以 askpass 临时环境作用域提供。真实 Jenkins 插件和凭据加载仍须由固定环境 Job 验收。
 
 ## 待调查
 

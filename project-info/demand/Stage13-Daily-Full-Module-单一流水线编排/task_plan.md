@@ -15,7 +15,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 1. 现状与根因调查 | 已完成 | 已定位 Job 创建、Daily 执行和后端绑定均按模块拆分。 |
 | 2. 需求澄清与规格冻结 | 已完成 | 主人于 2026-07-19 确认冻结；API 与架构边界可作为下游唯一输入。 |
 | 3. 测试用例与 UI 设计 | 进行中 | 测试用例、RTM 与覆盖校准完成；UI 候选已产出，等待主人选择后生成正式稿。 |
-| 4. 后端与 Jenkins TDD 实施 | 进行中 | Task 1 api-test 协议已审查通过；开始 Jenkins 单一父/Worker 编排。 |
+| 4. 后端与 Jenkins TDD 实施 | 进行中 | Task 1 api-test 协议与 Task 2 Jenkins 编排均已独立审查通过；待实施后端 Task 3/4。 |
 | 5. 前端 TDD 实施 | 未开始 | 以冻结 API、UI 映射和 Playwright 用例为输入。 |
 | 6. 独立审查、验证与验收包 | 未开始 | 执行回归，留存可提交的验收索引。 |
 
@@ -31,7 +31,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 | 子任务 | 状态 | 依赖 |
 | --- | --- | --- |
-| 4A api-test 与 Jenkins TDD | 未开始 | 3A、§7 API 契约；不触及后端/前端源码。 |
+| 4A api-test 与 Jenkins TDD | 已完成 | Task 1/2 已完成三轮独立审查与静态回归；不触及后端/前端源码。 |
 | 4B 后端数据模型与 API TDD | 未开始 | 3A、§7 API 契约；不触及 Jenkins/api-test 源码。 |
 | 4C 后端/Jenkins 独立审查 | 未开始 | 4A、4B 已完成。 |
 | 5A 前端 Playwright 与 Vue TDD | 未开始 | 3B 主人选定候选图、3C、4B API 已实现。 |
@@ -55,7 +55,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 ### Task 2 Jenkins 单一 Daily 编排与配置同步 Job
 
-**状态**：进行中。依赖 Task 1 已满足。
+**状态**：已完成。提交 `8836e48`、`0f79125`、`b92d32c`；两轮整改后第三次独立复审批准。依赖 Task 1 已满足。
 
 **所有权**：仅 `jenkins/`、Jenkins 相关 Docker/Compose 版本化配置及根 `.env.example`；不得修改 `api-test/`、`back-end/` 或 `front-end/`。
 
@@ -116,6 +116,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 读取不存在的 `back-end/.env.example` | 1 | 环境模板统一位于根 `.env.example`，后续不再读取模块级模板。 |
 | 假定的环境页面文件和 `metrics/urls.py` 不存在 | 1 | 已确认路由集中在 `config/urls.py`；后续按实际前端目录定位，不重复使用假定路径。 |
 | `django-tdd` 技能旧目录不存在 | 1 | 技能实际位于 `C:\Users\admin\.codex\skills\django-tdd`，已按正确目录读取。 |
+| Task 2 审查包 Git Bash 路径错误 | 1 | 实际安装目录为 `D:\Program Files\Git\bin\bash.exe`，改用该目录生成只读审查包。 |
 | 阶段 3 校准发现 AC1.5 与 Daily 父任务状态机冲突 | 1 | 以已冻结 AC1.5 为准，预检失败只保留 Jenkins 诊断，不创建平台父任务。 |
 | 组合读取命令的 PowerShell 括号错误、图像查看的 `low` 细节参数无效 | 1 | 已拆分读取命令，并改用受支持的 `high` 图像查看；未改动业务文件。 |
 | WSL `bash.exe` 不识别 Windows 路径，PowerShell `rg` 的 glob 参数顺序不兼容，以及假定 `config/settings.py` 存在 | 1 | 改用 `apply_patch` 写入 SDD 简报；后续 shell 搜索使用实际存在的路径和 PowerShell 兼容参数。 |

@@ -286,6 +286,7 @@
   - Job 仅在干净、隔离 SCM checkout 操作，使用相对 workspace；不访问 MySQL、不执行 pytest、不写 `LOCAL_WORKSPACE_REPO` 或宿主机挂载目录。
   - SHA 匹配时生成确定性 YAML，自动提交并快进推送受控主干；审计保存 job/build、commit SHA、实际 blob SHA 和结束时间。
   - 目录和请求最终均为 `synced`，`last_synced_at`/`last_commit_sha` 可查询；日志不泄露 Credentials。
+  - Job 参数不携带导出或回调 URL；内部端点只由私有服务基址和已校验请求 ID 构造。独立 Git push 用户名/密码凭据仅作用于静默 fetch/push，不写入 remote、Git 配置或日志。
 - **备注**：自动提交是冻结决策；Git 身份与凭据只从私有 Jenkins Credentials/环境变量获取。
 
 ### TC-S13-F3-006：同步 Job 非快进、不可用或凭据失败时不半写入
@@ -303,6 +304,7 @@
   - MySQL 已提交的 CRUD 不回滚，远端 YAML/commit 不发生部分更新；目录/请求为 `failed` 或保留 `pending`，并有脱敏可观察诊断。
   - 失败请求不阻塞管理员查看状态；可重试时重试接口创建新的不可变请求并最终可 `synced`。
   - 输出中不包含 Git URL 中的凭据、Token、Cookie 或宿主机绝对路径。
+  - 非法同步方向、包含 shell 元字符的请求 ID 或非 40 位小写十六进制 SHA 在任何 curl、YAML 写入、Git 提交或 push 前明确失败。
 - **备注**：只验证受控测试远端；不对主人基础设施执行破坏性 Git/Docker 操作。
 
 ### TC-S13-F3-007：YAML 导入原子新增、更新和停用缺失环境
