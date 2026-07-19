@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from django.core.management import call_command
-from django.db import DataError, IntegrityError
+from django.db import DataError, IntegrityError, migrations
 from django.test import override_settings
 
 from metrics.models import JenkinsTask, TestEnvironment, TestModule, TestRun
@@ -768,6 +768,64 @@ def test_yaml_callback_too_long_catalog_field_marks_attempt_failed_without_proje
     assert baseline.is_active is True
     assert TestEnvironment.objects.count() == 1
     assert service.retry_sync_attempt(attempt).status == attempt.Status.PENDING
+
+
+@pytest.mark.parametrize("invalid_commit_sha", [None, False, 0, " ", "too-short"])
+@pytest.mark.django_db
+def test_yaml_callback_only_allows_an_exact_empty_string_for_missing_commit_sha(invalid_commit_sha):
+    service = catalog_service_module()
+    baseline = create_environment(env_key="strict-empty-commit", base_url="https://strict-empty-commit.example.invalid")
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_yaml_to_mysql_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id="queue-strict-empty-commit")
+    service.mark_sync_attempt_running(attempt, build_number=113, jenkins_build_url="")
+
+    with pytest.raises(service.EnvironmentCatalogValidationError) as raised:
+        service.complete_yaml_to_mysql_sync_attempt(
+            attempt,
+            catalog={
+                "unexpected-strict-commit": catalog_entry(
+                    base_url="https://unexpected-strict-commit.example.invalid",
+                    url_name="不应导入",
+                    url_desc="非法提交 SHA",
+                )
+            },
+            observed_yaml_blob_sha="b" * 40,
+            commit_sha=invalid_commit_sha,
+        )
+
+    attempt.refresh_from_db()
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    baseline.refresh_from_db()
+    assert raised.value.code == "invalid_commit_sha"
+    assert attempt.status == attempt.Status.FAILED
+    assert attempt.error_code == "invalid_commit_sha"
+    assert attempt.error_summary == "同步回调参数校验失败，请修正后重试。"
+    assert attempt.active_attempt_key is None
+    assert state.status == state.Status.FAILED
+    assert state.last_error_code == "invalid_commit_sha"
+    assert baseline.is_active is True
+    assert TestEnvironment.objects.filter(env_key="unexpected-strict-commit").exists() is False
+    assert service.retry_sync_attempt(attempt).status == attempt.Status.PENDING
+
+
+def test_environment_catalog_migration_validates_historical_urls_before_first_schema_ddl():
+    migration = importlib.import_module("metrics.migrations.0005_stage13_environment_catalog")
+    operations = migration.Migration.operations
+    first_schema_ddl_index = next(
+        index
+        for index, operation in enumerate(operations)
+        if isinstance(operation, (migrations.AddConstraint, migrations.AddField, migrations.AlterField))
+    )
+
+    assert isinstance(operations[0], migrations.RunPython)
+    assert operations[0].code is migration.normalize_existing_environment_urls
+    assert operations[0].reverse_code is migrations.RunPython.noop
+    assert first_schema_ddl_index > 0
 
 
 def test_environment_url_migration_validates_all_rows_before_persisting_any_update():
