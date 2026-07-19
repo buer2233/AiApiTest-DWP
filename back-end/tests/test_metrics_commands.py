@@ -301,14 +301,15 @@ def test_sync_jenkins_results_watch_repeats_until_interrupted():
 
 
 @pytest.mark.django_db
-def test_seed_environment_is_idempotent_and_updates_public_configuration():
+def test_seed_environment_is_idempotent_and_projects_the_image_catalog():
     call_command("seed_environment")
     call_command("seed_environment")
 
     assert MetricEnvironment.objects.count() == 1
-    environment = MetricEnvironment.objects.get(env_key="mock-gbif")
-    assert environment.env_name == "模拟测试环境"
+    environment = MetricEnvironment.objects.get(env_key="gbif-public")
+    assert environment.env_name == "GBIF Public API"
     assert environment.base_url == "https://api.gbif.org"
+    assert environment.url_desc == "GBIF public API test environment"
     assert environment.is_active is True
 
 
@@ -353,6 +354,16 @@ test_gbif_case_module2:
   module_test: 王麻子
 """,
     )
+    environment_yaml_path = tmp_path / "api-test" / "utils" / "package_environment.yaml"
+    environment_yaml_path.parent.mkdir(parents=True, exist_ok=True)
+    environment_yaml_path.write_text(
+        """gbif-public:
+  base_url: https://api.gbif.org
+  url_name: GBIF Public API
+  url_desc: GBIF public API test environment
+""",
+        encoding="utf-8",
+    )
     with override_settings(REPO_ROOT=tmp_path):
         call_command("sync_modules", source=str(yaml_path))
         call_command("seed_environment")
@@ -360,7 +371,7 @@ test_gbif_case_module2:
         stdout = StringIO()
         call_command("seed_demo_metrics", stdout=stdout)
         old_module = MetricModule.objects.get(package_name="test_gbif_case")
-        old_snapshot = ModuleSnapshot.objects.get(environment__env_key="mock-gbif", module=old_module)
+        old_snapshot = ModuleSnapshot.objects.get(environment__env_key="gbif-public", module=old_module)
         metric_model("TestCaseResult").objects.create(
             environment=old_snapshot.environment,
             module=old_module,
@@ -374,7 +385,7 @@ test_gbif_case_module2:
         )
         call_command("seed_demo_metrics", stdout=stdout)
 
-    environment = MetricEnvironment.objects.get(env_key="mock-gbif")
+    environment = MetricEnvironment.objects.get(env_key="gbif-public")
     assert MetricRun.objects.count() == 1
     assert EnvironmentSnapshot.objects.filter(environment=environment).count() == 1
     assert ModuleSnapshot.objects.filter(environment=environment).count() == 2
