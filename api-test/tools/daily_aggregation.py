@@ -158,7 +158,7 @@ def _load_worker_summary(artifact: DailyWorkerArtifact) -> dict:
             "invalid_worker_summary", "模块 Worker status 与 return_code 不一致。", module_key=artifact.module_key
         )
     for field_name in {"total_count", "passed_count", "failed_count", "error_count", "skipped_count"}:
-        if not isinstance(payload[field_name], int) or payload[field_name] < 0:
+        if type(payload[field_name]) is not int or payload[field_name] < 0:
             raise DailyAggregationError(
                 "invalid_worker_summary", "模块 Worker 统计字段必须是非负整数。", module_key=artifact.module_key
             )
