@@ -112,7 +112,7 @@ Allure 是 Jenkins Allure 插件提供的 Build 级报告与 artifact 入口，�
 
 旧分模块 Daily Job 与已有构建历史在最终验收前保持不变。`JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED` 目前只作为将来受控迁移的审计守卫，当前版本不执行删除。
 
-环境目录同步 Job 不读取 MySQL、不写开发挂载工作区，也不运行接口测试。它使用 `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL` 指向的受控仓库建立干净 checkout，在写入前校验目标 YAML 的 Git blob SHA；仅在快进推送成功后回调受限内部 API。Git 与服务凭据只引用 Jenkins Credentials ID，不能写入模板、Pipeline 或日志。
+环境目录同步 Job 不读取 MySQL、不写开发挂载工作区，也不运行接口测试。它使用 `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL` 指向的受控仓库建立干净 checkout，在写入前校验目标 YAML 的 Git blob SHA；仅在快进推送成功后回调受限内部 API。`JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL` 仅在私有环境配置中维护，Pipeline 固定拼接内部导出与回调路径，绝不接受 URL 构建参数。`JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID` 是独立最小权限的用户名/密码 Credentials ID，仅通过 askpass helper 包裹 Git fetch/push；checkout、push 和服务令牌凭据彼此独立，凭据、远端地址及令牌均不能写入模板、Pipeline 或日志。
 
 ### 业务参数摘要
 

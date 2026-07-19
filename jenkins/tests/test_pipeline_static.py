@@ -511,6 +511,15 @@ def test_daily_full_module_parent_and_worker_keep_their_separate_contracts():
         assert forbidden not in worker
 
 
+def test_daily_parent_registers_its_timer_only_for_the_configured_parent_job_name():
+    """保留旧 Job 手工构建时，加载共享脚本也不能重新注册 Daily 定时器。"""
+    parent = read_required_text(JENKINS_ROOT / "scripts" / "daily-full-module-pipeline.groovy")
+
+    assert "def configuredDailyParentJobName = env.JENKINS_DAILY_FULL_JOB_NAME" in parent
+    assert "if (env.JOB_NAME == configuredDailyParentJobName)" in parent
+    assert "pipelineTriggers([cron('0 2 * * *')])" in parent
+
+
 def test_failed_rerun_pipeline_requires_node_ids_and_uses_selected_mode():
     """失败重试脚本必须固定 selected 模式，并拒绝空 PYTEST_NODE_IDS。"""
     script = read_required_text(

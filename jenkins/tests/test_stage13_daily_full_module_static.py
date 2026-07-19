@@ -180,12 +180,69 @@ def test_environment_catalog_sync_uses_clean_scm_checkout_and_blob_guard_before_
     assert "dump_environment_catalog" in sync_helper
 
 
-def test_environment_catalog_import_does_not_require_an_unused_export_endpoint():
-    """TC-S13-F3-006：YAML 导入路径只需回调地址，不应被无关导出地址阻断。"""
+def test_environment_catalog_sync_uses_fixed_private_service_endpoints_not_url_parameters():
+    """内部导出和回调端点只能从私有服务地址与已校验请求标识构造。"""
     sync_pipeline = read_source("scripts/environment-catalog-sync-pipeline.groovy")
 
-    assert "if (params.SYNC_DIRECTION == 'mysql_to_yaml' && !params.CATALOG_EXPORT_URL?.trim())" in sync_pipeline
-    assert "CATALOG_EXPORT_URL and CATALOG_CALLBACK_URL are required." not in sync_pipeline
+    assert "string(name: 'CATALOG_EXPORT_URL'" not in sync_pipeline
+    assert "string(name: 'CATALOG_CALLBACK_URL'" not in sync_pipeline
+    assert "params.CATALOG_EXPORT_URL" not in sync_pipeline
+    assert "params.CATALOG_CALLBACK_URL" not in sync_pipeline
+    assert "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL" in sync_pipeline
+    assert "def catalogExportEndpoint =" in sync_pipeline
+    assert "def catalogCallbackEndpoint =" in sync_pipeline
+    assert "/api/v1/internal/environment-catalog-sync-attempts/${syncRequestId}/export/" in sync_pipeline
+    assert "/api/v1/internal/environment-catalog-sync-attempts/${syncRequestId}/callback/" in sync_pipeline
+
+
+def test_environment_catalog_sync_validates_all_caller_inputs_before_constructing_commands():
+    """请求方向、请求标识和 YAML blob SHA 必须先收敛为安全局部值。"""
+    sync_pipeline = read_source("scripts/environment-catalog-sync-pipeline.groovy")
+
+    assert "def syncDirection = params.SYNC_DIRECTION ?: ''" in sync_pipeline
+    assert "if (!(syncDirection in ['mysql_to_yaml', 'yaml_to_mysql']))" in sync_pipeline
+    assert "def syncRequestId = params.SYNC_REQUEST_ID ?: ''" in sync_pipeline
+    assert "syncRequestId ==~ /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/" in sync_pipeline
+    assert "def expectedYamlBlobSha = params.EXPECTED_YAML_BLOB_SHA ?: ''" in sync_pipeline
+    assert "expectedYamlBlobSha ==~ /^[0-9a-f]{40}$/" in sync_pipeline
+    assert 'def controlDir = "catalog-sync/${syncRequestId}"' in sync_pipeline
+    assert "--expected-blob-sha ${expectedYamlBlobSha}" in sync_pipeline
+
+    runtime_source = sync_pipeline[sync_pipeline.index("def branchName") :]
+    assert "params." not in runtime_source
+
+
+def test_environment_catalog_sync_uses_private_askpass_credentials_only_for_git_network_operations():
+    """受限 push 凭据只包裹 fetch/push，askpass 文件本身不落入凭据或远端地址。"""
+    sync_pipeline = read_source("scripts/environment-catalog-sync-pipeline.groovy")
+    unix_askpass = read_source("scripts/environment-catalog-git-askpass.sh")
+    windows_askpass = read_source("scripts/environment-catalog-git-askpass.bat")
+    compose = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    env_example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+    readme = read_source("README.md")
+
+    assert "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID" in sync_pipeline
+    assert "usernamePassword(" in sync_pipeline
+    assert "CATALOG_GIT_PUSH_USERNAME" in sync_pipeline
+    assert "CATALOG_GIT_PUSH_PASSWORD" in sync_pipeline
+    assert "GIT_ASKPASS" in sync_pipeline
+    assert "git fetch --quiet --prune origin" in sync_pipeline
+    assert "git push --quiet origin HEAD:${branchName}" in sync_pipeline
+    assert "withCatalogPushCredentials" in sync_pipeline
+
+    for askpass in [unix_askpass, windows_askpass]:
+        assert "CATALOG_GIT_PUSH_USERNAME" in askpass
+        assert "CATALOG_GIT_PUSH_PASSWORD" in askpass
+        assert "CATALOG_GIT_PUSH_CREDENTIALS_ID" not in askpass
+        assert "origin" not in askpass
+
+    for variable in [
+        "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL",
+        "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID",
+    ]:
+        assert variable in compose
+        assert variable in env_example
+        assert variable in readme
 
 
 def test_legacy_daily_jobs_are_preserved_until_a_future_approved_migration():

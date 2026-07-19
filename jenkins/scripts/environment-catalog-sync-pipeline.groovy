@@ -24,24 +24,60 @@ def runCatalogTool(String arguments) {
     )
 }
 
+def withCatalogPushCredentials(Closure operation) {
+    def pushCredentialsId = env.JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID?.trim()
+    if (!pushCredentialsId) {
+        error('JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID is required.')
+    }
+    // 独立的最小权限凭据只包裹需要远端认证的 fetch/push，不写入 Git 配置或控制台。
+    withCredentials([usernamePassword(
+        credentialsId: pushCredentialsId,
+        usernameVariable: 'CATALOG_GIT_PUSH_USERNAME',
+        passwordVariable: 'CATALOG_GIT_PUSH_PASSWORD'
+    )]) {
+        if (isUnix()) {
+            withEnv([
+                'GIT_TERMINAL_PROMPT=0',
+                'GIT_ASKPASS=jenkins/scripts/environment-catalog-git-askpass.sh'
+            ]) {
+                operation()
+            }
+        } else {
+            withEnv([
+                'GIT_TERMINAL_PROMPT=0',
+                'GIT_ASKPASS=jenkins\\scripts\\environment-catalog-git-askpass.bat'
+            ]) {
+                operation()
+            }
+        }
+    }
+}
+
 def requireCleanFastForwardBase(String branchName) {
     def worktreeState = readCommand('git status --porcelain --untracked-files=all', 'git status --porcelain --untracked-files=all')
     if (worktreeState) {
         error('Environment catalog SCM checkout is not clean.')
     }
-    runCommand('git fetch --prune origin', 'git fetch --prune origin')
+    withCatalogPushCredentials {
+        runCommand('git fetch --quiet --prune origin', 'git fetch --quiet --prune origin')
+    }
     runCommand(
         "git merge-base --is-ancestor origin/${branchName} HEAD",
         "git merge-base --is-ancestor origin/${branchName} HEAD"
     )
 }
 
-def callbackAfterSuccessfulPush(String resultPath) {
+def callbackAfterSuccessfulPush(String resultPath, String callbackEndpoint) {
     withCredentials([string(credentialsId: env.JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID, variable: 'CATALOG_SERVICE_TOKEN')]) {
-        runCommand(
-            '''curl --fail --silent --show-error --request POST --header "Authorization: Bearer $CATALOG_SERVICE_TOKEN" --header "Content-Type: application/json" --data-binary @"$CATALOG_RESULT_PATH" "$CATALOG_CALLBACK_URL"''',
-            'curl.exe --fail --silent --show-error --request POST --header "Authorization: Bearer %CATALOG_SERVICE_TOKEN%" --header "Content-Type: application/json" --data-binary @"%CATALOG_RESULT_PATH%" "%CATALOG_CALLBACK_URL%"'
-        )
+        withEnv([
+            "CATALOG_RESULT_PATH=${resultPath}",
+            "CATALOG_CALLBACK_ENDPOINT=${callbackEndpoint}"
+        ]) {
+            runCommand(
+                '''curl --fail --silent --show-error --request POST --header "Authorization: Bearer $CATALOG_SERVICE_TOKEN" --header "Content-Type: application/json" --data-binary @"$CATALOG_RESULT_PATH" "$CATALOG_CALLBACK_ENDPOINT"''',
+                'curl.exe --fail --silent --show-error --request POST --header "Authorization: Bearer %CATALOG_SERVICE_TOKEN%" --header "Content-Type: application/json" --data-binary @"%CATALOG_RESULT_PATH%" "%CATALOG_CALLBACK_ENDPOINT%"'
+            )
+        }
     }
 }
 
@@ -51,27 +87,36 @@ def call() {
         parameters([
             choice(name: 'SYNC_DIRECTION', choices: ['mysql_to_yaml', 'yaml_to_mysql'].join('\n'), description: 'Catalog sync direction'),
             string(name: 'SYNC_REQUEST_ID', defaultValue: '', description: 'Immutable backend sync attempt identifier'),
-            string(name: 'EXPECTED_YAML_BLOB_SHA', defaultValue: '', description: 'Expected package_environment.yaml Git blob SHA'),
-            string(name: 'CATALOG_EXPORT_URL', defaultValue: '', description: 'Private backend export endpoint'),
-            string(name: 'CATALOG_CALLBACK_URL', defaultValue: '', description: 'Private backend callback endpoint')
+            string(name: 'EXPECTED_YAML_BLOB_SHA', defaultValue: '', description: 'Expected package_environment.yaml Git blob SHA')
         ])
     ])
 
-    if (!params.SYNC_REQUEST_ID?.trim() || !params.EXPECTED_YAML_BLOB_SHA?.trim()) {
-        error('SYNC_REQUEST_ID and EXPECTED_YAML_BLOB_SHA are required.')
+    def syncDirection = params.SYNC_DIRECTION ?: ''
+    if (!(syncDirection in ['mysql_to_yaml', 'yaml_to_mysql'])) {
+        error('SYNC_DIRECTION must be mysql_to_yaml or yaml_to_mysql.')
     }
-    if (!params.CATALOG_CALLBACK_URL?.trim()) {
-        error('CATALOG_CALLBACK_URL is required.')
+    def syncRequestId = params.SYNC_REQUEST_ID ?: ''
+    if (!(syncRequestId ==~ /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/)) {
+        error('SYNC_REQUEST_ID must be a safe opaque identifier.')
     }
-    if (params.SYNC_DIRECTION == 'mysql_to_yaml' && !params.CATALOG_EXPORT_URL?.trim()) {
-        error('CATALOG_EXPORT_URL is required for mysql_to_yaml.')
+    def expectedYamlBlobSha = params.EXPECTED_YAML_BLOB_SHA ?: ''
+    if (!(expectedYamlBlobSha ==~ /^[0-9a-f]{40}$/)) {
+        error('EXPECTED_YAML_BLOB_SHA must be exactly 40 lowercase hexadecimal characters.')
     }
     if (!env.JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID?.trim()) {
         error('JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID is required.')
     }
+    def catalogServiceBaseUrl = env.JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL?.trim()
+    if (!catalogServiceBaseUrl) {
+        error('JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL is required.')
+    }
+    catalogServiceBaseUrl = catalogServiceBaseUrl.replaceFirst('/+$', '')
+    // 内部 API 路径不可由请求方传入，避免服务令牌随外部 URL 请求泄露。
+    def catalogExportEndpoint = "${catalogServiceBaseUrl}/api/v1/internal/environment-catalog-sync-attempts/${syncRequestId}/export/"
+    def catalogCallbackEndpoint = "${catalogServiceBaseUrl}/api/v1/internal/environment-catalog-sync-attempts/${syncRequestId}/callback/"
 
     def branchName = env.JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH ?: 'main'
-    def controlDir = "catalog-sync/${params.SYNC_REQUEST_ID}"
+    def controlDir = "catalog-sync/${syncRequestId}"
     def exportPath = "${controlDir}/catalog-export.json"
     def resultPath = "${controlDir}/catalog-result.json"
     def yamlPath = 'api-test/utils/package_environment.yaml'
@@ -80,18 +125,20 @@ def call() {
         requireCleanFastForwardBase(branchName)
     }
 
-    if (params.SYNC_DIRECTION == 'mysql_to_yaml') {
+    if (syncDirection == 'mysql_to_yaml') {
         stage('Read Frozen Catalog Export') {
             withCredentials([string(credentialsId: env.JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID, variable: 'CATALOG_SERVICE_TOKEN')]) {
-                runCommand(
-                    "mkdir -p ${controlDir} && curl --fail --silent --show-error --header \"Authorization: Bearer \$CATALOG_SERVICE_TOKEN\" \"\$CATALOG_EXPORT_URL\" --output ${exportPath}",
-                    "if not exist ${controlDir} mkdir ${controlDir} && curl.exe --fail --silent --show-error --header \"Authorization: Bearer %CATALOG_SERVICE_TOKEN%\" \"%CATALOG_EXPORT_URL%\" --output ${exportPath}"
-                )
+                withEnv(["CATALOG_EXPORT_ENDPOINT=${catalogExportEndpoint}"]) {
+                    runCommand(
+                        "mkdir -p ${controlDir} && curl --fail --silent --show-error --header \"Authorization: Bearer \$CATALOG_SERVICE_TOKEN\" \"\$CATALOG_EXPORT_ENDPOINT\" --output ${exportPath}",
+                        "if not exist ${controlDir} mkdir ${controlDir} && curl.exe --fail --silent --show-error --header \"Authorization: Bearer %CATALOG_SERVICE_TOKEN%\" \"%CATALOG_EXPORT_ENDPOINT%\" --output ${exportPath}"
+                    )
+                }
             }
         }
         stage('Validate and Write Catalog') {
             runCatalogTool(
-                "export --catalog-json ${exportPath} --yaml-path ${yamlPath} --expected-blob-sha ${params.EXPECTED_YAML_BLOB_SHA} --result-path ${resultPath}"
+                "export --catalog-json ${exportPath} --yaml-path ${yamlPath} --expected-blob-sha ${expectedYamlBlobSha} --result-path ${resultPath}"
             )
             runCommand('git diff --check', 'git diff --check')
         }
@@ -100,19 +147,19 @@ def call() {
             def hasChanges = readCommand('git diff --cached --quiet || echo changed', 'git diff --cached --quiet || echo changed')
             if (hasChanges == 'changed') {
                 runCommand(
-                    "git -c user.name=AiApiTest-DWP -c user.email=jenkins@localhost commit -m \"chore: sync test environments ${params.SYNC_REQUEST_ID}\"",
-                    "git -c user.name=AiApiTest-DWP -c user.email=jenkins@localhost commit -m \"chore: sync test environments ${params.SYNC_REQUEST_ID}\""
+                    "git -c user.name=AiApiTest-DWP -c user.email=jenkins@localhost commit -m \"chore: sync test environments ${syncRequestId}\"",
+                    "git -c user.name=AiApiTest-DWP -c user.email=jenkins@localhost commit -m \"chore: sync test environments ${syncRequestId}\""
                 )
             }
-            runCommand(
-                "git push origin HEAD:${branchName}",
-                "git push origin HEAD:${branchName}"
-            )
+            withCatalogPushCredentials {
+                runCommand(
+                    "git push --quiet origin HEAD:${branchName}",
+                    "git push --quiet origin HEAD:${branchName}"
+                )
+            }
         }
         stage('Callback After Push') {
-            withEnv(["CATALOG_RESULT_PATH=${resultPath}"]) {
-                callbackAfterSuccessfulPush(resultPath)
-            }
+            callbackAfterSuccessfulPush(resultPath, catalogCallbackEndpoint)
         }
     } else {
         stage('Validate YAML Import') {
@@ -122,13 +169,11 @@ def call() {
                 bat "if not exist ${controlDir} mkdir ${controlDir}"
             }
             runCatalogTool(
-                "import --yaml-path ${yamlPath} --expected-blob-sha ${params.EXPECTED_YAML_BLOB_SHA} --result-path ${resultPath}"
+                "import --yaml-path ${yamlPath} --expected-blob-sha ${expectedYamlBlobSha} --result-path ${resultPath}"
             )
         }
         stage('Callback Imported Catalog') {
-            withEnv(["CATALOG_RESULT_PATH=${resultPath}"]) {
-                callbackAfterSuccessfulPush(resultPath)
-            }
+            callbackAfterSuccessfulPush(resultPath, catalogCallbackEndpoint)
         }
     }
 }
