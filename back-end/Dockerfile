@@ -18,6 +18,8 @@ RUN python -m pip install --no-cache-dir -r /tmp/back-end-requirements.txt \
 COPY back-end/ /workspace/AiApiTest-DWP/back-end/
 # 后端模块筛选默认读取此非敏感元数据，镜像内必须具备同一相对路径。
 COPY api-test/utils/package_module.yaml /workspace/AiApiTest-DWP/api-test/utils/package_module.yaml
+# 首次环境投影只读取此构建期复制的目录，运行时 YAML 同步仍由 Jenkins 隔离 checkout 处理。
+COPY api-test/utils/package_environment.yaml /workspace/AiApiTest-DWP/api-test/utils/package_environment.yaml
 COPY docker/healthchecks/worker_heartbeat_healthcheck.py /usr/local/bin/worker_heartbeat_healthcheck.py
 
 LABEL aiapitest.component="backend" \

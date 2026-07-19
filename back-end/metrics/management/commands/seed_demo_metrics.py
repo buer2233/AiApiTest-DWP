@@ -81,7 +81,8 @@ class Command(BaseCommand):
     help = "写入 P3 dev-only 演示快照、用例详情和趋势数据，供模块页验收。"
 
     def handle(self, *args, **options):
-        environment = TestEnvironment.objects.filter(env_key="mock-gbif", is_active=True).first()
+        # 环境目录由镜像 YAML 初始化，演示数据不能再依赖已废弃的固定 env_key。
+        environment = TestEnvironment.objects.filter(is_active=True).order_by("env_key", "id").first()
         if environment is None:
             raise CommandError("请先执行 seed_environment。")
 

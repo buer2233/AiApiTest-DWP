@@ -1,26 +1,50 @@
 from __future__ import annotations
 
 import hashlib
+import uuid
+from urllib.parse import urlparse
 
 from django.db import models
 
 from accounts.models import UserAccount
 
 
+def normalize_environment_base_url(value: str) -> str:
+    """校验环境 URL 并统一去除尾部斜杠，避免同一地址重复入库。"""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("环境 base_url 不能为空。")
+    normalized = value.strip().rstrip("/")
+    parsed = urlparse(normalized)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError("环境 base_url 必须包含协议和域名。")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("环境 base_url 不能包含凭据。")
+    return normalized
+
+
 class TestEnvironment(models.Model):
     env_key = models.CharField(max_length=64, unique=True)
     env_name = models.CharField(max_length=128, db_index=True)
     base_url = models.CharField(max_length=512)
+    # 为既有环境补充安全默认描述，后续目录和 API 校验仍要求传入非空描述。
+    url_desc = models.TextField(default="未提供环境描述")
     is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "test_environment"
+        constraints = [
+            models.UniqueConstraint(fields=["base_url"], name="uniq_test_environment_base_url"),
+        ]
         ordering = ["env_name", "id"]
 
     def __str__(self) -> str:
         return self.env_name
+
+    def save(self, *args, **kwargs):
+        self.base_url = normalize_environment_base_url(self.base_url)
+        super().save(*args, **kwargs)
 
 
 class TestModule(models.Model):
@@ -70,6 +94,12 @@ class TestRun(models.Model):
 
     class Meta:
         db_table = "test_run"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(run_type="daily_full") | models.Q(module__isnull=False),
+                name="test_run_module_required_except_daily_full",
+            ),
+        ]
         ordering = ["-started_at", "-id"]
 
     def __str__(self) -> str:
@@ -240,8 +270,8 @@ class CaseStatusAudit(models.Model):
 class JenkinsJobBinding(models.Model):
     """测试环境、模块和任务类型到 Jenkins Job 的映射。"""
 
-    environment = models.ForeignKey(TestEnvironment, on_delete=models.CASCADE, db_index=True)
-    module = models.ForeignKey(TestModule, on_delete=models.CASCADE, db_index=True)
+    environment = models.ForeignKey(TestEnvironment, null=True, blank=True, on_delete=models.CASCADE, db_index=True)
+    module = models.ForeignKey(TestModule, null=True, blank=True, on_delete=models.CASCADE, db_index=True)
     task_type = models.CharField(max_length=32, choices=TestRun.RunType.choices, db_index=True)
     job_full_name = models.CharField(max_length=255, db_index=True)
     default_retry_count = models.IntegerField(default=0)
@@ -255,6 +285,11 @@ class JenkinsJobBinding(models.Model):
             models.UniqueConstraint(
                 fields=["environment", "module", "task_type"],
                 name="uniq_jenkins_job_binding_env_module_type",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(task_type=TestRun.RunType.DAILY_FULL)
+                | (models.Q(environment__isnull=False) & models.Q(module__isnull=False)),
+                name="jenkins_binding_context_required_except_daily_full",
             ),
         ]
         ordering = ["environment_id", "module_id", "task_type"]
@@ -273,7 +308,7 @@ class JenkinsTask(models.Model):
 
     run = models.ForeignKey(TestRun, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
     environment = models.ForeignKey(TestEnvironment, on_delete=models.PROTECT, db_index=True)
-    module = models.ForeignKey(TestModule, on_delete=models.PROTECT, db_index=True)
+    module = models.ForeignKey(TestModule, null=True, blank=True, on_delete=models.PROTECT, db_index=True)
     task_type = models.CharField(max_length=32, choices=TestRun.RunType.choices, db_index=True)
     trigger_source = models.CharField(max_length=32, choices=TriggerSource.choices, default=TriggerSource.PLATFORM_USER, db_index=True)
     triggered_by = models.ForeignKey(UserAccount, null=True, blank=True, on_delete=models.SET_NULL, related_name="jenkins_tasks", db_index=True)
@@ -305,11 +340,113 @@ class JenkinsTask(models.Model):
                 fields=["job_full_name", "build_number"],
                 name="uniq_jenkins_task_job_build",
             ),
+            models.CheckConstraint(
+                condition=models.Q(task_type=TestRun.RunType.DAILY_FULL) | models.Q(module__isnull=False),
+                name="jenkins_task_module_required_except_daily_full",
+            ),
         ]
         ordering = ["-created_at", "-id"]
 
     def __str__(self) -> str:
         return f"{self.job_full_name}#{self.build_number or self.queue_id or self.id}"
+
+
+class EnvironmentCatalogState(models.Model):
+    """唯一的环境目录状态投影，不以仓库 HEAD 代替 YAML blob SHA。"""
+
+    CATALOG_KEY = "package_environment"
+
+    class Status(models.TextChoices):
+        SYNCED = "synced", "已同步"
+        PENDING = "pending", "待同步"
+        QUEUED = "queued", "已排队"
+        RUNNING = "running", "同步中"
+        CONFLICT = "conflict", "冲突"
+        FAILED = "failed", "失败"
+
+    catalog_key = models.CharField(max_length=64, unique=True, default=CATALOG_KEY)
+    yaml_blob_sha = models.CharField(max_length=40, null=True, blank=True, db_index=True)
+    status = models.CharField(max_length=32, choices=Status.choices, default=Status.SYNCED, db_index=True)
+    last_commit_sha = models.CharField(max_length=40, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_error_code = models.CharField(max_length=64, blank=True)
+    last_error_summary = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "environment_catalog_state"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(catalog_key="package_environment"),
+                name="environment_catalog_state_singleton_key",
+            ),
+        ]
+
+
+def _new_catalog_request_id() -> str:
+    return uuid.uuid4().hex
+
+
+class EnvironmentCatalogSyncAttempt(models.Model):
+    """环境 YAML 双向同步的追加审计，终态请求从不原地复用。"""
+
+    class Direction(models.TextChoices):
+        MYSQL_TO_YAML = "mysql_to_yaml", "MySQL 写回 YAML"
+        YAML_TO_MYSQL = "yaml_to_mysql", "YAML 导入 MySQL"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "待同步"
+        QUEUED = "queued", "已排队"
+        RUNNING = "running", "同步中"
+        SYNCED = "synced", "已同步"
+        CONFLICT = "conflict", "冲突"
+        FAILED = "failed", "失败"
+
+    ACTIVE_STATUSES = frozenset({Status.PENDING, Status.QUEUED, Status.RUNNING})
+
+    request_id = models.CharField(max_length=64, unique=True, default=_new_catalog_request_id, editable=False)
+    direction = models.CharField(max_length=32, choices=Direction.choices, db_index=True)
+    status = models.CharField(max_length=32, choices=Status.choices, default=Status.PENDING, db_index=True)
+    expected_yaml_blob_sha = models.CharField(max_length=40, null=True, blank=True)
+    observed_yaml_blob_sha = models.CharField(max_length=40, null=True, blank=True)
+    payload_json = models.JSONField(default=dict, blank=True)
+    payload_sha256 = models.CharField(max_length=64, blank=True)
+    queue_id = models.CharField(max_length=128, blank=True)
+    build_number = models.IntegerField(null=True, blank=True)
+    jenkins_build_url = models.CharField(max_length=1024, blank=True)
+    job_full_name = models.CharField(max_length=255, default="AiApiTest-DWP-Environment-Catalog-Sync")
+    commit_sha = models.CharField(max_length=40, blank=True)
+    requested_by = models.ForeignKey(
+        UserAccount,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="environment_catalog_sync_attempts",
+        db_index=True,
+    )
+    error_code = models.CharField(max_length=64, blank=True)
+    error_summary = models.TextField(blank=True)
+    active_attempt_key = models.CharField(max_length=64, null=True, blank=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    finished_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "environment_catalog_sync_attempt"
+        constraints = [
+            models.UniqueConstraint(fields=["active_attempt_key"], name="uniq_active_environment_catalog_sync"),
+            models.UniqueConstraint(
+                fields=["job_full_name", "build_number"],
+                name="uniq_environment_catalog_sync_job_build",
+            ),
+        ]
+        ordering = ["-created_at", "-id"]
+
+    def save(self, *args, **kwargs):
+        # MySQL 无 partial unique；活动请求使用固定键，终态释放为 NULL。
+        self.active_attempt_key = EnvironmentCatalogState.CATALOG_KEY if self.status in self.ACTIVE_STATUSES else None
+        super().save(*args, **kwargs)
 
 
 class ModuleExecutionLock(models.Model):
