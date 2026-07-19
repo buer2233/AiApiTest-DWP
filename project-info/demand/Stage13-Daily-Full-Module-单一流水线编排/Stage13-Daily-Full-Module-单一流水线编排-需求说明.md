@@ -101,9 +101,9 @@
 
 | 源状态 | 事件 | 目标状态 | 守卫条件 | 副作用 |
 | --- | --- | --- | --- | --- |
-| 无 | Jenkins 接受构建 | `queued` | 父 Job 已入队 | 后端发现后创建唯一父任务 |
-| `queued` | 预检通过 | `running` | 模块 YAML、环境 YAML、目标 URL 均有效 | 触发全部 Worker |
-| `queued` | 预检失败 | `failed` | 不触发任何 Worker | 记录结构化错误 |
+| 无 | Jenkins 父 Job 预检失败 | 无 | 模块 YAML、环境 YAML 或目标 URL 无效 | 仅保留 Jenkins 构建结构化诊断；不创建平台父任务、`TestRun` 或快照更新 |
+| 无 | Jenkins 父 Job 预检通过 | `queued` | 模块 YAML、环境 YAML、目标 URL 均有效 | 后端发现后创建唯一父任务 |
+| `queued` | 开始编排 | `running` | 父任务未取消 | 触发全部 Worker |
 | `running` | 所有 Worker、聚合、归档成功 | `success` | 无模块失败 | 同步父摘要和模块快照 |
 | `running` | 存在测试失败 | `test_failed` | 全部模块已完成且聚合成功 | Jenkins 父构建为 `FAILURE`，同步全部模块结果 |
 | `running` | Worker、聚合或归档基础设施失败 | `failed` | 已尽力等待全部可调度模块 | 保留已成功模块结果和诊断 |
@@ -282,6 +282,7 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 | 2026-07-19 | 1.6 | Q15 已确认：以 YAML SHA 检测并发冲突，拒绝自动覆盖。 | 主人裁决。 |
 | 2026-07-19 | 1.7 | 完成可冻结规格：AC、状态机、数据模型、API、UI 映射和容器化检查；纳入 YAML 初始化替代硬编码种子。 | 澄清闭环与独立调查结论。 |
 | 2026-07-19 | 1.8 | 主人确认冻结，允许自动衔接测试用例、UI、后端与前端 TDD 阶段。 | 主人签字门禁。 |
+| 2026-07-19 | 1.9 | 校准 Daily 预检状态机：预检失败只保留 Jenkins 诊断，不创建平台父任务、`TestRun` 或快照。 | 消除状态机与 AC1.5 的内部矛盾，不改变已冻结的验收决策。 |
 
 ## §14 冻结确认（主人签字门禁）
 
