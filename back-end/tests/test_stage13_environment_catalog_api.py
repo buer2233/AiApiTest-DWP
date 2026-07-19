@@ -238,6 +238,48 @@ def test_environment_catalog_dispatch_failure_ends_attempt_and_retry_requeues_it
 
 
 @pytest.mark.django_db
+def test_empty_environment_catalog_sync_job_name_fails_attempt_and_allows_retry(
+    admin_client,
+    catalog_state,
+    monkeypatch,
+):
+    monkeypatch.setenv("JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME", "   ")
+
+    with patch("metrics.views.trigger_jenkins_build") as trigger_build:
+        created = admin_client.post(
+            "/api/v1/test-environments",
+            {
+                "env_key": "dispatch-empty-job-name",
+                "url_name": "空同步任务环境",
+                "base_url": "https://dispatch-empty-job-name.example.invalid/api",
+                "url_desc": "验证空同步 Job 名释放状态机锁",
+            },
+            format="json",
+        )
+
+        assert created.status_code == 202
+        attempt = EnvironmentCatalogSyncAttempt.objects.get(id=created.data["data"]["sync_attempt"]["id"])
+        assert attempt.status == EnvironmentCatalogSyncAttempt.Status.FAILED
+        assert attempt.error_code == "jenkins_job_name_missing"
+        assert attempt.error_summary == "环境目录同步任务未能排队，请重试。"
+        assert attempt.active_attempt_key is None
+        assert EnvironmentCatalogState.objects.get().status == EnvironmentCatalogState.Status.FAILED
+
+        retried = admin_client.post(
+            f"/api/v1/environment-catalog-sync-attempts/{attempt.id}/retry",
+            {},
+            format="json",
+        )
+
+    assert retried.status_code == 202
+    retried_attempt = EnvironmentCatalogSyncAttempt.objects.get(id=retried.data["data"]["id"])
+    assert retried_attempt.id != attempt.id
+    assert retried_attempt.status == EnvironmentCatalogSyncAttempt.Status.FAILED
+    assert retried_attempt.active_attempt_key is None
+    trigger_build.assert_not_called()
+
+
+@pytest.mark.django_db
 def test_internal_catalog_export_and_callback_require_service_token_and_use_service_state_machine(catalog_state):
     create_environment(env_key="stage13-internal")
     attempt = catalog_service().create_mysql_to_yaml_sync_attempt()

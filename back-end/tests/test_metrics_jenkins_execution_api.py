@@ -354,6 +354,36 @@ def test_daily_discovery_integrity_error_fallback_rejects_malformed_existing_par
     assert JenkinsTask.objects.count() == 1
 
 
+@pytest.mark.django_db
+def test_daily_discovery_integrity_error_fallback_returns_valid_parent_without_orphaned_run(p5_context):
+    from metrics.views import create_or_get_daily_task_from_discovery
+
+    class EmptyInitialLookup:
+        def filter(self, *args, **kwargs):
+            return self
+
+        def first(self):
+            return None
+
+    JenkinsTask = metric_model("JenkinsTask")
+    TestRun = metric_model("TestRun")
+    binding = create_daily_parent_binding()
+    existing_task = create_daily_parent_task(p5_context, build_number=506)
+    task_count = JenkinsTask.objects.count()
+    run_count = TestRun.objects.count()
+
+    with patch("metrics.views.JenkinsTask.objects.select_related", return_value=EmptyInitialLookup()):
+        task, created = create_or_get_daily_task_from_discovery(
+            binding,
+            daily_parent_build_result(existing_task, p5_context["environment"]),
+        )
+
+    assert task.id == existing_task.id
+    assert created is False
+    assert JenkinsTask.objects.count() == task_count
+    assert TestRun.objects.count() == run_count
+
+
 def daily_parent_summary(context: dict, *, primary_status: str = "passed", other_status: str = "passed") -> dict:
     def module_detail(module, execution_status: str) -> dict:
         failed_count = 1 if execution_status == "failed" else 0
