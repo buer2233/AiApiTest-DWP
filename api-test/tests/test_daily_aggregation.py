@@ -253,6 +253,11 @@ def test_aggregate_daily_run_preserves_existing_parent_allure_archive(tmp_path):
         {"failed_nodeids": ["test_case/test_alpha.py::test_failure", 1]},
         {"status": "passed", "return_code": 1},
         {"status": "failed", "return_code": 0},
+        {"total_count": True},
+        {"failed_count": True},
+        {"passed_count": True},
+        {"skipped_count": True},
+        {"error_count": True},
         {"failed_nodeids": ["test_case/test_alpha.py::test_failure"]},
         {"status": "failed", "return_code": 1, "failed_nodeids": [""]},
         {
