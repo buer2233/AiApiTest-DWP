@@ -52,9 +52,9 @@ def shouldReplaceExistingJob = { job ->
 
 def throttleDescriptor = jenkins.getDescriptorByType(ThrottleJobProperty.DescriptorImpl)
 def managedThrottleCategories = [
-    new ThrottleJobProperty.ThrottleCategory(dailyWorkerThrottleCategory, 10, 10),
-    new ThrottleJobProperty.ThrottleCategory(moduleRerunThrottleCategory, 10, 10),
-    new ThrottleJobProperty.ThrottleCategory(failedRerunThrottleCategory, 10, 10)
+    new ThrottleJobProperty.ThrottleCategory(dailyWorkerThrottleCategory, 10, 10, []),
+    new ThrottleJobProperty.ThrottleCategory(moduleRerunThrottleCategory, 10, 10, []),
+    new ThrottleJobProperty.ThrottleCategory(failedRerunThrottleCategory, 10, 10, [])
 ]
 def managedThrottleCategoryNames = managedThrottleCategories.collect { category -> category.categoryName } as Set
 def preservedThrottleCategories = throttleDescriptor.getCategories().findAll { category ->
@@ -85,15 +85,14 @@ def catalogSyncDefinition = {
             true
         )
     }
-    def remoteConfig = new UserRemoteConfig(catalogScmUrl, catalogScmCredentialsId ?: null, null, null)
+    def remoteConfig = new UserRemoteConfig(catalogScmUrl, null, null, catalogScmCredentialsId)
     def scm = new GitSCM(
-        catalogScmUrl,
+        [remoteConfig],
         [new BranchSpec("*/${catalogScmBranch}")],
         false,
         [],
         null,
         null,
-        [remoteConfig],
         []
     )
     return new CpsScmFlowDefinition(scm, 'jenkins/Jenkinsfile.environment-catalog-sync')
@@ -195,6 +194,18 @@ jobConfigs.each { config ->
     job.setTriggers(configuredTriggers)
     job.save()
     println "[AiApiTest-DWP] Configured Jenkins Job: ${config.name}"
+}
+
+// Stage13 升级后旧分模块 Daily Job 仅保留配置和历史构建，移除 TimerTrigger 避免与唯一父 Job 重复调度。
+def legacyDailyJobs = jenkins.getAllItems(WorkflowJob).findAll { legacyDailyJob ->
+    legacyDailyJob.fullName.startsWith("${dailyFullJobPrefix}-") &&
+        legacyDailyJob.fullName != dailyFullWorkerJobName
+}
+legacyDailyJobs.each { legacyDailyJob ->
+    def legacyTriggers = legacyDailyJob.getTriggers().values().findAll { !(it instanceof TimerTrigger) } as List
+    legacyDailyJob.setTriggers(legacyTriggers)
+    legacyDailyJob.save()
+    println "[AiApiTest-DWP] Removed legacy Daily timer while preserving Job and build history: ${legacyDailyJob.fullName}"
 }
 
 if (legacyDailyRemovalApproved == 'true') {

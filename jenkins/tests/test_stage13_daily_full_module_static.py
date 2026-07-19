@@ -99,6 +99,60 @@ def test_independent_throttle_categories_queue_each_business_job_type_at_ten():
     assert "new DisableConcurrentBuildsJobProperty()" in init_script
 
 
+def test_init_uses_jenkins_plugin_constructor_signatures_for_throttle_and_scm():
+    """限流分类和隔离 SCM Job 必须按 Jenkins 插件的实际构造器签名创建。"""
+    init_script = read_source("scripts/configure-local-mounted-jobs.groovy")
+
+    for category_name in [
+        "dailyWorkerThrottleCategory",
+        "moduleRerunThrottleCategory",
+        "failedRerunThrottleCategory",
+    ]:
+        assert (
+            f"new ThrottleJobProperty.ThrottleCategory({category_name}, 10, 10, [])"
+            in init_script
+        )
+    assert (
+        "new UserRemoteConfig(catalogScmUrl, null, null, catalogScmCredentialsId)"
+        in init_script
+    )
+    assert "new GitSCM(" in init_script
+    assert "[remoteConfig]," in init_script
+    assert "[new BranchSpec(\"*/${catalogScmBranch}\")]," in init_script
+    assert "false,\n        [],\n        null,\n        null,\n        []" in init_script
+
+
+def test_init_removes_only_legacy_daily_timer_triggers_without_deleting_jobs():
+    """旧分模块 Daily Job 保留历史，但 init 升级后不再保留 Daily 定时器。"""
+    init_script = read_source("scripts/configure-local-mounted-jobs.groovy")
+
+    assert "def legacyDailyJobs = jenkins.getAllItems(WorkflowJob).findAll" in init_script
+    assert "legacyDailyJob.fullName.startsWith(\"${dailyFullJobPrefix}-\")" in init_script
+    assert "legacyDailyJob.fullName != dailyFullWorkerJobName" in init_script
+    assert "legacyDailyJobs.each { legacyDailyJob ->" in init_script
+    assert "legacyDailyJob.setTriggers(legacyTriggers)" in init_script
+    assert "legacyDailyJob.save()" in init_script
+    assert ".delete()" not in init_script
+    assert "removeItem" not in init_script
+
+
+def test_daily_worker_accepts_only_daily_parent_cause_and_skips_module_allure_publish():
+    """Worker 只能接受唯一 Daily 父任务触发，并只归档模块产物。"""
+    worker_pipeline = read_source("scripts/daily-full-module-worker-pipeline.groovy")
+    shared_pipeline = read_source("scripts/api-test-pipeline.groovy")
+    module_rerun_pipeline = read_source("scripts/module-rerun-pipeline.groovy")
+    failed_rerun_pipeline = read_source("scripts/failed-rerun-pipeline.groovy")
+
+    assert "currentBuild.getBuildCauses('hudson.model.Cause$UpstreamCause')" in worker_pipeline
+    assert "JENKINS_DAILY_FULL_JOB_NAME" in worker_pipeline
+    assert "cause.upstreamProject == expectedDailyParentJobName" in worker_pipeline
+    assert "publishAllure: false" in worker_pipeline
+    assert "def publishAllure = config.containsKey('publishAllure') ? config.publishAllure : true" in shared_pipeline
+    assert "if (publishAllure) {\n                stage('Publish Allure')" in shared_pipeline
+    assert "publishAllure:" not in module_rerun_pipeline
+    assert "publishAllure:" not in failed_rerun_pipeline
+
+
 def test_environment_catalog_sync_uses_clean_scm_checkout_and_blob_guard_before_callback():
     """TC-S13-F3-005/006：同步 Job 隔离、串行并在快进推送后才回调。"""
     init_script = read_source("scripts/configure-local-mounted-jobs.groovy")
@@ -114,6 +168,8 @@ def test_environment_catalog_sync_uses_clean_scm_checkout_and_blob_guard_before_
     assert "checkout scm" in sync_jenkinsfile
     assert "EXPECTED_YAML_BLOB_SHA" in sync_pipeline
     assert "git merge-base --is-ancestor" in sync_pipeline
+    assert "git merge-base --is-ancestor origin/${branchName} HEAD" in sync_pipeline
+    assert "git merge-base --is-ancestor HEAD origin/${branchName}" not in sync_pipeline
     assert "git push" in sync_pipeline
     assert "callback" in sync_pipeline.lower()
     assert sync_pipeline.index("git push") < sync_pipeline.index("stage('Callback After Push')")

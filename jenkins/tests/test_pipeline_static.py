@@ -404,9 +404,9 @@ def test_local_init_configures_category_throttles_and_global_sync_serialization(
 
     assert "allowConcurrent: false" in script
     assert "ThrottleJobProperty" in script
-    assert "ThrottleCategory(dailyWorkerThrottleCategory, 10, 10)" in script
-    assert "ThrottleCategory(moduleRerunThrottleCategory, 10, 10)" in script
-    assert "ThrottleCategory(failedRerunThrottleCategory, 10, 10)" in script
+    assert "ThrottleCategory(dailyWorkerThrottleCategory, 10, 10, [])" in script
+    assert "ThrottleCategory(moduleRerunThrottleCategory, 10, 10, [])" in script
+    assert "ThrottleCategory(failedRerunThrottleCategory, 10, 10, [])" in script
     assert "if (config.throttleCategory)" in script
     assert "new DisableConcurrentBuildsJobProperty()" in script
 

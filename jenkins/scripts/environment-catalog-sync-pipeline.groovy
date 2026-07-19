@@ -31,8 +31,8 @@ def requireCleanFastForwardBase(String branchName) {
     }
     runCommand('git fetch --prune origin', 'git fetch --prune origin')
     runCommand(
-        "git merge-base --is-ancestor HEAD origin/${branchName}",
-        "git merge-base --is-ancestor HEAD origin/${branchName}"
+        "git merge-base --is-ancestor origin/${branchName} HEAD",
+        "git merge-base --is-ancestor origin/${branchName} HEAD"
     )
 }
 
