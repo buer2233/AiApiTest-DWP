@@ -17,7 +17,16 @@ def _write_module_manifest(path, module_keys):
     )
 
 
-def _write_worker_artifact(tmp_path, module_key, *, status, counts, failed_nodeids=None, run_suffix=""):
+def _write_worker_artifact(
+    tmp_path,
+    module_key,
+    *,
+    status,
+    counts,
+    failed_nodeids=None,
+    run_suffix="",
+    summary_overrides=None,
+):
     run_dir = tmp_path / f"worker-{module_key}{run_suffix}"
     allure_results_dir = run_dir / "allure-results"
     allure_results_dir.mkdir(parents=True)
@@ -35,6 +44,7 @@ def _write_worker_artifact(tmp_path, module_key, *, status, counts, failed_nodei
         "allure_report_message": "generated",
         **counts,
     }
+    summary.update(summary_overrides or {})
     (run_dir / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -231,3 +241,40 @@ def test_aggregate_daily_run_preserves_existing_parent_allure_archive(tmp_path):
 
     assert exc_info.value.diagnostic["code"] == "existing_parent_artifact"
     assert existing_result.read_text(encoding="utf-8") == "preserve"
+
+
+@pytest.mark.parametrize(
+    "summary_overrides",
+    [
+        {"status": "unknown"},
+        {"status": 1},
+        {"return_code": "1"},
+        {"return_code": True},
+        {"failed_nodeids": ["test_case/test_alpha.py::test_failure", 1]},
+        {"status": "passed", "return_code": 1},
+        {"status": "failed", "return_code": 0},
+    ],
+)
+def test_aggregate_daily_run_rejects_invalid_worker_summary_contract(tmp_path, summary_overrides):
+    module_manifest = tmp_path / "package_module.yaml"
+    _write_module_manifest(module_manifest, ["module-alpha"])
+    artifact = _write_worker_artifact(
+        tmp_path,
+        "module-alpha",
+        status="passed",
+        counts={
+            "total_count": 1,
+            "passed_count": 1,
+            "failed_count": 0,
+            "error_count": 0,
+            "skipped_count": 0,
+        },
+        summary_overrides=summary_overrides,
+    )
+    parent_run_dir = tmp_path / "daily-parent-invalid-summary"
+
+    with pytest.raises(DailyAggregationError) as exc_info:
+        aggregate_daily_run(module_manifest, [artifact], parent_run_dir)
+
+    assert exc_info.value.diagnostic["code"] == "invalid_worker_summary"
+    assert not (parent_run_dir / "summary.json").exists()

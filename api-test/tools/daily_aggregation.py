@@ -9,6 +9,9 @@ from pathlib import Path
 import yaml
 
 
+VALID_WORKER_STATUSES = {"passed", "failed"}
+
+
 class DailyAggregationError(ValueError):
     """Daily 聚合预检失败时提供稳定、脱敏的机器可读诊断。"""
 
@@ -125,6 +128,24 @@ def _load_worker_summary(artifact: DailyWorkerArtifact) -> dict:
     if not isinstance(payload["failed_nodeids"], list):
         raise DailyAggregationError(
             "invalid_worker_summary", "模块 Worker failed_nodeids 必须是列表。", module_key=artifact.module_key
+        )
+    if not all(isinstance(node_id, str) for node_id in payload["failed_nodeids"]):
+        raise DailyAggregationError(
+            "invalid_worker_summary", "模块 Worker failed_nodeids 元素必须是字符串。", module_key=artifact.module_key
+        )
+    status = payload["status"]
+    if not isinstance(status, str) or status not in VALID_WORKER_STATUSES:
+        raise DailyAggregationError(
+            "invalid_worker_summary", "模块 Worker status 非法。", module_key=artifact.module_key
+        )
+    return_code = payload["return_code"]
+    if type(return_code) is not int:
+        raise DailyAggregationError(
+            "invalid_worker_summary", "模块 Worker return_code 必须是整数。", module_key=artifact.module_key
+        )
+    if (status == "passed" and return_code != 0) or (status == "failed" and return_code == 0):
+        raise DailyAggregationError(
+            "invalid_worker_summary", "模块 Worker status 与 return_code 不一致。", module_key=artifact.module_key
         )
     for field_name in {"total_count", "passed_count", "failed_count", "error_count", "skipped_count"}:
         if not isinstance(payload[field_name], int) or payload[field_name] < 0:

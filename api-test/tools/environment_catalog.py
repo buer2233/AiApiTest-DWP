@@ -16,12 +16,13 @@ ENVIRONMENT_FIELDS = frozenset({"base_url", "url_name", "url_desc"})
 class EnvironmentCatalogValidationError(ValueError):
     """环境目录校验失败，携带可供调用方展示的脱敏诊断。"""
 
-    def __init__(self, code: str, message: str, *, field: str | None = None):
+    def __init__(self, code: str, message: str, *, field: str | None = None, **context):
         super().__init__(message)
         self.code = code
         self.diagnostic = {"code": code, "message": message}
         if field:
             self.diagnostic["field"] = field
+        self.diagnostic.update(context)
 
 
 class _DuplicateYamlKeyError(yaml.YAMLError):
@@ -177,3 +178,16 @@ def git_blob_sha(content: str | bytes) -> str:
     """计算 YAML 内容对应的 Git SHA-1 blob 标识，不依赖仓库 HEAD。"""
     payload = content.encode("utf-8") if isinstance(content, str) else content
     return hashlib.sha1(f"blob {len(payload)}\0".encode("utf-8") + payload).hexdigest()
+
+
+def verify_yaml_blob_sha(content: str | bytes, expected_blob_sha: str) -> str:
+    """比对 YAML Git blob SHA；不匹配时抛出供 Jenkins/后端消费的结构化诊断。"""
+    observed_blob_sha = git_blob_sha(content)
+    if observed_blob_sha != expected_blob_sha:
+        raise EnvironmentCatalogValidationError(
+            "yaml_blob_sha_conflict",
+            "YAML Git blob SHA does not match the expected value.",
+            expected_yaml_blob_sha=expected_blob_sha,
+            observed_yaml_blob_sha=observed_blob_sha,
+        )
+    return observed_blob_sha
