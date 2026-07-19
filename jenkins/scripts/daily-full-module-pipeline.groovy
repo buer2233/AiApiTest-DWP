@@ -13,7 +13,8 @@ def runTask1Tool(String arguments) {
 
 def call() {
     def retentionDays = env.CI_RUN_RETENTION_DAYS ?: '30'
-    properties([
+    def configuredDailyParentJobName = env.JENKINS_DAILY_FULL_JOB_NAME ?: 'AiApiTest-DWP-Daily-Full-Module'
+    def dailyProperties = [
         buildDiscarder(logRotator(daysToKeepStr: retentionDays, artifactDaysToKeepStr: retentionDays)),
         parameters([
             string(
@@ -21,9 +22,13 @@ def call() {
                 defaultValue: '',
                 description: 'Optional registered environment URL; an empty value uses the private default'
             )
-        ]),
-        pipelineTriggers([cron('0 2 * * *')])
-    ])
+        ])
+    ]
+    // 旧分模块 Job 会保留并仍可手工构建；仅配置的唯一父 Job 可以恢复 Daily 定时器。
+    if (env.JOB_NAME == configuredDailyParentJobName) {
+        dailyProperties.add(pipelineTriggers([cron('0 2 * * *')]))
+    }
+    properties(dailyProperties)
 
     def parentRunId = "daily-${env.BUILD_NUMBER}"
     def controlDir = "daily-control/${parentRunId}"

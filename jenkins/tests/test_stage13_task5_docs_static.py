@@ -34,6 +34,8 @@ EXPECTED_ENV = {
     "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH": "main",
     "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID": "",
     "JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID": "",
+    "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL": "",
+    "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID": "",
     "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED": "false",
     "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME": "AiApiTest-DWP-Platform-Bootstrap",
     "JENKINS_REQUEST_TIMEOUT_SECONDS": "15",
@@ -86,11 +88,11 @@ def parse_env_template(content: str) -> dict[str, str]:
 
 
 def test_env_example_has_exactly_the_public_task5_variable_contract():
-    """模板必须恰有 48 项非敏感公开配置，新增项与真实消费者保持一致。"""
+    """模板必须恰有 50 项可配置项，新增项与真实消费者保持一致。"""
     variables = parse_env_template(read_text(".env.example"))
 
     assert variables == EXPECTED_ENV
-    assert len(variables) == 48
+    assert len(variables) == 50
 
 
 def test_env_example_does_not_publish_private_or_build_metadata_values():
