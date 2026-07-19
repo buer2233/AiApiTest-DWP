@@ -165,6 +165,51 @@ def test_daily_discovery_rejects_legacy_binding_even_with_a_valid_target_base_ur
     assert metric_model("TestRun").objects.count() == 0
 
 
+@pytest.mark.parametrize(
+    ("uses_environment", "uses_module"),
+    [(True, False), (False, True)],
+    ids=["legacy_environment_binding", "legacy_module_binding"],
+)
+def test_daily_discovery_rejects_legacy_binding_before_returning_an_existing_parent_task(
+    p5_context,
+    uses_environment,
+    uses_module,
+):
+    from metrics.views import DailyParentEnvironmentError, create_or_get_daily_task_from_discovery
+
+    existing_task = create_daily_parent_task(p5_context, build_number=502)
+    binding = metric_model("JenkinsJobBinding").objects.create(
+        environment=p5_context["environment"] if uses_environment else None,
+        module=p5_context["module"] if uses_module else None,
+        task_type="daily_full",
+        job_full_name=existing_task.job_full_name,
+        default_retry_count=0,
+        is_active=True,
+    )
+    task_count = metric_model("JenkinsTask").objects.count()
+    run_count = metric_model("TestRun").objects.count()
+    original_status = existing_task.status
+    original_run_status = existing_task.run.status
+
+    with pytest.raises(DailyParentEnvironmentError):
+        create_or_get_daily_task_from_discovery(
+            binding,
+            {
+                "job_full_name": existing_task.job_full_name,
+                "build_number": existing_task.build_number,
+                "run_id": "legacy-daily-existing-502",
+                "target_base_url": p5_context["environment"].base_url,
+            },
+        )
+
+    existing_task.refresh_from_db()
+    existing_task.run.refresh_from_db()
+    assert metric_model("JenkinsTask").objects.count() == task_count
+    assert metric_model("TestRun").objects.count() == run_count
+    assert existing_task.status == original_status
+    assert existing_task.run.status == original_run_status
+
+
 def create_daily_parent_task(
     context: dict,
     *,
