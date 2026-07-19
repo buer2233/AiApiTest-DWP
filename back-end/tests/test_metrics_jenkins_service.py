@@ -484,14 +484,15 @@ def test_discover_jenkins_builds_reads_daily_jobs_and_build_tag_run_id(monkeypat
                 "builds": [
                     {
                         "number": 88,
-                        "url": "http://jenkins:8080/job/AiApiTest-DWP-Daily-Full-Module-Species/88/",
+                        "url": "http://jenkins:8080/job/AiApiTest-DWP-Daily-Full-Module/88/",
                         "result": "SUCCESS",
                         "building": False,
                         "timestamp": 1783252800000,
+                        "actions": [{"parameters": [{"name": "TARGET_BASE_URL", "value": "https://qa.example.invalid/api"}]}],
                     },
                     {
                         "number": 77,
-                        "url": "http://jenkins:8080/job/AiApiTest-DWP-Daily-Full-Module-Species/77/",
+                        "url": "http://jenkins:8080/job/AiApiTest-DWP-Daily-Full-Module/77/",
                         "result": "SUCCESS",
                         "building": False,
                         "timestamp": 1783166400000,
@@ -503,20 +504,21 @@ def test_discover_jenkins_builds_reads_daily_jobs_and_build_tag_run_id(monkeypat
     monkeypatch.setattr("metrics.jenkins_service.urllib.request.urlopen", fake_urlopen)
 
     result = discover_jenkins_builds(
-        job_full_names=["AiApiTest-DWP-Daily-Full-Module-Species"],
+        job_full_names=["AiApiTest-DWP-Daily-Full-Module"],
         date="2026-07-05",
     )
 
     assert requested_urls == [
-        "http://jenkins:8080/job/AiApiTest-DWP-Daily-Full-Module-Species/api/json?tree=builds[number,url,result,building,timestamp]{0,50}"
+        "http://jenkins:8080/job/AiApiTest-DWP-Daily-Full-Module/api/json?tree=builds[number,url,result,building,timestamp,actions[parameters[name,value]]]{0,50}"
     ]
     assert result == [
         {
-            "job_full_name": "AiApiTest-DWP-Daily-Full-Module-Species",
+            "job_full_name": "AiApiTest-DWP-Daily-Full-Module",
             "build_number": 88,
-            "jenkins_build_url": "https://ci.example.test/job/AiApiTest-DWP-Daily-Full-Module-Species/88/",
+            "jenkins_build_url": "https://ci.example.test/job/AiApiTest-DWP-Daily-Full-Module/88/",
             "jenkins_result": "SUCCESS",
             "building": False,
-            "run_id": "jenkins-AiApiTest-DWP-Daily-Full-Module-Species-88",
+            "run_id": "jenkins-AiApiTest-DWP-Daily-Full-Module-88",
+            "target_base_url": "https://qa.example.invalid/api",
         }
     ]

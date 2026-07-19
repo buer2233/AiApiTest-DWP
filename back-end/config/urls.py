@@ -14,6 +14,12 @@ from accounts.views import (
 from metrics.views import (
     CaseResultStatusUpdateView,
     EnvironmentSummaryView,
+    EnvironmentCatalogSyncAttemptDetailView,
+    EnvironmentCatalogSyncAttemptRetryView,
+    EnvironmentCatalogSyncCallbackView,
+    EnvironmentCatalogSyncExportView,
+    TestEnvironmentDetailView,
+    TestEnvironmentSyncFromYamlView,
     FailedCaseRetryCreateView,
     JenkinsTaskBulkSyncView,
     JenkinsTaskCancelView,
@@ -47,9 +53,39 @@ urlpatterns = [
     ),
     path("api/v1/test-environments", TestEnvironmentListView.as_view(), name="test-environment-list"),
     path(
+        "api/v1/test-environments/sync-from-yaml",
+        TestEnvironmentSyncFromYamlView.as_view(),
+        name="test-environment-sync-from-yaml",
+    ),
+    path(
+        "api/v1/test-environments/<int:environment_id>",
+        TestEnvironmentDetailView.as_view(),
+        name="test-environment-detail",
+    ),
+    path(
         "api/v1/test-environments/<int:environment_id>/summary",
         EnvironmentSummaryView.as_view(),
         name="test-environment-summary",
+    ),
+    path(
+        "api/v1/environment-catalog-sync-attempts/<int:attempt_id>",
+        EnvironmentCatalogSyncAttemptDetailView.as_view(),
+        name="environment-catalog-sync-attempt-detail",
+    ),
+    path(
+        "api/v1/environment-catalog-sync-attempts/<int:attempt_id>/retry",
+        EnvironmentCatalogSyncAttemptRetryView.as_view(),
+        name="environment-catalog-sync-attempt-retry",
+    ),
+    path(
+        "api/v1/internal/environment-catalog-sync-attempts/<str:sync_request_id>/export/",
+        EnvironmentCatalogSyncExportView.as_view(),
+        name="internal-environment-catalog-sync-export",
+    ),
+    path(
+        "api/v1/internal/environment-catalog-sync-attempts/<str:sync_request_id>/callback/",
+        EnvironmentCatalogSyncCallbackView.as_view(),
+        name="internal-environment-catalog-sync-callback",
     ),
     path("api/v1/module-snapshots", ModuleSnapshotListView.as_view(), name="module-snapshot-list"),
     path(

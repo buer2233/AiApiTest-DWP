@@ -265,7 +265,7 @@ def discover_jenkins_builds(*, job_full_names: list[str], date: str | None = Non
     for job_full_name in job_full_names:
         url = (
             f"{config.api_base_url}/{_job_path(job_full_name)}/api/json"
-            "?tree=builds[number,url,result,building,timestamp]{0,50}"
+            "?tree=builds[number,url,result,building,timestamp,actions[parameters[name,value]]]{0,50}"
         )
         with _request(config, "GET", url) as response:
             payload = _read_json_response(response, expect_object=True)
@@ -282,6 +282,8 @@ def discover_jenkins_builds(*, job_full_names: list[str], date: str | None = Non
                     "jenkins_result": build.get("result") or "",
                     "building": bool(build.get("building")),
                     "run_id": _build_tag_run_id(job_full_name, build_number),
+                    # 手工 Daily 的 URL 覆盖由 Jenkins 参数原样返回；空值仍不能让后端猜测私有默认环境。
+                    "target_base_url": _build_parameter(build, "TARGET_BASE_URL"),
                 }
             )
     return builds

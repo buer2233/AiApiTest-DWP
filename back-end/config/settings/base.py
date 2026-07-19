@@ -118,5 +118,7 @@ AUTH_COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "Lax")
 AUTH_COOKIE_PATH = os.getenv("AUTH_COOKIE_PATH", "/")
 AUTH_TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", SECRET_KEY)
 AUTH_TOKEN_ISSUER = os.getenv("AUTH_TOKEN_ISSUER", "AiApiTest-DWP")
+# 仅 Jenkins 专用 Credentials 对应的私有令牌可调用环境目录内部接口；不提供开发默认值。
+ENVIRONMENT_CATALOG_SERVICE_TOKEN = os.getenv("ENVIRONMENT_CATALOG_SERVICE_TOKEN", "")
 
 DATABASES = build_database_config(os.environ, BASE_DIR)

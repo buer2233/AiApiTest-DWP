@@ -430,8 +430,8 @@ def mark_sync_attempt_queued(attempt: EnvironmentCatalogSyncAttempt, *, queue_id
 def mark_sync_attempt_running(
     attempt: EnvironmentCatalogSyncAttempt,
     *,
-    build_number: int,
-    jenkins_build_url: str,
+    build_number: int | None = None,
+    jenkins_build_url: str = "",
 ) -> EnvironmentCatalogSyncAttempt:
     with transaction.atomic():
         locked_attempt = EnvironmentCatalogSyncAttempt.objects.select_for_update().get(pk=attempt.pk)

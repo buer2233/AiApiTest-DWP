@@ -137,7 +137,7 @@ def test_sync_jenkins_job_bindings_upserts_retry_and_daily_jobs(monkeypatch):
     )
     monkeypatch.setenv("JENKINS_FAILED_RERUN_JOB_NAME", "AiApiTest-DWP-Failed-Rerun")
     monkeypatch.setenv("JENKINS_MODULE_RERUN_JOB_NAME", "AiApiTest-DWP-Module-Rerun")
-    monkeypatch.setenv("JENKINS_DAILY_FULL_JOB_PREFIX", "AiApiTest-DWP-Daily-Full-Module")
+    monkeypatch.setenv("JENKINS_DAILY_FULL_JOB_NAME", "AiApiTest-DWP-Daily-Full-Module")
     monkeypatch.setenv("JENKINS_API_TOKEN", "secret-token-not-for-output")
 
     stdout = StringIO()
@@ -145,10 +145,15 @@ def test_sync_jenkins_job_bindings_upserts_retry_and_daily_jobs(monkeypatch):
     call_command("sync_jenkins_job_bindings", stdout=stdout)
 
     bindings = JenkinsJobBinding.objects.filter(environment=environment, module=module, is_active=True)
-    assert bindings.count() == 3
+    assert bindings.count() == 2
     assert bindings.get(task_type=MetricRun.RunType.FAILED_RERUN).job_full_name == "AiApiTest-DWP-Failed-Rerun"
     assert bindings.get(task_type=MetricRun.RunType.MODULE_RERUN).job_full_name == "AiApiTest-DWP-Module-Rerun"
-    assert bindings.get(task_type=MetricRun.RunType.DAILY_FULL).job_full_name == "AiApiTest-DWP-Daily-Full-Module-Species"
+    daily_binding = JenkinsJobBinding.objects.get(
+        environment__isnull=True,
+        module__isnull=True,
+        task_type=MetricRun.RunType.DAILY_FULL,
+    )
+    assert daily_binding.job_full_name == "AiApiTest-DWP-Daily-Full-Module"
     assert JenkinsJobBinding.objects.filter(environment__env_key="inactive").count() == 0
     assert JenkinsJobBinding.objects.filter(module__package_name="Inactive").count() == 0
     output = stdout.getvalue()
@@ -156,6 +161,64 @@ def test_sync_jenkins_job_bindings_upserts_retry_and_daily_jobs(monkeypatch):
     assert "created=0" in output
     assert "skipped=" in output
     assert "secret-token-not-for-output" not in output
+
+
+@pytest.mark.django_db
+def test_sync_jenkins_job_bindings_keeps_only_one_active_global_daily_binding(monkeypatch):
+    environment = MetricEnvironment.objects.create(
+        env_key="daily-duplicate-environment",
+        env_name="Daily 重复绑定环境",
+        base_url="https://daily-duplicate.example.invalid",
+        is_active=True,
+    )
+    module = MetricModule.objects.create(
+        package_name="daily_duplicate_module",
+        case_path="test_case/daily_duplicate_module",
+        module_name="Daily 重复绑定模块",
+        module_dev="开发",
+        module_test="测试",
+        is_active=True,
+    )
+    canonical = JenkinsJobBinding.objects.create(
+        environment=None,
+        module=None,
+        task_type=MetricRun.RunType.DAILY_FULL,
+        job_full_name="legacy-global-daily",
+        is_active=True,
+    )
+    duplicate = JenkinsJobBinding.objects.create(
+        environment=None,
+        module=None,
+        task_type=MetricRun.RunType.DAILY_FULL,
+        job_full_name="duplicate-global-daily",
+        is_active=True,
+    )
+    legacy_module_binding = JenkinsJobBinding.objects.create(
+        environment=environment,
+        module=module,
+        task_type=MetricRun.RunType.DAILY_FULL,
+        job_full_name="legacy-module-daily",
+        is_active=True,
+    )
+    monkeypatch.setenv("JENKINS_FAILED_RERUN_JOB_NAME", "")
+    monkeypatch.setenv("JENKINS_MODULE_RERUN_JOB_NAME", "")
+    monkeypatch.setenv("JENKINS_DAILY_FULL_JOB_NAME", "AiApiTest-DWP-Daily-Full-Module")
+
+    call_command("sync_jenkins_job_bindings", stdout=StringIO())
+
+    canonical.refresh_from_db()
+    duplicate.refresh_from_db()
+    legacy_module_binding.refresh_from_db()
+    active_global = JenkinsJobBinding.objects.filter(
+        environment__isnull=True,
+        module__isnull=True,
+        task_type=MetricRun.RunType.DAILY_FULL,
+        is_active=True,
+    )
+    assert list(active_global.values_list("id", flat=True)) == [canonical.id]
+    assert canonical.job_full_name == "AiApiTest-DWP-Daily-Full-Module"
+    assert duplicate.is_active is False
+    assert legacy_module_binding.is_active is True
 
 
 @pytest.mark.django_db
@@ -176,7 +239,7 @@ def test_sync_jenkins_job_bindings_skips_empty_job_names(monkeypatch):
     )
     monkeypatch.setenv("JENKINS_FAILED_RERUN_JOB_NAME", "")
     monkeypatch.setenv("JENKINS_MODULE_RERUN_JOB_NAME", "AiApiTest-DWP-Module-Rerun")
-    monkeypatch.setenv("JENKINS_DAILY_FULL_JOB_PREFIX", "")
+    monkeypatch.setenv("JENKINS_DAILY_FULL_JOB_NAME", "")
 
     stdout = StringIO()
     call_command("sync_jenkins_job_bindings", stdout=stdout)

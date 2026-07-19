@@ -6,6 +6,7 @@ from metrics.jenkins_service import JenkinsServiceError, discover_jenkins_builds
 from metrics.models import JenkinsJobBinding, JenkinsTask, TestRun
 from metrics.views import (
     ACTIVE_TASK_STATUSES,
+    DailyParentEnvironmentError,
     TERMINAL_TASK_STATUSES,
     create_or_get_daily_task_from_discovery,
     expire_stale_jenkins_task,
@@ -54,7 +55,12 @@ def run_jenkins_sync_cycle() -> dict[str, int]:
 
     bindings = list(
         JenkinsJobBinding.objects.select_related("environment", "module")
-        .filter(task_type=TestRun.RunType.DAILY_FULL, is_active=True)
+        .filter(
+            task_type=TestRun.RunType.DAILY_FULL,
+            environment__isnull=True,
+            module__isnull=True,
+            is_active=True,
+        )
         .order_by("job_full_name", "id")
     )
     for binding in bindings:
@@ -70,7 +76,12 @@ def run_jenkins_sync_cycle() -> dict[str, int]:
             continue
         for build_result in discovered:
             stats["daily_discovered"] += 1
-            task, _ = create_or_get_daily_task_from_discovery(binding, build_result)
+            try:
+                task, _ = create_or_get_daily_task_from_discovery(binding, build_result)
+            except DailyParentEnvironmentError as exc:
+                stats["skipped"] += 1
+                logger.warning("Jenkins Daily parent was skipped: binding_id=%s error_type=%s", binding.id, type(exc).__name__)
+                continue
             task.refresh_from_db()
             if task.status in TERMINAL_TASK_STATUSES:
                 stats["skipped"] += 1

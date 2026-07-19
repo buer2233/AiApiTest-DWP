@@ -101,6 +101,89 @@ def create_task(
     )
 
 
+DAILY_PARENT_JOB_NAME = "AiApiTest-DWP-Daily-Full-Module"
+
+
+def create_daily_parent_binding(job_full_name: str = DAILY_PARENT_JOB_NAME):
+    return metric_model("JenkinsJobBinding").objects.create(
+        environment=None,
+        module=None,
+        task_type="daily_full",
+        job_full_name=job_full_name,
+        default_retry_count=0,
+        is_active=True,
+    )
+
+
+def create_daily_parent_task(
+    context: dict,
+    *,
+    status: str = "running",
+    queue_id: str = "daily-queue",
+    build_number: int = 12,
+    job_full_name: str = DAILY_PARENT_JOB_NAME,
+):
+    TestRun = metric_model("TestRun")
+    run = TestRun.objects.create(
+        run_key=f"p5-daily-parent-{timezone.now().timestamp()}",
+        run_type="daily_full",
+        environment=context["environment"],
+        module=None,
+        status=status,
+    )
+    return metric_model("JenkinsTask").objects.create(
+        run=run,
+        environment=context["environment"],
+        module=None,
+        task_type="daily_full",
+        trigger_source="jenkins_cron",
+        job_full_name=job_full_name,
+        queue_id=queue_id,
+        build_number=build_number,
+        jenkins_queue_url=f"http://localhost:8080/queue/item/{queue_id}/",
+        jenkins_build_url=f"http://localhost:8080/job/{job_full_name}/{build_number}/",
+        status=status,
+    )
+
+
+def daily_parent_summary(context: dict, *, primary_status: str = "passed", other_status: str = "passed") -> dict:
+    def module_detail(module, execution_status: str) -> dict:
+        failed_count = 1 if execution_status == "failed" else 0
+        return {
+            "module_key": module.package_name,
+            "total_count": 1,
+            "failed_count": failed_count,
+            "passed_count": 1 - failed_count,
+            "skipped_count": 0,
+            "duration_seconds": 5.25,
+            "case_results": [
+                {
+                    "node_id": f"{module.case_path}/test_daily.py::test_daily_{execution_status}",
+                    "case_name": f"test_daily_{execution_status}",
+                    "execution_status": execution_status,
+                    "error_type": "AssertionError" if failed_count else "",
+                    "error_message_summary": "Daily 父任务用例失败" if failed_count else "",
+                }
+            ],
+        }
+
+    details = [
+        module_detail(context["module"], primary_status),
+        module_detail(context["other_module"], other_status),
+    ]
+    failed_count = sum(detail["failed_count"] for detail in details)
+    return {
+        "status": "failed" if failed_count else "passed",
+        "module_count": len(details),
+        "total_count": len(details),
+        "failed_count": failed_count,
+        "passed_count": len(details) - failed_count,
+        "skipped_count": 0,
+        "failed_nodeids": [],
+        "modules": details,
+    }
+
+
 def test_admin_triggers_all_failed_retry_creates_queued_task_and_lock(admin_client, admin_user, p5_context):
     snapshot = p5_context["module_snapshot"]
     create_job_binding(p5_context, "failed_rerun")
@@ -516,7 +599,7 @@ def test_module_jenkins_tasks_list_rejects_invalid_task_type(admin_client, p5_co
 
 
 def test_bulk_sync_discovers_daily_builds_with_active_daily_job_names(admin_client, p5_context):
-    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-test_gbif_case")
+    create_daily_parent_binding()
 
     with patch("metrics.views.discover_jenkins_builds") as discover_builds:
         discover_builds.return_value = []
@@ -524,9 +607,74 @@ def test_bulk_sync_discovers_daily_builds_with_active_daily_job_names(admin_clie
 
     assert response.status_code == 200
     discover_builds.assert_called_once_with(
-        job_full_names=["AiApiTest-DWP-Daily-Full-Module-test_gbif_case"],
+        job_full_names=[DAILY_PARENT_JOB_NAME],
         date=None,
     )
+
+
+def test_default_daily_discovery_ignores_active_legacy_module_bindings(p5_context):
+    JenkinsJobBinding = metric_model("JenkinsJobBinding")
+    JenkinsJobBinding.objects.create(
+        environment=p5_context["environment"],
+        module=p5_context["module"],
+        task_type="daily_full",
+        job_full_name="AiApiTest-DWP-Daily-Full-Module-Legacy",
+        is_active=True,
+    )
+    JenkinsJobBinding.objects.create(
+        environment=None,
+        module=None,
+        task_type="daily_full",
+        job_full_name="AiApiTest-DWP-Daily-Full-Module",
+        is_active=True,
+    )
+
+    with patch("metrics.views.discover_jenkins_builds_from_jenkins", return_value=[]) as discover_from_jenkins:
+        result = discover_jenkins_builds()
+
+    assert result == []
+    discover_from_jenkins.assert_called_once_with(
+        job_full_names=["AiApiTest-DWP-Daily-Full-Module"],
+        date=None,
+    )
+
+
+def test_bulk_sync_ignores_same_name_legacy_binding_before_environment_precheck(admin_client, p5_context, monkeypatch):
+    JenkinsJobBinding = metric_model("JenkinsJobBinding")
+    job_full_name = "AiApiTest-DWP-Daily-Full-Module"
+    JenkinsJobBinding.objects.create(
+        environment=p5_context["environment"],
+        module=p5_context["module"],
+        task_type="daily_full",
+        job_full_name=job_full_name,
+        is_active=True,
+    )
+    JenkinsJobBinding.objects.create(
+        environment=None,
+        module=None,
+        task_type="daily_full",
+        job_full_name=job_full_name,
+        is_active=True,
+    )
+    # 不能依赖模型默认的 NULL 排序偶然优先全局 binding。
+    monkeypatch.setattr(JenkinsJobBinding._meta, "ordering", ["id"])
+
+    with patch(
+        "metrics.views.discover_jenkins_builds",
+        return_value=[
+            {
+                "job_full_name": job_full_name,
+                "build_number": 93,
+                "jenkins_build_url": "http://localhost:8080/job/daily/93/",
+                "building": True,
+            }
+        ],
+    ):
+        response = admin_client.post("/api/v1/jenkins-tasks/sync", {"discover_daily": True}, format="json")
+
+    assert response.status_code == 200
+    assert response.data["data"] == {"created_count": 0, "updated_count": 0, "synced_count": 0}
+    assert metric_model("JenkinsTask").objects.count() == 0
 
 
 @pytest.mark.parametrize(
@@ -892,35 +1040,37 @@ def test_sync_older_daily_build_writes_history_without_regressing_current_snapsh
         .values_list("id", flat=True)
     )
     older_finished_at = snapshot.completed_at - timedelta(days=1)
-    task = create_task(p5_context, status="running", task_type="daily_full", build_number=20)
+    task = create_daily_parent_task(p5_context, status="running", build_number=20)
+    summary = daily_parent_summary(p5_context)
+    summary["modules"][0].update(
+        {
+            "total_count": 2,
+            "passed_count": 2,
+            "case_results": [
+                {
+                    "node_id": "test_case/test_gbif_case/test_daily.py::test_backfill_passed",
+                    "case_name": "test_backfill_passed",
+                    "execution_status": "passed",
+                    "error_type": "",
+                    "error_message_summary": "",
+                },
+                {
+                    "node_id": "test_case/test_gbif_case/test_daily.py::test_backfill_second",
+                    "case_name": "test_backfill_second",
+                    "execution_status": "passed",
+                    "error_type": "",
+                    "error_message_summary": "",
+                },
+            ],
+        }
+    )
 
     with patch(
         "metrics.views.fetch_jenkins_task_result",
         return_value={
             "jenkins_result": "SUCCESS",
             "finished_at": older_finished_at,
-            "summary": {
-                "status": "passed",
-                "total_count": 2,
-                "failed_count": 0,
-                "passed_count": 2,
-                "skipped_count": 0,
-                "duration_seconds": 5.25,
-                "failed_nodeids": [],
-                "case_results": [
-                    {
-                        "node_id": "test_case/test_gbif_case/test_daily.py::test_backfill_passed",
-                        "case_name": "test_backfill_passed",
-                        "execution_status": "passed",
-                    },
-                    {
-                        "node_id": "test_case/test_gbif_case/test_daily.py::test_backfill_second",
-                        "case_name": "test_backfill_second",
-                        "execution_status": "passed",
-                    },
-                ],
-                "allure_report_status": "generated",
-            },
+            "summary": summary,
             "failed_nodeids": [],
         },
     ):
@@ -933,7 +1083,10 @@ def test_sync_older_daily_build_writes_history_without_regressing_current_snapsh
         .objects.filter(module_snapshot=snapshot, is_current=True)
         .values_list("id", flat=True)
     ) == current_case_ids
-    history = metric_model("ModuleRunHistory").objects.get(source_run=task.run)
+    assert task.module is None
+    assert task.run.module is None
+    assert metric_model("ModuleRunHistory").objects.filter(source_run=task.run).count() == 2
+    history = metric_model("ModuleRunHistory").objects.get(source_run=task.run, module=p5_context["module"])
     assert history.completed_at == older_finished_at
     assert history.total_count == 2
     assert history.failed_count == 0
@@ -1160,42 +1313,17 @@ def test_module_snapshot_retry_actions_remain_clickable_when_execution_locked(ad
 
 
 def test_bulk_sync_discovers_daily_build_and_updates_snapshot(admin_client, p5_context):
-    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-Species")
+    create_daily_parent_binding()
 
     with patch("metrics.views.discover_jenkins_builds") as discover_builds:
         discover_builds.return_value = [
             {
-                "job_full_name": "AiApiTest-DWP-Daily-Full-Module-Species",
+                "job_full_name": DAILY_PARENT_JOB_NAME,
                 "build_number": 88,
-                "jenkins_build_url": "http://localhost:8080/job/AiApiTest-DWP-Daily-Full-Module-Species/88/",
+                "jenkins_build_url": f"http://localhost:8080/job/{DAILY_PARENT_JOB_NAME}/88/",
+                "target_base_url": p5_context["environment"].base_url,
                 "jenkins_result": "SUCCESS",
-                "summary": {
-                    "status": "passed",
-                    "total_count": 3,
-                    "failed_count": 0,
-                    "passed_count": 2,
-                    "skipped_count": 1,
-                    "duration_seconds": 60,
-                    "failed_nodeids": [],
-                    "case_results": [
-                        {
-                            "node_id": "test_case/test_gbif_case/test_daily.py::test_daily_passed_one",
-                            "case_name": "test_daily_passed_one",
-                            "execution_status": "passed",
-                        },
-                        {
-                            "node_id": "test_case/test_gbif_case/test_daily.py::test_daily_passed_two",
-                            "case_name": "test_daily_passed_two",
-                            "execution_status": "passed",
-                        },
-                        {
-                            "node_id": "test_case/test_gbif_case/test_daily.py::test_daily_skipped",
-                            "case_name": "test_daily_skipped",
-                            "execution_status": "skipped",
-                        },
-                    ],
-                    "allure_report_status": "generated",
-                },
+                "summary": daily_parent_summary(p5_context),
                 "failed_nodeids": [],
                 "finished_at": timezone.now(),
             }
@@ -1210,38 +1338,32 @@ def test_bulk_sync_discovers_daily_build_and_updates_snapshot(admin_client, p5_c
     assert response.data["data"]["created_count"] == 1
     task = metric_model("JenkinsTask").objects.get(task_type="daily_full", build_number=88)
     assert task.status == "success"
+    assert task.module is None
+    assert task.run.module is None
     p5_context["module_snapshot"].refresh_from_db()
     assert p5_context["module_snapshot"].failed_count == 0
 
 
 def test_bulk_sync_fetches_daily_artifacts_with_discovered_run_id(admin_client, p5_context):
-    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-Species")
+    create_daily_parent_binding()
 
     with patch("metrics.views.discover_jenkins_builds") as discover_builds, patch(
         "metrics.views.fetch_jenkins_task_result"
     ) as fetch_result:
         discover_builds.return_value = [
             {
-                "job_full_name": "AiApiTest-DWP-Daily-Full-Module-Species",
+                "job_full_name": DAILY_PARENT_JOB_NAME,
                 "build_number": 88,
-                "jenkins_build_url": "http://localhost:8080/job/AiApiTest-DWP-Daily-Full-Module-Species/88/",
+                "jenkins_build_url": f"http://localhost:8080/job/{DAILY_PARENT_JOB_NAME}/88/",
                 "jenkins_result": "SUCCESS",
                 "building": False,
-                "run_id": "jenkins-AiApiTest-DWP-Daily-Full-Module-Species-88",
+                "run_id": "jenkins-AiApiTest-DWP-Daily-Full-Module-88",
+                "target_base_url": p5_context["environment"].base_url,
             }
         ]
         fetch_result.return_value = {
             "jenkins_result": "SUCCESS",
-            "summary": {
-                "status": "passed",
-                "total_count": 100,
-                "failed_count": 0,
-                "passed_count": 98,
-                "skipped_count": 2,
-                "duration_seconds": 60,
-                "failed_nodeids": [],
-                "allure_report_status": "generated",
-            },
+            "summary": daily_parent_summary(p5_context),
             "failed_nodeids": [],
             "finished_at": timezone.now(),
         }
@@ -1253,13 +1375,15 @@ def test_bulk_sync_fetches_daily_artifacts_with_discovered_run_id(admin_client, 
 
     assert response.status_code == 200
     task = metric_model("JenkinsTask").objects.get(task_type="daily_full", build_number=88)
-    assert task.run.run_key == "jenkins-AiApiTest-DWP-Daily-Full-Module-Species-88"
+    assert task.run.run_key == "jenkins-AiApiTest-DWP-Daily-Full-Module-88"
+    assert task.module is None
+    assert task.run.module is None
     fetch_result.assert_called_once()
-    assert fetch_result.call_args.args[0].run.run_key == "jenkins-AiApiTest-DWP-Daily-Full-Module-Species-88"
+    assert fetch_result.call_args.args[0].run.run_key == "jenkins-AiApiTest-DWP-Daily-Full-Module-88"
 
 
 def test_bulk_sync_returns_readable_error_when_daily_discovery_unavailable(admin_client, p5_context):
-    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-Species")
+    create_daily_parent_binding()
 
     with patch("metrics.views.discover_jenkins_builds") as discover_builds:
         discover_builds.side_effect = JenkinsServiceError("JENKINS_API_BASE_URL is not configured")
@@ -1275,33 +1399,22 @@ def test_bulk_sync_returns_readable_error_when_daily_discovery_unavailable(admin
     assert metric_model("JenkinsTask").objects.count() == 0
 
 
-def test_bulk_sync_continues_when_one_daily_job_is_unavailable(admin_client, p5_context):
-    create_job_binding(p5_context, "daily_full", "A-Failing-Daily-Job")
-    metric_model("JenkinsJobBinding").objects.create(
-        environment=p5_context["environment"],
-        module=p5_context["other_module"],
-        task_type="daily_full",
-        job_full_name="B-Healthy-Daily-Job",
-        default_retry_count=0,
-        is_active=True,
-    )
+def test_bulk_sync_skips_daily_build_without_resolved_target_base_url(admin_client, p5_context):
+    create_daily_parent_binding()
 
-    def discover_one_job(*, job_full_names, date=None):
-        if job_full_names == ["A-Failing-Daily-Job"]:
-            raise JenkinsServiceError("Jenkins job not found")
-        return [
+    with patch(
+        "metrics.views.discover_jenkins_builds",
+        return_value=[
             {
-                "job_full_name": "B-Healthy-Daily-Job",
+                "job_full_name": DAILY_PARENT_JOB_NAME,
                 "build_number": 91,
-                "jenkins_build_url": "http://localhost:8080/job/B-Healthy-Daily-Job/91/",
-                "jenkins_result": None,
+                "jenkins_build_url": f"http://localhost:8080/job/{DAILY_PARENT_JOB_NAME}/91/",
                 "building": True,
-                "run_id": "jenkins-B-Healthy-Daily-Job-91",
+                "run_id": "jenkins-daily-parent-91",
                 "started_at": timezone.now(),
             }
-        ]
-
-    with patch("metrics.views.discover_jenkins_builds", side_effect=discover_one_job) as discover_builds:
+        ],
+    ):
         response = admin_client.post(
             "/api/v1/jenkins-tasks/sync",
             {"discover_daily": True, "date": "2026-07-05"},
@@ -1309,23 +1422,20 @@ def test_bulk_sync_continues_when_one_daily_job_is_unavailable(admin_client, p5_
         )
 
     assert response.status_code == 200
-    assert response.data["data"] == {"created_count": 1, "updated_count": 0, "synced_count": 1}
-    assert discover_builds.call_count == 2
-    task = metric_model("JenkinsTask").objects.get(job_full_name="B-Healthy-Daily-Job", build_number=91)
-    assert task.status == "running"
+    assert response.data["data"] == {"created_count": 0, "updated_count": 0, "synced_count": 0}
+    assert metric_model("JenkinsTask").objects.count() == 0
 
 
 def test_bulk_sync_continues_when_one_discovered_build_cannot_fetch_artifacts(admin_client, p5_context):
-    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-Species")
+    create_daily_parent_binding()
     discovered = [
         {
-            "job_full_name": "AiApiTest-DWP-Daily-Full-Module-Species",
+            "job_full_name": DAILY_PARENT_JOB_NAME,
             "build_number": build_number,
-            "jenkins_build_url": (
-                f"http://localhost:8080/job/AiApiTest-DWP-Daily-Full-Module-Species/{build_number}/"
-            ),
+            "jenkins_build_url": f"http://localhost:8080/job/{DAILY_PARENT_JOB_NAME}/{build_number}/",
             "building": False,
-            "run_id": f"jenkins-AiApiTest-DWP-Daily-Full-Module-Species-{build_number}",
+            "run_id": f"jenkins-daily-parent-{build_number}",
+            "target_base_url": p5_context["environment"].base_url,
         }
         for build_number in (91, 92)
     ]
@@ -1357,14 +1467,12 @@ def test_bulk_sync_continues_when_one_discovered_build_cannot_fetch_artifacts(ad
 
 
 def test_bulk_sync_fetch_error_keeps_existing_daily_task_status(admin_client, p5_context):
-    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-Species")
-    existing_task = create_task(
+    create_daily_parent_binding()
+    existing_task = create_daily_parent_task(
         p5_context,
         status="running",
-        task_type="daily_full",
         queue_id="daily-queue",
         build_number=88,
-        job_full_name="AiApiTest-DWP-Daily-Full-Module-Species",
     )
 
     with patch("metrics.views.discover_jenkins_builds") as discover_builds, patch(
@@ -1372,10 +1480,11 @@ def test_bulk_sync_fetch_error_keeps_existing_daily_task_status(admin_client, p5
     ) as fetch_result:
         discover_builds.return_value = [
             {
-                "job_full_name": "AiApiTest-DWP-Daily-Full-Module-Species",
+                "job_full_name": DAILY_PARENT_JOB_NAME,
                 "build_number": 88,
-                "jenkins_build_url": "http://localhost:8080/job/AiApiTest-DWP-Daily-Full-Module-Species/88/",
+                "jenkins_build_url": f"http://localhost:8080/job/{DAILY_PARENT_JOB_NAME}/88/",
                 "building": False,
+                "target_base_url": p5_context["environment"].base_url,
             }
         ]
         fetch_result.side_effect = JenkinsServiceError("Jenkins artifact unavailable")
@@ -1390,17 +1499,17 @@ def test_bulk_sync_fetch_error_keeps_existing_daily_task_status(admin_client, p5
     assert "Jenkins artifact unavailable" in response.data["error"]["message"]
     existing_task.refresh_from_db()
     assert existing_task.status == "running"
+    assert existing_task.module is None
+    assert existing_task.run.module is None
 
 
 def test_bulk_sync_does_not_report_ambiguous_build_as_jenkins_unavailable(admin_client, p5_context):
-    create_job_binding(p5_context, "daily_full", "AiApiTest-DWP-Daily-Full-Module-Species")
-    existing_task = create_task(
+    create_daily_parent_binding()
+    existing_task = create_daily_parent_task(
         p5_context,
         status="running",
-        task_type="daily_full",
         queue_id="daily-queue",
         build_number=88,
-        job_full_name="AiApiTest-DWP-Daily-Full-Module-Species",
     )
 
     with patch("metrics.views.discover_jenkins_builds") as discover_builds, patch(
@@ -1409,10 +1518,11 @@ def test_bulk_sync_does_not_report_ambiguous_build_as_jenkins_unavailable(admin_
     ):
         discover_builds.return_value = [
             {
-                "job_full_name": "AiApiTest-DWP-Daily-Full-Module-Species",
+                "job_full_name": DAILY_PARENT_JOB_NAME,
                 "build_number": 88,
-                "jenkins_build_url": "http://localhost:8080/job/AiApiTest-DWP-Daily-Full-Module-Species/88/",
+                "jenkins_build_url": f"http://localhost:8080/job/{DAILY_PARENT_JOB_NAME}/88/",
                 "building": False,
+                "target_base_url": p5_context["environment"].base_url,
             }
         ]
         response = admin_client.post(
@@ -1425,6 +1535,8 @@ def test_bulk_sync_does_not_report_ambiguous_build_as_jenkins_unavailable(admin_
     assert response.data["data"] == {"created_count": 0, "updated_count": 1, "synced_count": 0}
     existing_task.refresh_from_db()
     assert existing_task.status == "running"
+    assert existing_task.module is None
+    assert existing_task.run.module is None
     assert f"run_id={existing_task.run.run_key}" in existing_task.error_summary
     assert "matches=2" in existing_task.error_summary
 
