@@ -15,7 +15,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 1. 现状与根因调查 | 已完成 | 已定位 Job 创建、Daily 执行和后端绑定均按模块拆分。 |
 | 2. 需求澄清与规格冻结 | 已完成 | 主人于 2026-07-19 确认冻结；API 与架构边界可作为下游唯一输入。 |
 | 3. 测试用例与 UI 设计 | 进行中 | 测试用例、RTM 与覆盖校准完成；UI 候选已产出，等待主人选择后生成正式稿。 |
-| 4. 后端与 Jenkins TDD 实施 | 未开始 | 先新增失败测试，再实施最小修复。 |
+| 4. 后端与 Jenkins TDD 实施 | 进行中 | Task 1 api-test 协议已审查通过；开始 Jenkins 单一父/Worker 编排。 |
 | 5. 前端 TDD 实施 | 未开始 | 以冻结 API、UI 映射和 Playwright 用例为输入。 |
 | 6. 独立审查、验证与验收包 | 未开始 | 执行回归，留存可提交的验收索引。 |
 
@@ -41,6 +41,8 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 ### Task 1 api-test 环境目录与 Daily 聚合协议
 
+**状态**：已完成。提交 `90febf5`、`b86f804`、`c254568`、`82ca312`；最终独立审查批准，任务回归 `90 passed`。
+
 **所有权**：仅 `api-test/`（含其 pytest）；不得修改 `jenkins/`、`back-end/`、`front-end/` 或根配置。
 
 1. 先增加失败 pytest，覆盖 `package_environment.yaml` 的 schema、URL 去尾斜杠、重复规范化 URL、未知字段、确定性 UTF-8 两空格序列化与 Git blob SHA 输入。
@@ -52,6 +54,8 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 **完成条件**：TC-S13-F1-004、F1-005、F2-002、F2-004、F3-001、F3-002 对应的可执行 pytest 已先红后绿；接口约束可供 Jenkins 调用且没有复制 pytest/重试规则。
 
 ### Task 2 Jenkins 单一 Daily 编排与配置同步 Job
+
+**状态**：进行中。依赖 Task 1 已满足。
 
 **所有权**：仅 `jenkins/`、Jenkins 相关 Docker/Compose 版本化配置及根 `.env.example`；不得修改 `api-test/`、`back-end/` 或 `front-end/`。
 
@@ -114,3 +118,4 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | `django-tdd` 技能旧目录不存在 | 1 | 技能实际位于 `C:\Users\admin\.codex\skills\django-tdd`，已按正确目录读取。 |
 | 阶段 3 校准发现 AC1.5 与 Daily 父任务状态机冲突 | 1 | 以已冻结 AC1.5 为准，预检失败只保留 Jenkins 诊断，不创建平台父任务。 |
 | 组合读取命令的 PowerShell 括号错误、图像查看的 `low` 细节参数无效 | 1 | 已拆分读取命令，并改用受支持的 `high` 图像查看；未改动业务文件。 |
+| WSL `bash.exe` 不识别 Windows 路径，PowerShell `rg` 的 glob 参数顺序不兼容，以及假定 `config/settings.py` 存在 | 1 | 改用 `apply_patch` 写入 SDD 简报；后续 shell 搜索使用实际存在的路径和 PowerShell 兼容参数。 |
