@@ -104,6 +104,8 @@ def buildParameterDefinitions(Map config) {
 
 def call(Map config = [:]) {
     def ciRunRetentionDays = env.CI_RUN_RETENTION_DAYS ?: '30'
+    // 默认维持既有单模块重试报告；Daily Worker 显式关闭，仅由父任务发布聚合 Allure。
+    def publishAllure = config.containsKey('publishAllure') ? config.publishAllure : true
     def jobProperties = [
         buildDiscarder(logRotator(daysToKeepStr: ciRunRetentionDays, artifactDaysToKeepStr: ciRunRetentionDays)),
         parameters(buildParameterDefinitions(config))
@@ -196,18 +198,20 @@ def call(Map config = [:]) {
                 }
             }
 
-            stage('Publish Allure') {
-                try {
-                    // Jenkins 插件只负责展示，失败时保留 helper 已导出的原始和 HTML 产物。
-                    allure([
-                        commandline: 'Allure Commandline',
-                        includeProperties: false,
-                        jdk: '',
-                        resultPolicy: 'LEAVE_AS_IS',
-                        results: [[path: "${runDir}/allure-results"]]
-                    ])
-                } catch (Throwable ignored) {
-                    echo "Allure Jenkins plugin publish failed; runtime artifacts were archived instead: ${ignored.getMessage()}"
+            if (publishAllure) {
+                stage('Publish Allure') {
+                    try {
+                        // Jenkins 插件只负责展示，失败时保留 helper 已导出的原始和 HTML 产物。
+                        allure([
+                            commandline: 'Allure Commandline',
+                            includeProperties: false,
+                            jdk: '',
+                            resultPolicy: 'LEAVE_AS_IS',
+                            results: [[path: "${runDir}/allure-results"]]
+                        ])
+                    } catch (Throwable ignored) {
+                        echo "Allure Jenkins plugin publish failed; runtime artifacts were archived instead: ${ignored.getMessage()}"
+                    }
                 }
             }
         }
