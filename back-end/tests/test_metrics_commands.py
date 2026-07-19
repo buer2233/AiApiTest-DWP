@@ -260,6 +260,31 @@ def test_global_daily_binding_lock_rejects_mysql_lock_timeout():
     cursor.execute.assert_called_once()
 
 
+def test_global_daily_binding_lock_releases_mysql_advisory_lock_when_body_raises():
+    from metrics.management.commands.sync_jenkins_job_bindings import (
+        GLOBAL_DAILY_BINDING_LOCK_NAME,
+        GLOBAL_DAILY_BINDING_LOCK_TIMEOUT_SECONDS,
+        global_daily_binding_lock,
+    )
+
+    with patch("metrics.management.commands.sync_jenkins_job_bindings.connection") as connection:
+        connection.vendor = "mysql"
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (1,)
+
+        with pytest.raises(RuntimeError, match="interrupted"):
+            with global_daily_binding_lock():
+                raise RuntimeError("interrupted")
+
+    assert cursor.execute.call_args_list == [
+        call(
+            "SELECT GET_LOCK(%s, %s)",
+            [GLOBAL_DAILY_BINDING_LOCK_NAME, GLOBAL_DAILY_BINDING_LOCK_TIMEOUT_SECONDS],
+        ),
+        call("SELECT RELEASE_LOCK(%s)", [GLOBAL_DAILY_BINDING_LOCK_NAME]),
+    ]
+
+
 def test_global_daily_binding_lock_keeps_sqlite_pytest_compatible():
     from metrics.management.commands.sync_jenkins_job_bindings import global_daily_binding_lock
 

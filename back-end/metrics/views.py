@@ -1024,7 +1024,7 @@ def dispatch_environment_catalog_sync_attempt(attempt: EnvironmentCatalogSyncAtt
         "AiApiTest-DWP-Environment-Catalog-Sync",
     ).strip()
     if not job_full_name:
-        return attempt
+        return fail_dispatch("jenkins_job_name_missing")
     try:
         queue = trigger_jenkins_build(
             job_full_name=job_full_name,
