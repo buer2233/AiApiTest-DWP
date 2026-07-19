@@ -78,7 +78,7 @@ def git_blob_sha(content: bytes) -> str:
     return hashlib.sha1(f"blob {len(content)}\0".encode("utf-8") + content).hexdigest()
 
 
-def _validate_git_sha(value: str | None, *, field_name: str) -> str:
+def _validate_git_sha(value: object, *, field_name: str) -> str:
     if not isinstance(value, str) or not _GIT_SHA_PATTERN.fullmatch(value):
         raise EnvironmentCatalogValidationError(
             f"{field_name} 必须是 40 位小写十六进制 Git SHA。",
@@ -542,7 +542,7 @@ def complete_yaml_to_mysql_sync_attempt(
     *,
     catalog: Mapping[str, object],
     observed_yaml_blob_sha: str,
-    commit_sha: str = "",
+    commit_sha: object = "",
 ) -> tuple[EnvironmentCatalogSyncAttempt, CatalogImportResult]:
     """处理 YAML 导入回调，目录校验失败需同步落库为 failed。"""
     callback_error: EnvironmentCatalogError | None = None
@@ -555,8 +555,11 @@ def complete_yaml_to_mysql_sync_attempt(
         _require_running(locked_attempt)
         try:
             observed_sha = _validate_git_sha(observed_yaml_blob_sha, field_name="observed_yaml_blob_sha")
-            if commit_sha:
-                _validate_git_sha(commit_sha, field_name="commit_sha")
+            resolved_commit_sha = (
+                ""
+                if type(commit_sha) is str and commit_sha == ""
+                else _validate_git_sha(commit_sha, field_name="commit_sha")
+            )
         except EnvironmentCatalogValidationError as exc:
             _mark_callback_parameter_validation_failed_locked(locked_attempt, exc)
             callback_error = exc
@@ -594,13 +597,13 @@ def complete_yaml_to_mysql_sync_attempt(
                 else:
                     locked_attempt.status = locked_attempt.Status.SYNCED
                     locked_attempt.observed_yaml_blob_sha = observed_sha
-                    locked_attempt.commit_sha = commit_sha
+                    locked_attempt.commit_sha = resolved_commit_sha
                     locked_attempt.finished_at = timezone.now()
                     locked_attempt.save()
                     state = _locked_state()
                     state.status = EnvironmentCatalogState.Status.SYNCED
                     state.yaml_blob_sha = observed_sha
-                    state.last_commit_sha = commit_sha
+                    state.last_commit_sha = resolved_commit_sha
                     state.last_synced_at = locked_attempt.finished_at
                     state.last_error_code = ""
                     state.last_error_summary = ""

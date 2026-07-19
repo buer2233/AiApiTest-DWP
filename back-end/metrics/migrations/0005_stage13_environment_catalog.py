@@ -40,12 +40,12 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(normalize_existing_environment_urls, reverse_code=migrations.RunPython.noop),
         migrations.AddField(
             model_name="testenvironment",
             name="url_desc",
             field=models.TextField(default="未提供环境描述"),
         ),
-        migrations.RunPython(normalize_existing_environment_urls, reverse_code=migrations.RunPython.noop),
         migrations.AddConstraint(
             model_name="testenvironment",
             constraint=models.UniqueConstraint(fields=("base_url",), name="uniq_test_environment_base_url"),
