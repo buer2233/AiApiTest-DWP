@@ -434,6 +434,143 @@ def test_successful_yaml_callback_is_idempotent_without_reprojecting_environment
     assert state.updated_at == state_updated_at
 
 
+@pytest.mark.django_db
+def test_yaml_import_callback_allows_existing_environments_to_swap_base_urls():
+    service = catalog_service_module()
+    first = create_environment(env_key="swap-first", base_url="https://swap-first.example.invalid")
+    second = create_environment(env_key="swap-second", base_url="https://swap-second.example.invalid")
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_yaml_to_mysql_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id="queue-swap-base-url")
+    service.mark_sync_attempt_running(attempt, build_number=107, jenkins_build_url="")
+
+    completed, result = service.complete_yaml_to_mysql_sync_attempt(
+        attempt,
+        catalog={
+            "swap-first": catalog_entry(
+                base_url="https://swap-second.example.invalid",
+                url_name="互换后环境一",
+                url_desc="互换后描述一",
+            ),
+            "swap-second": catalog_entry(
+                base_url="https://swap-first.example.invalid",
+                url_name="互换后环境二",
+                url_desc="互换后描述二",
+            ),
+        },
+        observed_yaml_blob_sha="b" * 40,
+    )
+
+    first.refresh_from_db()
+    second.refresh_from_db()
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    assert result == service.CatalogImportResult(0, 2, 0)
+    assert first.base_url == "https://swap-second.example.invalid"
+    assert second.base_url == "https://swap-first.example.invalid"
+    assert completed.status == completed.Status.SYNCED
+    assert state.status == state.Status.SYNCED
+
+
+@pytest.mark.django_db
+def test_yaml_import_persistence_error_marks_attempt_failed_without_partial_projection_and_allows_retry(monkeypatch):
+    service = catalog_service_module()
+    existing = create_environment(env_key="persistence-existing", base_url="https://persistence-existing.example.invalid")
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_yaml_to_mysql_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id="queue-persistence-error")
+    service.mark_sync_attempt_running(attempt, build_number=108, jenkins_build_url="")
+    original_save = service.TestEnvironment.save
+
+    def raise_on_new_environment_save(environment, *args, **kwargs):
+        if environment.env_key == "persistence-new":
+            raise IntegrityError("database failure detail must not be exposed")
+        return original_save(environment, *args, **kwargs)
+
+    monkeypatch.setattr(service.TestEnvironment, "save", raise_on_new_environment_save)
+
+    with pytest.raises(service.EnvironmentCatalogError) as raised:
+        service.complete_yaml_to_mysql_sync_attempt(
+            attempt,
+            catalog={
+                "persistence-existing": catalog_entry(
+                    base_url="https://persistence-existing-updated.example.invalid",
+                    url_name="更新后环境",
+                    url_desc="更新后描述",
+                ),
+                "persistence-new": catalog_entry(
+                    base_url="https://persistence-new.example.invalid",
+                    url_name="新增环境",
+                    url_desc="新增环境描述",
+                ),
+            },
+            observed_yaml_blob_sha="b" * 40,
+        )
+
+    existing.refresh_from_db()
+    attempt.refresh_from_db()
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    assert raised.value.code == "environment_catalog_projection_failed"
+    assert "database failure detail" not in str(raised.value)
+    assert existing.base_url == "https://persistence-existing.example.invalid"
+    assert existing.env_name == "persistence-existing 环境"
+    assert TestEnvironment.objects.filter(env_key="persistence-new").exists() is False
+    assert attempt.status == attempt.Status.FAILED
+    assert attempt.error_code == "environment_catalog_projection_failed"
+    assert attempt.error_summary == "环境目录投影失败，请修正后重试。"
+    assert attempt.active_attempt_key is None
+    assert state.status == state.Status.FAILED
+    assert state.last_error_code == "environment_catalog_projection_failed"
+    assert service.retry_sync_attempt(attempt).status == attempt.Status.PENDING
+
+
+@pytest.mark.django_db
+def test_yaml_import_rejects_a_synced_mysql_to_yaml_attempt_without_side_effects():
+    service = catalog_service_module()
+    create_environment(env_key="synced-wrong-direction", base_url="https://synced-wrong-direction.example.invalid")
+    service.EnvironmentCatalogState.objects.create(
+        catalog_key=service.CATALOG_KEY,
+        yaml_blob_sha="a" * 40,
+        status=service.EnvironmentCatalogState.Status.SYNCED,
+    )
+    attempt = service.create_mysql_to_yaml_sync_attempt()
+    service.mark_sync_attempt_queued(attempt, queue_id="queue-synced-wrong-direction")
+    service.mark_sync_attempt_running(attempt, build_number=109, jenkins_build_url="")
+    completed = service.complete_mysql_to_yaml_sync_attempt(
+        attempt,
+        observed_yaml_blob_sha="a" * 40,
+        written_yaml_blob_sha="b" * 40,
+        commit_sha="c" * 40,
+    )
+    state = service.EnvironmentCatalogState.objects.get(catalog_key=service.CATALOG_KEY)
+    state_updated_at = state.updated_at
+
+    with pytest.raises(service.EnvironmentCatalogStateError):
+        service.complete_yaml_to_mysql_sync_attempt(
+            completed,
+            catalog={"unexpected": catalog_entry(
+                base_url="https://unexpected.example.invalid",
+                url_name="不应导入",
+                url_desc="错误方向",
+            )},
+            observed_yaml_blob_sha="b" * 40,
+        )
+
+    completed.refresh_from_db()
+    state.refresh_from_db()
+    assert completed.status == completed.Status.SYNCED
+    assert state.status == state.Status.SYNCED
+    assert state.updated_at == state_updated_at
+    assert TestEnvironment.objects.filter(env_key="unexpected").exists() is False
+
+
 def test_environment_url_migration_validates_all_rows_before_persisting_any_update():
     migration = importlib.import_module("metrics.migrations.0005_stage13_environment_catalog")
     first = type("HistoricalEnvironment", (), {"id": 1, "base_url": "https://first.example.invalid/"})()

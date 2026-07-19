@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -341,6 +342,34 @@ def _apply_normalized_catalog(normalized_catalog: Mapping[str, Mapping[str, str]
         environment.env_key: environment
         for environment in TestEnvironment.objects.select_for_update().all()
     }
+    existing_by_base_url = {
+        environment.base_url: environment
+        for environment in existing_by_key.values()
+    }
+    for env_key, entry in normalized_catalog.items():
+        url_owner = existing_by_base_url.get(entry["base_url"])
+        if url_owner is not None and url_owner.env_key not in normalized_catalog:
+            raise EnvironmentCatalogValidationError(
+                "环境目录不能复用未包含环境的 base_url。",
+                code="existing_base_url_conflict",
+            )
+
+    reserved_urls = set(existing_by_base_url) | {
+        entry["base_url"]
+        for entry in normalized_catalog.values()
+    }
+    # 先临时腾空所有会变更的唯一 URL，支持环境之间交换或循环迁移地址。
+    for env_key, entry in normalized_catalog.items():
+        environment = existing_by_key.get(env_key)
+        if environment is None or environment.base_url == entry["base_url"]:
+            continue
+        temporary_url = f"https://environment-catalog-tmp-{uuid.uuid4().hex}.invalid"
+        while temporary_url in reserved_urls:
+            temporary_url = f"https://environment-catalog-tmp-{uuid.uuid4().hex}.invalid"
+        reserved_urls.add(temporary_url)
+        environment.base_url = temporary_url
+        environment.save(update_fields=["base_url"])
+
     created_count = 0
     updated_count = 0
     for env_key, entry in normalized_catalog.items():
@@ -487,14 +516,14 @@ def complete_yaml_to_mysql_sync_attempt(
     observed_sha = _validate_git_sha(observed_yaml_blob_sha, field_name="observed_yaml_blob_sha")
     if commit_sha:
         _validate_git_sha(commit_sha, field_name="commit_sha")
-    validation_error: EnvironmentCatalogValidationError | None = None
+    callback_error: EnvironmentCatalogError | None = None
     with transaction.atomic():
         locked_attempt = EnvironmentCatalogSyncAttempt.objects.select_for_update().get(pk=attempt.pk)
+        if locked_attempt.direction != locked_attempt.Direction.YAML_TO_MYSQL:
+            raise EnvironmentCatalogStateError("同步请求方向与导入回调不一致。")
         if locked_attempt.status == locked_attempt.Status.SYNCED:
             return locked_attempt, CatalogImportResult(0, 0, 0)
         _require_running(locked_attempt)
-        if locked_attempt.direction != locked_attempt.Direction.YAML_TO_MYSQL:
-            raise EnvironmentCatalogStateError("同步请求方向与导入回调不一致。")
         try:
             normalized_catalog = normalize_catalog(catalog)
         except EnvironmentCatalogValidationError as exc:
@@ -503,25 +532,45 @@ def complete_yaml_to_mysql_sync_attempt(
                 error_code=exc.code,
                 error_summary="环境目录校验失败，请修正配置后重试。",
             )
-            validation_error = exc
+            callback_error = exc
         else:
-            result = _apply_normalized_catalog(normalized_catalog)
-            locked_attempt.status = locked_attempt.Status.SYNCED
-            locked_attempt.observed_yaml_blob_sha = observed_sha
-            locked_attempt.commit_sha = commit_sha
-            locked_attempt.finished_at = timezone.now()
-            locked_attempt.save()
-            state = _locked_state()
-            state.status = EnvironmentCatalogState.Status.SYNCED
-            state.yaml_blob_sha = observed_sha
-            state.last_commit_sha = commit_sha
-            state.last_synced_at = locked_attempt.finished_at
-            state.last_error_code = ""
-            state.last_error_summary = ""
-            state.save()
-            return locked_attempt, result
-    if validation_error is not None:
-        raise validation_error
+            try:
+                with transaction.atomic():
+                    result = _apply_normalized_catalog(normalized_catalog)
+            except EnvironmentCatalogValidationError as exc:
+                _mark_attempt_failed_locked(
+                    locked_attempt,
+                    error_code=exc.code,
+                    error_summary="环境目录校验失败，请修正配置后重试。",
+                )
+                callback_error = exc
+            except IntegrityError:
+                callback_error = EnvironmentCatalogError(
+                    "环境目录投影失败，请修正后重试。",
+                    code="environment_catalog_projection_failed",
+                )
+                _mark_attempt_failed_locked(
+                    locked_attempt,
+                    error_code=callback_error.code,
+                    error_summary="环境目录投影失败，请修正后重试。",
+                )
+            else:
+                locked_attempt.status = locked_attempt.Status.SYNCED
+                locked_attempt.observed_yaml_blob_sha = observed_sha
+                locked_attempt.commit_sha = commit_sha
+                locked_attempt.finished_at = timezone.now()
+                locked_attempt.save()
+                state = _locked_state()
+                state.status = EnvironmentCatalogState.Status.SYNCED
+                state.yaml_blob_sha = observed_sha
+                state.last_commit_sha = commit_sha
+                state.last_synced_at = locked_attempt.finished_at
+                state.last_error_code = ""
+                state.last_error_summary = ""
+                state.save()
+                return locked_attempt, result
+    if callback_error is not None:
+        raise callback_error
     raise RuntimeError("环境目录导入回调未产生结果。")
 
 
