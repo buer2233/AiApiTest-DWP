@@ -262,12 +262,14 @@
 - **操作步骤**：
   1. PATCH 名称、URL、描述并检查 `202` 与新同步请求。
   2. PATCH 尝试改 `env_key`，以及创建/修改为重复 URL。
-  3. DELETE 环境后检查历史关联、导出候选清单；再 PATCH `is_active=true` 恢复。
-  4. 在 `pending/queued/running` 请求存在时分别新增、编辑、导入和重试。
+  3. DELETE 两个启用环境中的一个后检查历史关联、导出候选清单；再 PATCH `is_active=true` 恢复。
+  4. 仅保留一个启用环境时，分别调用 DELETE 和 PATCH `is_active=false`。
+  5. 在 `pending/queued/running` 请求存在时分别新增、编辑、导入和重试。
 - **可观察预期**：
   - 合法编辑、停用和恢复均在单一事务更新环境并创建一条 `mysql_to_yaml` 请求；`env_key` 创建后不可改。
   - 改 key、重复 key/URL 或非法字段返回 `400 validation_error` 或 `409 duplicate_environment`，无数据变更。
   - DELETE 为逻辑停用，保留任务/快照/趋势历史并从后续 YAML 导出移除；恢复回到 active。
+  - 停用最后一个启用环境时，DELETE 与 PATCH 均返回 `409 last_active_environment`；环境、目录状态和同步请求数量均不改变，YAML 始终不为空。
   - 活动请求期间所有新写入返回 `409 environment_config_sync_busy`，不重排异步写入。
 - **备注**：同时验证 `active -> inactive -> active` 状态机和不物理删除约束。
 

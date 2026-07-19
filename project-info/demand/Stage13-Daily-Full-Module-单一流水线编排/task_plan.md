@@ -15,7 +15,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 1. 现状与根因调查 | 已完成 | 已定位 Job 创建、Daily 执行和后端绑定均按模块拆分。 |
 | 2. 需求澄清与规格冻结 | 已完成 | 主人于 2026-07-19 确认冻结；API 与架构边界可作为下游唯一输入。 |
 | 3. 测试用例与 UI 设计 | 进行中 | 测试用例、RTM 与覆盖校准完成；UI 候选已产出，等待主人选择后生成正式稿。 |
-| 4. 后端与 Jenkins TDD 实施 | 进行中 | Task 1 api-test 协议与 Task 2 Jenkins 编排均已独立审查通过；待实施后端 Task 3/4。 |
+| 4. 后端与 Jenkins TDD 实施 | 进行中 | Task 1 api-test 协议、Task 2 Jenkins 编排和 Task 3 后端环境目录底座均已独立审查通过；待实施 Task 4 API/结果同步。 |
 | 5. 前端 TDD 实施 | 未开始 | 以冻结 API、UI 映射和 Playwright 用例为输入。 |
 | 6. 独立审查、验证与验收包 | 未开始 | 执行回归，留存可提交的验收索引。 |
 
@@ -32,7 +32,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 子任务 | 状态 | 依赖 |
 | --- | --- | --- |
 | 4A api-test 与 Jenkins TDD | 已完成 | Task 1/2 已完成三轮独立审查与静态回归；不触及后端/前端源码。 |
-| 4B 后端数据模型与 API TDD | 未开始 | 3A、§7 API 契约；不触及 Jenkins/api-test 源码。 |
+| 4B 后端数据模型与 API TDD | 进行中 | Task 3 数据模型/服务层已完成；待 Task 4 依据 3A、§7 API 契约实现 API 与结果同步。 |
 | 4C 后端/Jenkins 独立审查 | 未开始 | 4A、4B 已完成。 |
 | 5A 前端 Playwright 与 Vue TDD | 未开始 | 3B 主人选定候选图、3C、4B API 已实现。 |
 | 5B 前端独立审查 | 未开始 | 5A 已完成。 |
@@ -69,9 +69,11 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 ### Task 3 后端环境目录数据模型与服务层
 
+**状态**：已完成。提交 `8b2bbf4`、`de1aabe`、`4e18ab6`、`6f622e1`、`f7d79c9`；五轮 TDD 整改后最终独立复审批准。定向 pytest `51 passed`；全后端回归 `268 passed, 1 failed`，唯一失败为本任务前既有的固定日期趋势用例，未在本任务范围内修复。
+
 **所有权**：仅 `back-end/`（模型、迁移、服务层、管理命令、pytest）；不得修改 Jenkins、api-test 或前端。
 
-1. 先写 pytest-django 模型/服务测试，扩展 `TestEnvironment` 的 `url_desc`、规范化且全局唯一的 URL 与逻辑停用语义；新增目录状态单例和追加同步审计模型。
+1. 先写 pytest-django 模型/服务测试，扩展 `TestEnvironment` 的 `url_desc`、规范化且全局唯一的 URL 与逻辑停用语义；系统始终至少保留一个启用环境，拒绝停用最后一项；新增目录状态单例和追加同步审计模型。
 2. 通过 migration 完成约束升级；Daily `JenkinsTask.module` 与 `TestRun.module` 仅对 `daily_full` 允许为空，其他重试类型继续要求环境和模块。
 3. 实现环境目录服务：原子创建同步请求、单一活动请求守卫、blob SHA 冲突拒绝、失败可重试、YAML 导入时新增/更新/停用但不物理删除，并确保无效导入零数据库副作用。
 4. 将 `seed_environment` 改为从随镜像复制的环境 YAML 初始化投影，不能硬编码默认环境；运行时不能直接读写开发工作区 YAML。

@@ -80,7 +80,7 @@
 - **关联数据**：`TestEnvironment`、`EnvironmentCatalogState`、`EnvironmentCatalogSyncAttempt`。
 - **验收标准**：
   - `AC3.1` Given `package_environment.yaml` When 解析 Then 顶层 `env_key` 唯一且每项仅含必填 `base_url`、`url_name`、`url_desc`；URL 统一去尾斜杠，重复 key 或 URL、无协议/域名、空名称或未知字段均为非法。
-  - `AC3.2` Given admin 新增、编辑、停用或恢复环境 When 请求通过校验 Then MySQL 在单一事务中更新并创建一条 `mysql_to_yaml` 同步请求；环境 key 创建后不可改名，停用为逻辑删除并从 YAML 导出清单移除。
+  - `AC3.2` Given admin 新增、编辑、停用或恢复环境 When 请求通过校验 Then MySQL 在单一事务中更新并创建一条 `mysql_to_yaml` 同步请求；环境 key 创建后不可改名，停用为逻辑删除并从 YAML 导出清单移除。系统始终至少保留一个启用环境；DELETE 或 PATCH 试图停用最后一个启用环境时返回 `409 last_active_environment`，不更新 MySQL 且不创建同步请求。
   - `AC3.3` Given `mysql_to_yaml` 请求排队 When Jenkins 配置同步 Job 成功 Then 在隔离 SCM checkout 中校验期望 YAML blob SHA，生成确定性 YAML，自动提交、快进推送受控主干，并将目录状态更新为 `synced`。
   - `AC3.4` Given admin 手工修改 YAML 后点击“同步测试环境数据” When YAML 合法 Then Jenkins 读取隔离 checkout 的 YAML，后端在单一事务中新增、更新存在项并停用缺失项，保留所有历史关联数据。
   - `AC3.5` Given YAML 校验、Git 拉取、提交或推送失败 When 同步结束 Then MySQL 已提交的 CRUD 不回滚，目录和请求状态可见为 `failed` 或 `pending`，可重试且不产生半更新。
@@ -121,7 +121,7 @@
 | `pending` / `queued` / `running` | Jenkins、YAML 或 Git 失败 | `failed` | | 保留 MySQL 数据、错误码和可重试诊断 |
 | `failed` / `conflict` | admin 重试或重新提交 | `pending` | `conflict` 须先完成 YAML 导入或重新编辑 | 创建新的不可变请求 |
 
-同一时刻仅允许一个非终态环境配置同步请求；新的环境写入、导入和重试返回 `409 environment_config_sync_busy`，防止异步写入重排。环境生命周期为 `active -> inactive -> active`，不物理删除。
+同一时刻仅允许一个非终态环境配置同步请求；新的环境写入、导入和重试返回 `409 environment_config_sync_busy`，防止异步写入重排。环境生命周期为 `active -> inactive -> active`，不物理删除，且系统始终至少保留一个启用环境。
 
 ## §6 数据表设计
 
@@ -133,7 +133,7 @@
 | `env_name` | varchar(128) | 是 | 映射 YAML `url_name` | 普通索引 |
 | `base_url` | varchar(512) | 是 | 映射 YAML `base_url`，规范化去尾斜杠 | 全局唯一 |
 | `url_desc` | text | 是 | 映射 YAML `url_desc` | 无 |
-| `is_active` | bool | 是 | 停用即逻辑删除且不导出至 YAML | 索引 |
+| `is_active` | bool | 是 | 停用即逻辑删除且不导出至 YAML；不可停用最后一个启用环境 | 索引 |
 
 现有运行、快照和审计关联保持不变；停用不得物理删除任何历史记录。
 
@@ -173,8 +173,8 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 | --- | --- | --- | --- | --- |
 | `GET /api/v1/test-environments` | 登录用户 | `is_active=true|false` 可选 | 环境列表和当前目录状态 | `401` |
 | `POST /api/v1/test-environments` | admin | `env_key`、`url_name`、`base_url`、`url_desc`；key 与 URL 全局唯一 | `202`：环境与 `sync_attempt` | `400 validation_error`、`409 environment_config_sync_busy/duplicate_environment`、`403 admin_required` |
-| `PATCH /api/v1/test-environments/{id}` | admin | 仅 `url_name/base_url/url_desc/is_active`；不可改 key | `202`：环境与 `sync_attempt` | `404`、`409`、`403` |
-| `DELETE /api/v1/test-environments/{id}` | admin | 无请求体；逻辑停用 | `202`：停用环境与 `sync_attempt` | `404`、`409`、`403` |
+| `PATCH /api/v1/test-environments/{id}` | admin | 仅 `url_name/base_url/url_desc/is_active`；不可改 key；不可停用最后一个启用环境 | `202`：环境与 `sync_attempt` | `404`、`409 environment_config_sync_busy/last_active_environment`、`403` |
+| `DELETE /api/v1/test-environments/{id}` | admin | 无请求体；逻辑停用；不可停用最后一个启用环境 | `202`：停用环境与 `sync_attempt` | `404`、`409 environment_config_sync_busy/last_active_environment`、`403` |
 | `POST /api/v1/test-environments/sync-from-yaml` | admin | 无请求体 | `202`：`yaml_to_mysql` 请求 | `409 environment_config_sync_busy`、`403` |
 | `GET /api/v1/environment-catalog-sync-attempts/{id}` | admin | 无 | 单次同步状态、错误、Jenkins 与提交信息 | `404`、`403` |
 | `POST /api/v1/environment-catalog-sync-attempts/{id}/retry` | admin | 无；冲突态先导入 YAML 或重新创建写请求 | `202`：新请求 | `409 sync_not_retryable/environment_config_sync_busy`、`403` |
@@ -283,6 +283,7 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 | 2026-07-19 | 1.7 | 完成可冻结规格：AC、状态机、数据模型、API、UI 映射和容器化检查；纳入 YAML 初始化替代硬编码种子。 | 澄清闭环与独立调查结论。 |
 | 2026-07-19 | 1.8 | 主人确认冻结，允许自动衔接测试用例、UI、后端与前端 TDD 阶段。 | 主人签字门禁。 |
 | 2026-07-19 | 1.9 | 校准 Daily 预检状态机：预检失败只保留 Jenkins 诊断，不创建平台父任务、`TestRun` 或快照。 | 消除状态机与 AC1.5 的内部矛盾，不改变已冻结的验收决策。 |
+| 2026-07-19 | 2.0 | 主人裁决：始终至少保留一个启用测试环境；拒绝停用最后一项，统一返回 `409 last_active_environment`。 | 消除环境逻辑停用与环境 YAML 非空契约的冲突。 |
 
 ## §14 冻结确认（主人签字门禁）
 
