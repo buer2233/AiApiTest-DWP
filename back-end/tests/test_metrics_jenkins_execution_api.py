@@ -115,6 +115,56 @@ def create_daily_parent_binding(job_full_name: str = DAILY_PARENT_JOB_NAME):
     )
 
 
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("uses_environment", "uses_module"),
+    [(True, False), (False, True)],
+    ids=["legacy_environment_binding", "legacy_module_binding"],
+)
+def test_daily_discovery_rejects_legacy_binding_even_with_a_valid_target_base_url(
+    uses_environment,
+    uses_module,
+):
+    from metrics.views import DailyParentEnvironmentError, create_or_get_daily_task_from_discovery
+
+    environment = metric_model("TestEnvironment").objects.create(
+        env_key="daily-legacy-binding",
+        env_name="Daily 遗留绑定环境",
+        base_url="https://daily-legacy.example.invalid/api",
+        is_active=True,
+    )
+    module = metric_model("TestModule").objects.create(
+        package_name="daily_legacy_binding_module",
+        case_path="test_case/daily_legacy_binding_module",
+        module_name="Daily 遗留绑定模块",
+        module_dev="开发",
+        module_test="测试",
+        is_active=True,
+    )
+    binding = metric_model("JenkinsJobBinding").objects.create(
+        environment=environment if uses_environment else None,
+        module=module if uses_module else None,
+        task_type="daily_full",
+        job_full_name=DAILY_PARENT_JOB_NAME,
+        default_retry_count=0,
+        is_active=True,
+    )
+
+    with pytest.raises(DailyParentEnvironmentError):
+        create_or_get_daily_task_from_discovery(
+            binding,
+            {
+                "job_full_name": binding.job_full_name,
+                "build_number": 501,
+                "run_id": "legacy-daily-501",
+                "target_base_url": environment.base_url,
+            },
+        )
+
+    assert metric_model("JenkinsTask").objects.count() == 0
+    assert metric_model("TestRun").objects.count() == 0
+
+
 def create_daily_parent_task(
     context: dict,
     *,

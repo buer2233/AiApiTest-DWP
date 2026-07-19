@@ -906,11 +906,9 @@ def discover_jenkins_builds(*, job_full_names: list[str] | None = None, date: st
 
 
 def resolve_daily_parent_environment(binding: JenkinsJobBinding, build_result: dict) -> TestEnvironment:
-    """只接受构建产物中的精确环境 URL，空默认值不能由平台猜测。"""
-    if binding.environment_id:
-        if binding.environment and binding.environment.is_active:
-            return binding.environment
-        raise DailyParentEnvironmentError("Daily parent binding environment is inactive.")
+    """Daily 只接受 global binding，并由构建产物精确解析环境。"""
+    if binding.environment_id is not None or binding.module_id is not None:
+        raise DailyParentEnvironmentError("Daily parent binding must be global.")
     raw_target_url = build_result.get("target_base_url")
     if not isinstance(raw_target_url, str) or not raw_target_url.strip():
         raise DailyParentEnvironmentError("Daily parent result does not contain a resolved target_base_url.")
