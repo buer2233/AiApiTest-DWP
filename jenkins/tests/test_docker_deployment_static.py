@@ -51,6 +51,14 @@ def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
         "JENKINS_FAILED_RERUN_JOB_NAME: ${JENKINS_FAILED_RERUN_JOB_NAME:-AiApiTest-DWP-Failed-Rerun}",
         "JENKINS_MODULE_RERUN_JOB_NAME: ${JENKINS_MODULE_RERUN_JOB_NAME:-AiApiTest-DWP-Module-Rerun}",
         "JENKINS_DAILY_FULL_JOB_PREFIX: ${JENKINS_DAILY_FULL_JOB_PREFIX:-AiApiTest-DWP-Daily-Full-Module}",
+        "JENKINS_DAILY_FULL_JOB_NAME: ${JENKINS_DAILY_FULL_JOB_NAME:-AiApiTest-DWP-Daily-Full-Module}",
+        "JENKINS_DAILY_FULL_WORKER_JOB_NAME: ${JENKINS_DAILY_FULL_WORKER_JOB_NAME:-AiApiTest-DWP-Daily-Full-Module-Worker}",
+        "JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME:-AiApiTest-DWP-Environment-Catalog-Sync}",
+        "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL:-}",
+        "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH:-main}",
+        "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID:-}",
+        "JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID: ${JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID:-}",
+        "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED: ${JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED:-false}",
         "JENKINS_DEFAULT_CASE_PATH: ${JENKINS_DEFAULT_CASE_PATH:-test_case/test_gbif_case}",
         "JENKINS_API_TEST_DIR: ${JENKINS_API_TEST_DIR:-api-test}",
         "JENKINS_EXECUTORS: ${JENKINS_EXECUTORS:-40}",
@@ -146,8 +154,8 @@ def test_compose_configures_forty_jenkins_executors_via_init_script():
     assert "jenkins.save()" in script
 
 
-def test_compose_bootstraps_local_module_jobs_via_versioned_init_script():
-    """Compose 启动必须自动创建与后端 binding 一致的分模块 Daily Job。"""
+def test_compose_bootstraps_stage13_jobs_via_versioned_init_script():
+    """Compose 启动必须自动创建唯一 Daily、Worker 和目录同步 Job。"""
     compose = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
 
     assert (

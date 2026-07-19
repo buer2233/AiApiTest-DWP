@@ -96,27 +96,34 @@ Allure 是 Jenkins Allure 插件提供的 Build 级报告与 artifact 入口，�
 | 用途 | Jenkinsfile / 脚本 | 主要触发与模式 |
 | --- | --- | --- |
 | 通用兼容入口 | `jenkins/Jenkinsfile` / `jenkins/scripts/api-test-pipeline.groovy` | 手工或既有兼容调用；支持 `none`、`selected`、`all-failed`、`module`。 |
-| Daily Full Module | `jenkins/Jenkinsfile.daily-full-module` / `jenkins/scripts/daily-full-module-pipeline.groovy` | 现状为每个模块一个 Daily Job，固定 `RETRY_MODE=none`。 |
+| Daily Full Module 父任务 | `jenkins/Jenkinsfile.daily-full-module` / `jenkins/scripts/daily-full-module-pipeline.groovy` | 唯一 `AiApiTest-DWP-Daily-Full-Module`，每日 `0 2 * * *` 调度；预检全量 YAML、触发 Worker、等待、聚合并发布唯一父级 Allure。 |
+| Daily Full Module Worker | `jenkins/Jenkinsfile.daily-full-module-worker` / `jenkins/scripts/daily-full-module-worker-pipeline.groovy` | 无定时器，只能由父任务触发；使用独立 Daily Worker 分类，满 10 个时由 Jenkins Queue 等待。 |
 | 失败用例重试 | `jenkins/Jenkinsfile.failed-rerun` / `jenkins/scripts/failed-rerun-pipeline.groovy` | 手工传入 `PYTEST_NODE_IDS`，固定 `RETRY_MODE=selected`。 |
 | 模块重试 | `jenkins/Jenkinsfile.module-rerun` / `jenkins/scripts/module-rerun-pipeline.groovy` | 手工传入 `CASE_PATH`，固定 `RETRY_MODE=module`。 |
+| 环境目录同步 | `jenkins/Jenkinsfile.environment-catalog-sync` / `jenkins/scripts/environment-catalog-sync-pipeline.groovy` | 使用干净、隔离的 SCM checkout，校验 YAML Git blob SHA；全局串行且不占三类业务限流配额。 |
 
 业务 Pipeline 运行阶段为 `Checkout`、`Run API Tests`、`Archive Runtime Artifacts`、`Publish Allure`。运行产物会落入 `api-test/runtime/ci-runs/<run-id>/`，包括 `summary.json`、失败 node id、console、Allure 原始结果和 HTML 报告；Jenkins 构建 artifact 与 Allure 页面是报告查看入口。
 
-### Daily Full Module 的已登记事项
+### Daily Full Module 编排
 
-当前实现会根据模块配置创建类似 `AiApiTest-DWP-Daily-Full-Module-<module>` 的多个 Daily Job，并各自在每日定时点执行。这与“只保留一个 `AiApiTest-DWP-Daily-Full-Module`，由该 Pipeline 调度当前所有模块、最多 10 个并发 Job 并集中聚合报告”的目标不一致。
+唯一 Daily 父 Job `AiApiTest-DWP-Daily-Full-Module` 使用 `0 2 * * *` 定时，初始化完成后即生效；手工构建同样执行当前 YAML 的全部模块。父 Job 在调度前调用 `api-test` 的环境目录和模块清单预检；任何预检失败都不会触发 Worker。随后父 Job 以无定时 Worker 并行执行模块，Daily Worker、模块重试、失败重试分别使用独立的 Jenkins 限流分类，每类最多 10 个构建，超额构建由 Jenkins Queue 等待。
 
-该差异已登记为 [ISSUE-Stage13-Daily-Full-Module-单一流水线编排](../project-info/issue/ISSUE-Stage13-Daily-Full-Module-单一流水线编排.md)，状态为待处理。本次不删除现有分模块 Job、不改变其定时器，也不把单一 Daily Pipeline 叙述为已实现功能。
+父 Job 不会因单个模块测试失败而中止其他模块。它等待所有可调度 Worker，回收 Worker 工件，调用 `api-test` 聚合协议生成稳定父级 `summary.json`、模块明细和合并 Allure 原始结果，归档并仅发布父级 Allure。Worker、聚合或归档基础设施异常同样在所有可用结果归档后使父构建失败。
+
+旧分模块 Daily Job 与已有构建历史在最终验收前保持不变。`JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED` 目前只作为将来受控迁移的审计守卫，当前版本不执行删除。
+
+环境目录同步 Job 不读取 MySQL、不写开发挂载工作区，也不运行接口测试。它使用 `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL` 指向的受控仓库建立干净 checkout，在写入前校验目标 YAML 的 Git blob SHA；仅在快进推送成功后回调受限内部 API。Git 与服务凭据只引用 Jenkins Credentials ID，不能写入模板、Pipeline 或日志。
 
 ### 业务参数摘要
 
 | Pipeline | 必填或关键参数 | 说明 |
 | --- | --- | --- |
-| Daily Full Module | `CASE_PATH`、`MODULE_NAME`、`RETRY_COUNT`、`CLEAN_ALLURE`、`OPEN_REPORT` | 本地 Daily Job 的 `CASE_PATH` 默认来自 `JENKINS_MODULE_CASE_PATH`；为空时构建明确失败。 |
+| Daily Full Module 父任务 | `TARGET_BASE_URL` | 空值使用私有默认 URL；非空值必须已登记于 `package_environment.yaml`，父任务始终执行 YAML 全量模块。 |
+| Daily Full Module Worker | `CASE_PATH`、`MODULE_NAME`、`TARGET_BASE_URL`、`RUN_ID` | 只能由父任务传入；`CASE_PATH` 为空时构建明确失败。 |
 | 失败用例重试 | `CASE_PATH`、`PYTEST_NODE_IDS`、`RETRY_COUNT`、`CLEAN_ALLURE`、`OPEN_REPORT` | `PYTEST_NODE_IDS` 支持换行或英文逗号；为空时不会误跑整个模块。 |
 | 模块重试 | `CASE_PATH`、`MODULE_NAME`、`RETRY_COUNT`、`CLEAN_ALLURE`、`OPEN_REPORT` | 按 `CASE_PATH` 执行模块内全部用例。 |
 
-`OPEN_REPORT` 是兼容参数。在 Jenkins 非交互构建中始终按关闭处理，避免启动报告 Web 服务占用构建；报告统一通过 Jenkins Allure 入口或归档 HTML 查看。
+`OPEN_REPORT` 是兼容参数。在 Jenkins 非交互构建中始终按关闭处理，避免启动报告 Web 服务占用构建；报告统一通过 Jenkins Allure 入口或归档 HTML 查看。Worker、模块重试和失败重试经 `api_runner_cli.py execute` 调用 `aiapitest-api-runner:local`，测试依赖和镜像内源码均在隔离 runner 中使用。runner-lifecycle 负责将标准工件导出回 Jenkins workspace；导出失败会保留受控诊断和可追溯的 runner，而不会伪造成功报告。
 
 ## 安全与维护边界
 

@@ -1,0 +1,11 @@
+// Daily Worker Pipeline 入口。该 Job 只能由 Daily 父任务触发，不配置 cron。
+node {
+    if (env.LOCAL_WORKSPACE_REPO == 'true') {
+        echo "Using local mounted repository at ${pwd()}"
+    } else {
+        checkout scm
+    }
+
+    def pipelineScript = load 'jenkins/scripts/daily-full-module-worker-pipeline.groovy'
+    pipelineScript.call()
+}
