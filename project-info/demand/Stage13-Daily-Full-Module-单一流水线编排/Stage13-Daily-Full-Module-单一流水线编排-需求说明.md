@@ -8,7 +8,7 @@
 | 需求分级 | L |
 | 裁剪说明 | 不裁剪。本需求影响 Jenkins Job 创建策略、执行并发协议、Allure 聚合、后端同步与前端任务展示。 |
 | 关联模块 | api-test / back-end / front-end / jenkins / docker |
-| 文档状态 | 已冻结 |
+| 文档状态 | 澄清中（v2.2 书面规格复核前；既有已实现范围保持有效） |
 | 负责人 | 主人 |
 
 ## §0 待澄清清单（澄清门禁）
@@ -30,17 +30,18 @@
 | Q13 | 环境从 `package_environment.yaml` 删除时的后端保留策略。 | A. 同步时标记为停用，保留历史任务、快照和趋势；B. 级联删除所有关联数据；C. 保留为启用状态直到人工处理。影响历史审计、外键约束和 URL 可用范围。 | 已确认：同步时标记为停用，保留历史任务、快照和趋势。 | 已确认 |
 | Q14 | 平台 CRUD 修改环境后，Jenkins 写回版本化 YAML 的 Git 持久化策略。 | A. Jenkins 自动提交并推送；B. 只修改当前受控工作区，等待人工提交；C. 不改 YAML，仅在 MySQL 保存。影响凭据、可追溯性、容器化与多副本一致性。 | 已确认：Jenkins 自动提交并推送受控主干。仅允许工作区干净、远端可快进时写入；推送失败保留 MySQL 变更并标记待同步。 | 已确认 |
 | Q15 | MySQL CRUD 与手工 YAML 编辑同时发生时的冲突策略。 | A. 使用 YAML SHA 修订号检测冲突，拒绝自动覆盖并要求管理员先导入或重新提交；B. MySQL 写回永远覆盖 YAML；C. YAML 导入永远覆盖 MySQL。影响数据丢失风险和同步操作体验。 | 已确认：使用 YAML SHA 修订号检测冲突，拒绝自动覆盖；管理员须先导入 YAML 或重新提交平台修改。 | 已确认 |
+| Q16 | 空 MySQL 的 schema 与首次数据初始化边界。 | A. 仅自动 migration；B. 自动 migration、环境目录投影和首次管理员初始化；C. 由应用启动隐式迁移。影响新机可用性、账号安全、可观测性和运行竞争。 | 已确认：选择 B。固定 Platform Bootstrap Job 在受控阶段执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`；现有库只增量迁移，管理员仅在账号表为空时创建。 | 已确认 |
 
 ## §1 需求背景与目标
 
-- **背景**：当前系统根据 `package_module.yaml` 为每个模块创建并定时运行一个 Daily Job；Jenkins 显示多个 `${JENKINS_DAILY_FULL_JOB_PREFIX}-<module>` Job。测试环境又仅由后端硬编码种子维护，页面只读，不能安全地把平台环境、测试框架 YAML 和 MySQL 对齐。
-- **目标**：收敛为唯一的 `AiApiTest-DWP-Daily-Full-Module` Pipeline；该 Pipeline 固定于每日 `02:00` 调度 YAML 全量模块，最多 10 个 Daily Worker 并发，完成汇总、失败处理和唯一 Allure 归档。新增版本化环境清单及环境通过率页 CRUD，使 MySQL、YAML 和 Daily 目标环境保持可追溯同步。
-- **成功指标 / 价值**：仅一个被定时调度的 Daily 入口；每个构建可追溯全量模块、目标环境和聚合结果；管理员可安全维护测试环境，且 YAML 与 MySQL 不会被静默互相覆盖。
+- **背景**：当前系统根据 `package_module.yaml` 为每个模块创建并定时运行一个 Daily Job；Jenkins 显示多个 `${JENKINS_DAILY_FULL_JOB_PREFIX}-<module>` Job。测试环境又仅由后端硬编码种子维护，页面只读，不能安全地把平台环境、测试框架 YAML 和 MySQL 对齐。固定 Platform Bootstrap Job 在空 MySQL 上不会应用 Django schema，导致 ready 探针返回 `schema_not_ready`，新机器不能通过唯一环境入口完成首次可用部署。
+- **目标**：收敛为唯一的 `AiApiTest-DWP-Daily-Full-Module` Pipeline；该 Pipeline 固定于每日 `02:00` 调度 YAML 全量模块，最多 10 个 Daily Worker 并发，完成汇总、失败处理和唯一 Allure 归档。新增版本化环境清单及环境通过率页 CRUD，使 MySQL、YAML 和 Daily 目标环境保持可追溯同步；同时使固定 Platform Bootstrap Job 自动、安全地完成空库 schema 与首次数据初始化。
+- **成功指标 / 价值**：仅一个被定时调度的 Daily 入口；每个构建可追溯全量模块、目标环境和聚合结果；管理员可安全维护测试环境，且 YAML 与 MySQL 不会被静默互相覆盖；新机器空 MySQL 可经同一固定 Job 完成建表、首个环境与首个管理员初始化。
 
 ## §2 范围
 
-- **做（in scope）**：单一 Daily Job 的创建/修复与固定 `02:00` 定时策略；从 `api-test/utils/package_module.yaml` 发现模块；受限并发编排；模块结果和父级汇总的稳定产物协议；Allure 归档；新增 `api-test/utils/package_environment.yaml`；测试环境通过率页面的环境 CRUD；MySQL 与 YAML 的双向同步、同步状态和审计；后端同步、接口与前端展示的必要调整；切换策略与回归测试。
-- **不做（out of scope）**：不改变模块重试、失败重试、pytest 失败 node id 的业务语义；不新增平台侧 Daily 手动触发入口；不允许后端容器直接写宿主机源码；不在最终验收通过前删除旧分模块 Daily Job 或其 Jenkins 历史。最终验收通过后的受控删除是 Q4 已确认迁移步骤。
+- **做（in scope）**：单一 Daily Job 的创建/修复与固定 `02:00` 定时策略；从 `api-test/utils/package_module.yaml` 发现模块；受限并发编排；模块结果和父级汇总的稳定产物协议；Allure 归档；新增 `api-test/utils/package_environment.yaml`；测试环境通过率页面的环境 CRUD；MySQL 与 YAML 的双向同步、同步状态和审计；后端同步、接口与前端展示的必要调整；切换策略与回归测试；固定 Platform Bootstrap Job 的受控 schema migration、环境目录投影与首次管理员初始化。
+- **不做（out of scope）**：不改变模块重试、失败重试、pytest 失败 node id 的业务语义；不新增平台侧 Daily 手动触发入口；不允许后端容器直接写宿主机源码；不在最终验收通过前删除旧分模块 Daily Job 或其 Jenkins 历史；不执行 `flush`、`reset`、`drop`、删除 MySQL volume、自动 rollback 或在 ready endpoint/应用启动中隐式执行 migration。最终验收通过后的受控删除是 Q4 已确认迁移步骤。
 
 ## §3 用户角色与权限矩阵
 
@@ -49,6 +50,7 @@
 | `admin` | 查看环境快照和 Daily 父任务；环境新增、编辑、停用/恢复；发起 YAML 导入、查看和重试同步请求 | 不可绕过 YAML SHA 冲突检查；不可在平台选择 Daily 模块子集 | 启用与停用环境、同步审计、全部任务与报告入口 |
 | `member` | 查看启用环境、环境快照、模块快照、Daily 父任务和父级 Allure | 环境 CRUD、导入、同步重试、停用/恢复 | 仅启用环境及被授权的既有任务/报告 |
 | Jenkins 配置同步 Job | 读取隔离 SCM checkout 中的 YAML；回调受限内部 API；自动 Git 提交并推送 | 不访问 MySQL；不使用开发挂载工作区；不执行 pytest | 仅本次同步请求的规范化配置快照 |
+| Platform Bootstrap Job | 通过一次性 `backend-bootstrap` 容器执行 schema 与首次数据初始化，部署和验收应用服务 | 不管理 mysql/jenkins；不执行破坏性数据库命令；不输出私有管理员凭据；不在服务端点中执行 migration | 仅本次环境构建的脱敏诊断与证据 |
 
 本需求不新增平台侧 Daily 手动触发入口；Jenkins 管理员仍可在 Jenkins 页面手动构建。`TARGET_BASE_URL` 仅接受 `api-test/utils/package_environment.yaml` 中声明、并已同步为启用 `TestEnvironment` 的 URL。
 
@@ -94,6 +96,20 @@
 - **验收标准**：
   - `AC4.1` Given 新 Pipeline 未通过最终验收 When Jenkins 初始化或同步 Then 旧分模块 Daily Job 与构建历史不被删除。
   - `AC4.2` Given 验收包已获主人最终签字 When 执行版本化迁移 Then 删除旧分模块 Daily Job 及其 Jenkins 构建历史，保留唯一 Daily 父 Job 和平台数据库历史。
+
+### F5 Platform Bootstrap schema 与首次数据初始化
+
+- **能力**：固定 `AiApiTest-DWP-Platform-Bootstrap` Job 在 Dependency Assurance 成功后、Deploy 前，通过一次性 `backend-bootstrap` 容器执行标准 Django migration 和首次必要数据初始化；不新增 Jenkins 参数或旁路入口。
+- **关联数据**：现有 Django migration 表、`TestEnvironment`、`UserAccount`；不新增业务表或 DRF API。
+- **验收标准**：
+  - `AC5.1` Given MySQL 数据库为空且基础服务健康 When 固定 Job 进入 `Schema & Initial Data` Then `migrate --noinput` 创建 `django_migrations` 与全部当前 Django 模型表，不使用 `flush`、`reset`、`drop` 或 volume 操作。
+  - `AC5.2` Given 数据库已存在已应用 migration When 固定 Job 执行 Then 仅应用待执行 migration；无待执行 migration 时成功完成，不删除、重建或清空现有表和业务数据。
+  - `AC5.3` Given schema 阶段成功 When 执行首次数据步骤 Then `seed_environment` 只从镜像内 `package_environment.yaml` 初始化尚未建立的环境目录；已有平台环境时成功跳过且不覆盖 MySQL 目录。
+  - `AC5.4` Given `UserAccount` 表为空 When `init_admin --bootstrap-only` 执行 Then 仅使用私有 `INITIAL_ADMIN_*` 创建首个 admin；已有任意账号时成功跳过，不修改既有账号的密码、角色或显示名称。
+  - `AC5.5` Given 需要创建首个管理员但私有变量缺失或不合规 When 初始化执行 Then schema 阶段失败并产生脱敏诊断，Deploy、Health 和 Tests 不启动；不得自动回滚已完成 migration 或删除数据。
+  - `AC5.6` Given migration、环境投影或管理员初始化任一步失败 When Job 汇总 Then 证据、Summary 和控制台不包含管理员密码、token 或其他私有值，且 Job 不管理 mysql/jenkins 基础服务。
+  - `AC5.7` Given schema 阶段尚未成功 When backend ready endpoint 被调用 Then endpoint 仅返回只读 `schema_not_ready` 诊断，不执行 migration；schema 成功后才允许 Deploy 后的 ready 探针通过。
+  - `AC5.8` Given Pipeline 定义被加载 When 查看阶段顺序 Then `Schema & Initial Data` 固定在 Dependency Assurance 与 Deploy 之间，使用 `platform_bootstrap` 可测试核心而非在 Groovy/Jenkinsfile 内联 Docker 或 Django 命令。
 
 ## §5 状态机定义
 
@@ -201,11 +217,11 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 | 模块边界 | 是 | `api-test` 管理模块/环境 YAML、单模块执行和聚合工具；Jenkins 编排 Worker 与配置同步；后端管理投影、审计和 API；前端只通过 DRF 展示。 |
 | 数据模型 | 是 | Daily 父任务 module 可空；增加环境目录状态与追加同步审计；环境删除改为停用。 |
 | 权限 | 是 | admin 才能管理环境与同步；Jenkins 使用最小权限服务令牌和 Git Credentials；member 保持只读。 |
-| Jenkins 执行链路 | 是 | 新增唯一 Daily 父 Job、无定时 Worker、三类独立 10 并发分类、专用串行环境配置同步 Job。 |
+| Jenkins 执行链路 | 是 | 新增唯一 Daily 父 Job、无定时 Worker、三类独立 10 并发分类、专用串行环境配置同步 Job；Platform Bootstrap 增加受控的 `Schema & Initial Data` 阶段。 |
 | `api-test` 执行协议 | 是 | 新增环境 YAML 校验/解析和 Daily 聚合协议；pytest/重试仍仅在 `ci_runner.py`。 |
 | 报告 / Allure 协议 | 是 | Daily 只发布父级聚合 Allure；模块明细仅归档；重试 Pipeline 维持独立报告语义。 |
-| Docker Compose 部署 | 是 | backend 镜像复制环境 YAML 供固定构建使用；运行时 YAML 导入/导出一律走 Jenkins 隔离 SCM checkout，使用服务名和私有变量。 |
-| 安全 | 是 | YAML 禁止 URL 凭据和真实生产地址；Git/服务令牌只在 Jenkins Credentials 或本地 `.env`；错误信息脱敏。 |
+| Docker Compose 部署 | 是 | backend 镜像复制环境 YAML 供固定构建使用；新增无端口、一次性 `backend-bootstrap` 服务复用该镜像执行 schema/首装初始化；运行时 YAML 导入/导出一律走 Jenkins 隔离 SCM checkout，使用服务名和私有变量。 |
+| 安全 | 是 | YAML 禁止 URL 凭据和真实生产地址；Git/服务令牌只在 Jenkins Credentials 或本地 `.env`；管理员私有变量只注入一次性 bootstrap 容器；错误信息脱敏。 |
 
 ## §10 容器化兼容检查
 
@@ -218,6 +234,7 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 | 手工 Jenkins 配置依赖 | 否（目标） | 父 Job、Worker、限流分类和环境同步 Job 均由版本化 init Groovy 幂等创建/修复。 |
 | 容器运行时直接改源码 | 不允许 | backend 不挂载仓库；环境 YAML 写回只能在 Jenkins 的隔离、干净 SCM checkout 中完成，绝不写 `LOCAL_WORKSPACE_REPO` 开发挂载目录。 |
 | Git 推送凭据 | 私有配置 | Git Credentials ID、服务令牌、作者身份通过 Jenkins Credentials 或根 `.env` 私有变量注入；`.env.example` 仅保留变量说明/占位符。 |
+| 空库 schema 与初始数据 | 受控支持 | 仅固定 Job 的一次性 `backend-bootstrap` 容器执行标准 Django 命令；MySQL/Jenkins 基础服务仍由主人/平台运维 bootstrap，运行时不依赖宿主机 Python 或绝对路径。 |
 
 ## §11 非功能要求
 
@@ -231,6 +248,7 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 - 同一 Pipeline 类型达到 10 个并发 Job 时，新请求必须在 Jenkins 队列等待该类型容量，不能因其他类型正在执行而被错误阻塞或拒绝。
 - 新增环境清单 `api-test/utils/package_environment.yaml`，以稳定 `env_key` 为顶层键，每项必须包含 `base_url`、`url_name`、`url_desc`；格式或必填字段错误时 Daily 在调度前失败。
 - 环境通过率页面提供受权限控制的测试环境新增、编辑、停用/删除和“同步测试环境数据”操作。平台 CRUD 先记录 MySQL，再触发 Jenkins 专用配置同步 Job 写回 YAML，自动提交并推送受控主干；手工编辑 YAML 后，admin 点击同步按钮将 YAML 校验并导入 MySQL。写回/导入失败必须可观察、可重试且不产生半更新；YAML SHA 不一致时拒绝自动覆盖，管理员须先导入 YAML 或重新提交平台修改。
+- Platform Bootstrap 的 schema 阶段必须幂等、串行、可观察：重复构建只应用待执行 migration；环境与管理员初始化仅处理未初始化状态；阶段失败不启动应用部署且不做自动 rollback。每个子命令均记录脱敏命令证据和结构化错误码。
 - Daily 参数 `TARGET_BASE_URL` 未传时使用当前私有配置默认 URL；传入时必须复用现有 `--base-url` 校验，并精确匹配环境清单及已同步的启用 `TestEnvironment.base_url`。非法、未登记或不同步 URL 在调度任何模块前失败，不创建父任务、不更新模块快照；模块清单不因 URL 覆盖而变化。
 - 环境同步 Job 不属于 Daily、模块重试或失败重试配额；它全局串行，且仅在隔离 SCM checkout 干净、目标主干可快进时自动提交/推送。
 - YAML 采用 UTF-8、确定性 key 排序、两空格缩进和末尾换行；同步 SHA 使用该文件 Git blob SHA，不能以仓库 HEAD 替代。
@@ -259,6 +277,14 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 | AC3.8 | 环境初始化不再硬编码默认环境 | F3 |
 | AC4.1 | 验收前不删除旧 Daily Job | F4 |
 | AC4.2 | 验收后受控删除旧 Job 与构建历史 | F4 |
+| AC5.1 | 空库全量建表且无破坏性操作 | F5 |
+| AC5.2 | 已有库只增量应用 migration | F5 |
+| AC5.3 | 首次环境目录投影幂等 | F5 |
+| AC5.4 | 仅空账号表初始化管理员 | F5 |
+| AC5.5 | 初始化配置失败阻断部署 | F5 |
+| AC5.6 | 失败诊断脱敏且基础服务不受管 | F5 |
+| AC5.7 | readiness 始终只读 | F5 |
+| AC5.8 | 受控八阶段与可测试核心 | F5 |
 
 ## §13 变更记录
 
@@ -285,6 +311,7 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 | 2026-07-19 | 1.9 | 校准 Daily 预检状态机：预检失败只保留 Jenkins 诊断，不创建平台父任务、`TestRun` 或快照。 | 消除状态机与 AC1.5 的内部矛盾，不改变已冻结的验收决策。 |
 | 2026-07-19 | 2.0 | 主人裁决：始终至少保留一个启用测试环境；拒绝停用最后一项，统一返回 `409 last_active_environment`。 | 消除环境逻辑停用与环境 YAML 非空契约的冲突。 |
 | 2026-07-20 | 2.1 | 主人裁决：Jenkins 环境目录同步 Job 在成功 push 后回传实际 Git `HEAD` commit SHA，供后端 `mysql_to_yaml` 审计持久化。 | 禁止后端伪造或放宽成功回调的 commit SHA；修复仅在推送成功后执行。 |
+| 2026-07-20 | 2.2-draft | 增加 F5：固定 Platform Bootstrap Job 自动执行标准 Django migration、环境目录投影和仅空账号表的管理员初始化；冻结一次性 bootstrap 容器、八阶段顺序、失败/脱敏边界。 | Job #26 因空库 schema 未就绪失败；主人选择 B 并确认设计，等待书面规格复核。 |
 
 ## §14 冻结确认（主人签字门禁）
 
@@ -294,4 +321,6 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 - [x] §10 容器化兼容检查通过
 - [x] §4 每个功能点都有可测的 Given-When-Then 验收标准
 
-**冻结人（主人）**：`主人`　　**冻结日期**：`2026-07-19`
+**v1.9 冻结人（主人）**：`主人`　　**冻结日期**：`2026-07-19`
+
+**v2.2 规格复核**：待主人确认本次书面修订后冻结。
