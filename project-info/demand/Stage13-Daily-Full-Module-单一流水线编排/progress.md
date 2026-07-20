@@ -13,6 +13,7 @@
 - 主协调代理复跑 Task 4 重点后端回归：`50 passed`；Jenkins 静态 `15 passed`；未运行真实 Jenkins/Allure 插件集成。
 - Task 5 实现完成：C01 拆分 R1 `EnvironmentSnapshotPanel` 和仅 admin 的目录容器、表格、编辑与同步弹窗；member 不挂载 R2-R4。复跑 `npm run test:unit` 为 `9 files / 22 passed`，`npm run typecheck` 通过。Stage13 Playwright 用例只写入，按唯一入口约束待固定 Jenkins 环境 Job 运行。
 - 已清理 pytest 产生的 `back-end/tests/evidence/htmlcov/` 覆盖率 HTML，仅保留目录 `.gitignore`；不提交运行产物。
+- 固定 Jenkins Platform Bootstrap Job #26（`build_all=false`、`run_full_tests=true`）已终态 `FAILURE`。Preflight、依赖构建和 Deploy 成功；Health 阶段 backend live 成功但 backend ready 返回 `503 schema_not_ready`，前端与 worker 探针随全局健康期限结束而失败，Tests 阶段未执行。artifact 仅登记 `platform-bootstrap-summary.json`、`health.json` 和各 health probe 日志；不保存原始日志。根据平台规则，AI 不运行 migration 或直接启动服务，等待主人/平台运维处理 schema 后重新构建同一固定 Job。
 
 ## 2026-07-20
 

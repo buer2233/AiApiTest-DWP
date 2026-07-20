@@ -17,7 +17,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 3. 测试用例与 UI 设计 | 已完成 | 测试用例、RTM 与覆盖校准完成；主人已选择 C01 作为前端视觉基准。 |
 | 4. 后端与 Jenkins TDD 实施 | 已完成 | Task 1-4 完成；Task 4 最终复审的三项 Important 已按 TDD 整改并通过定向回归。 |
 | 5. 前端 TDD 实施 | 已完成 | C01、R1-R4、API 契约、Vitest 与类型检查均已完成；Playwright 留待固定 Jenkins 环境 Job。 |
-| 6. 独立审查、验证与验收包 | 进行中 | 代码和静态回归已通过，待提交推送后运行固定 Jenkins 环境 Job。 |
+| 6. 独立审查、验证与验收包 | 受阻 | 固定 Jenkins 环境 Job #26 已运行但因既有数据库 schema 未就绪失败；等待主人/平台运维按既定流程处理 migration 后重建同一 Job。 |
 
 ### 阶段 3 子任务
 
@@ -102,6 +102,8 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 ### Task 6 独立审查、环境 Job 验证与验收
 
 每项实现由独立 review agent 审查。后端、Jenkins 与前端均通过后，使用固定 Jenkins 环境 Job 进行环境验收，验收包只登记 Job/build、摘要和 artifact 名称；主人最终签字前绝不删除旧 Daily Job 或 Jenkins 构建历史。
+
+**当前阻塞**：固定 `AiApiTest-DWP-Platform-Bootstrap` Job #26 的 Checkout、依赖和部署成功，Health 阶段发现 backend ready 为 `503 schema_not_ready`。该 Job 和 AI 均禁止执行 migration；请主人/平台运维按批准的数据库迁移流程补齐 schema 后，重新构建同一 Job。Tests 阶段没有启动，故尚无 Stage13 Playwright 截图或运行态通过证据。
 
 ## 约束
 

@@ -2,7 +2,7 @@
 
 ## 当前结论
 
-代码、静态测试和独立审查整改已完成；最终运行态验收待提交推送后，通过唯一的固定 Jenkins Platform Bootstrap Job 执行。旧分模块 Daily Job 与历史没有删除。
+代码、静态测试和独立审查整改已完成；固定 Jenkins Platform Bootstrap Job #26 已执行但在 Health 阶段因数据库 schema 未就绪失败。旧分模块 Daily Job 与历史没有删除。
 
 ## 需求与视觉
 
@@ -27,6 +27,14 @@
 | 前端单测 | `npm run test:unit` | `9 files / 22 passed` |
 | 前端类型 | `npm run typecheck` | 通过 |
 | 代码完整性 | `git diff --check` | 通过，只有既有 CRLF 提示 |
+
+## 固定 Jenkins 环境验收
+
+- Job：`AiApiTest-DWP-Platform-Bootstrap #26`，参数 `build_all=false`、`run_full_tests=true`，终态 `FAILURE`。
+- 成功阶段：Preflight、Dependency Assurance、Deploy。backend live probe 为 200，基础 MySQL/Jenkins 容器在 Deploy 前后保持同一 ID。
+- 失败诊断：backend ready 为 `503 schema_not_ready`，数据库连接可用但 schema 未就绪；全局 Health deadline 随后使 frontend 和 worker probe 失败，Tests 阶段未执行。
+- Jenkins artifact 名称：`platform-bootstrap-summary.json`、`health.json`、`health-backend-ready.log`、`health-frontend-*.log`、`health-worker.log`。原始内容只留 Jenkins artifact，未提交 Git。
+- 处理边界：固定 Job 与 AI 都禁止执行 migration。主人/平台运维须按批准的数据库迁移流程补齐 schema 后，再运行同一固定 Job；不得以直接启动服务替代验收。
 
 实际原始 pytest coverage HTML 已清理，未作为 Git 产物保留。
 
