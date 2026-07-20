@@ -36,7 +36,7 @@
 | UI 范围 | 已覆盖 | C01、R1-R4 映射已落实；member 不渲染 R2-R4，禁止 DOM 已写入 Playwright 用例。 |
 | API / Pipeline 契约 | 已覆盖 | 写接口、读接口、Jenkins 父/Worker/同步 Job、聚合产物协议均已定位。 |
 | 实施位置 | 已填写 | 关键 AC 已回填 api-test、Jenkins、后端和前端文件/符号。 |
-| 验收状态 | 进行中 | 静态、pytest、Vitest、typecheck 与独立审查完成；固定 Jenkins 环境 Job 尚未运行。 |
+| 验收状态 | 受阻 | 静态、pytest、Vitest、typecheck 与独立审查完成；固定 Jenkins Job #26 因 `schema_not_ready` 在 Health 失败，Tests/Playwright 未启动。 |
 
 ## 漂移检查清单（一致性自动门禁）
 
@@ -47,7 +47,7 @@
 - [x] **无契约漂移**：后端 API、Jenkins 静态、api-test 和前端 API 契约已核对；member 目录审计字段已从浏览器响应删除。
 - [x] **无未实现需求**：所有 AC 已填写实现位置。
 - [x] **无孤儿代码**：后端/Jenkins 最终复审整改与前端独立代码审读未发现阻断问题。
-- [ ] **全部达成**：待固定 Jenkins 环境 Job 的运行态证据。
+- [ ] **全部达成**：固定 Jenkins Job #26 因数据库 schema 未就绪失败；待主人/平台运维完成既定 migration 流程后重建同一 Job 并取得运行态证据。
 
 ## 漂移处置记录
 
