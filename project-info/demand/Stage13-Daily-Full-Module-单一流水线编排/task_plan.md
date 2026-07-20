@@ -14,10 +14,10 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | --- | --- | --- |
 | 1. 现状与根因调查 | 已完成 | 已定位 Job 创建、Daily 执行和后端绑定均按模块拆分。 |
 | 2. 需求澄清与规格冻结 | 已完成 | 主人于 2026-07-20 确认 v2.2：固定 Platform Bootstrap Job 自动执行增量 migration、环境投影和首次管理员初始化。 |
-| 3. 测试用例与 UI 设计 | 进行中 | 正在补齐 F5 测试用例、RTM 与无新增页面的 UI 覆盖校准；C01 原有视觉范围不变。 |
-| 4. 后端与 Jenkins TDD 实施 | 待开始 | Task 1-4 保持已完成；新增 Task 7 将按 RED -> GREEN -> REFACTOR 实现 Bootstrap schema 与首次数据阶段。 |
+| 3. 测试用例与 UI 设计 | 已完成 | F5 测试用例、RTM 与无新增页面的 UI 覆盖校准已完成；C01 原有视觉范围不变。 |
+| 4. 后端与 Jenkins TDD 实施 | 已完成 | Task 1-4 保持已完成；Task 7 已按 RED -> GREEN -> REFACTOR 实现 Bootstrap schema 与首次数据阶段并经独立审查批准。 |
 | 5. 前端 TDD 实施 | 已完成 | C01、R1-R4、API 契约、Vitest 与类型检查均已完成；Playwright 留待固定 Jenkins 环境 Job。 |
-| 6. 独立审查、验证与验收包 | 受阻 | 固定 Jenkins 环境 Job #26 已运行但因既有数据库 schema 未就绪失败；等待主人/平台运维按既定流程处理 migration 后重建同一 Job。 |
+| 6. 独立审查、验证与验收包 | 进行中 | Task 7 独立审查已批准；固定 Jenkins 环境 Job #27 的 schema、部署和健康检查成功，完整 Tests 被既有基线失败阻断，待单独处置后重建同一 Job。 |
 
 ### 阶段 3 子任务
 
@@ -41,10 +41,10 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 | 子任务 | 状态 | 依赖 |
 | --- | --- | --- |
-| 7A F5 测试设计与 RTM | 进行中 | 仅扩展 F5 的测试用例、RTM 与 UI 无范围变化校准。 |
-| 7B Jenkins/Compose/后端 RED | 待开始 | 先增加 Platform Bootstrap 阶段、一次性容器、脱敏与 `init_admin --bootstrap-only` 的失败测试。 |
-| 7C F5 GREEN/REFACTOR | 待开始 | 仅修改 Jenkins Bootstrap 核心/Groovy、Compose 一次性服务、管理命令与必要文档规则。 |
-| 7D 独立审查与固定 Job 验收 | 待开始 | 独立 review agent 审查后，AI 仅触发同一固定 Platform Bootstrap Job 取得空库/增量实际证据。 |
+| 7A F5 测试设计与 RTM | 已完成 | 已扩展 F5 测试用例、RTM 与 UI 无范围变化校准。 |
+| 7B Jenkins/Compose/后端 RED | 已完成 | Jenkins 6 项、管理员 2 项、旧库种子 1 项失败测试均先红后绿。 |
+| 7C F5 GREEN/REFACTOR | 已完成 | 已完成 Jenkins Bootstrap 核心/Groovy、Compose 一次性服务、管理命令与规则文档最小实现。 |
+| 7D 独立审查与固定 Job 验收 | 进行中 | 独立 review agent 已批准；Job #27 schema/Deploy/Health 成功，完整 Tests 的三项既有失败需独立处置。 |
 
 ## 实施任务详情
 
@@ -112,7 +112,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 每项实现由独立 review agent 审查。后端、Jenkins 与前端均通过后，使用固定 Jenkins 环境 Job 进行环境验收，验收包只登记 Job/build、摘要和 artifact 名称；主人最终签字前绝不删除旧 Daily Job 或 Jenkins 构建历史。
 
-**当前阻塞**：固定 `AiApiTest-DWP-Platform-Bootstrap` Job #26 的 Checkout、依赖和部署成功，Health 阶段发现 backend ready 为 `503 schema_not_ready`。该 Job 和 AI 均禁止执行 migration；请主人/平台运维按批准的数据库迁移流程补齐 schema 后，重新构建同一 Job。Tests 阶段没有启动，故尚无 Stage13 Playwright 截图或运行态通过证据。
+**当前验证结论**：固定 `AiApiTest-DWP-Platform-Bootstrap` Job #27 已成功执行新的 `Schema & Initial Data`、Deploy 和 Health，backend ready 不再返回 `schema_not_ready`。全量 Tests 仍被三项既有失败阻断：后端趋势固定日期、前端 Playwright 历史断言、退休证据路径静态断言；它们与 F5 实现无关，修复后必须重新构建同一 Job 取得全绿回归与 Stage13 Playwright 证据。
 
 ## 约束
 
