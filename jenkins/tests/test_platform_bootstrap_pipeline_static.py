@@ -46,7 +46,7 @@ def test_pipeline_has_only_two_boolean_parameters_and_disables_concurrency():
         assert forbidden not in source
 
 
-def test_pipeline_uses_fixed_seven_stage_order_and_local_or_scm_checkout():
+def test_pipeline_uses_fixed_eight_stage_order_and_local_or_scm_checkout():
     jenkinsfile = read_required(JENKINSFILE)
     pipeline = read_required(PIPELINE)
     source = jenkinsfile + "\n" + pipeline
@@ -54,6 +54,7 @@ def test_pipeline_uses_fixed_seven_stage_order_and_local_or_scm_checkout():
         "Checkout/Workspace",
         "Bootstrap Preflight",
         "Dependency Assurance",
+        "Schema & Initial Data",
         "Deploy",
         "Health",
         "Tests",
@@ -74,7 +75,15 @@ def test_pipeline_is_cross_platform_and_delegates_all_logic_to_python_cli():
     assert "isUnix()" in pipeline
     assert "sh(" in pipeline or "sh " in pipeline
     assert "bat(" in pipeline or "bat " in pipeline
-    for command in ["preflight", "assure-dependencies", "deploy", "health", "test", "summary"]:
+    for command in [
+        "preflight",
+        "assure-dependencies",
+        "schema-initialization",
+        "deploy",
+        "health",
+        "test",
+        "summary",
+    ]:
         assert command in pipeline
     assert "platform_bootstrap_cli.py" in pipeline
     assert "python3 jenkins/scripts/platform_bootstrap_cli.py" in pipeline

@@ -107,6 +107,10 @@ def make_context(tmp_path, build_all):
 
 def mark_dependencies_ready(store):
     store.write_stage_result("dependencies", {"stage": "dependencies", "success": True})
+    store.write_stage_result(
+        "schema-initialization",
+        {"stage": "schema-initialization", "success": True},
+    )
 
 
 def mark_preflight_ready(store):
@@ -399,7 +403,7 @@ def test_health_evidence_write_failure_returns_redacted_structured_result(tmp_pa
     assert "HEALTH_EVIDENCE_PERSISTENCE_FAILED" in serialized
     assert "secret-value" not in serialized
     assert (context.evidence_dir / "health.json").is_file()
-    for stage in ["preflight", "dependencies", "tests"]:
+    for stage in ["preflight", "dependencies", "schema-initialization", "tests"]:
         store.write_stage_result(stage, {"stage": stage, "success": True})
     SummaryService(store).run(
         context,

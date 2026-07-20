@@ -344,7 +344,7 @@ def test_cli_evidence_store_initialization_oserror_is_structured_and_redacted(
     assert payload["diagnostics"][0]["evidence"] == []
 
 
-def test_cli_exposes_six_environment_stages_and_trigger_subcommand():
+def test_cli_exposes_schema_initialization_stage_and_trigger_subcommand():
     from platform_bootstrap.cli import build_parser, main, parse_bool
 
     parser = build_parser()
@@ -354,6 +354,7 @@ def test_cli_exposes_six_environment_stages_and_trigger_subcommand():
     assert set(subparsers_action.choices) == {
         "preflight",
         "assure-dependencies",
+        "schema-initialization",
         "deploy",
         "health",
         "test",

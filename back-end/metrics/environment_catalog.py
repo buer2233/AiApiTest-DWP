@@ -655,6 +655,9 @@ def retry_sync_attempt(attempt: EnvironmentCatalogSyncAttempt, *, requested_by=N
 def initialize_environment_catalog_from_image(source_path: Path) -> bool:
     """首次部署初始化一次镜像内目录；后续运行时 YAML 变更必须经 Jenkins 导入。"""
     with transaction.atomic():
+        # 旧库只要已有任意环境即保持平台投影原状，不补状态、不覆盖目录。
+        if TestEnvironment.objects.exists():
+            return False
         state = _locked_state()
         if state.yaml_blob_sha:
             return False

@@ -62,6 +62,32 @@ class DeployService:
             self.evidence.write_stage_result("deploy", result)
             return result
 
+        schema_initialization = self.evidence.read_stage_result("schema-initialization")
+        if not schema_initialization or schema_initialization.get("success") is not True:
+            gate_evidence = self.evidence.write_text(
+                "deploy-schema-initialization-gate.log",
+                "stage=deploy\ntarget=schema-initialization\nstatus=missing-or-failed\n"
+                "action=deploy not attempted",
+            )
+            result = StageResult(
+                stage="deploy",
+                success=False,
+                diagnostics=(
+                    Diagnostic(
+                        stage="deploy",
+                        code="DEPLOY_SCHEMA_INITIALIZATION_GATE_FAILED",
+                        target="schema-initialization",
+                        reason="schema and initial data initialization did not succeed",
+                        observed="deploy was not attempted",
+                        evidence=(str(gate_evidence),),
+                        suggestion="Repair schema initialization before deployment.",
+                        rerun="Rebuild AiApiTest-DWP-Platform-Bootstrap after the issue is resolved.",
+                    ),
+                ),
+            )
+            self.evidence.write_stage_result("deploy", result)
+            return result
+
         preflight = self.evidence.read_stage_result("preflight")
         baseline_ids = (
             (preflight or {}).get("details", {}).get("baseline_container_ids", {})

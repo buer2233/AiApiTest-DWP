@@ -41,7 +41,7 @@
 - Jenkins 脚本变更应至少覆盖参数校验、执行模式选择、Windows/Linux 命令分支和归档路径。
 - 能用本地脚本测试的逻辑应放到可测试文件中，避免把复杂逻辑全部塞进 Jenkinsfile。
 - 修改归档契约时，必须同步更新 `api-test/` 执行器契约和 `back-end/` 同步逻辑说明。
-- Platform Bootstrap 变更还必须覆盖固定 Job 名、`build_all` / `run_full_tests` 参数、七阶段顺序、三域至多一次构建、应用服务范围和结构化证据路径。
+- Platform Bootstrap 变更还必须覆盖固定 Job 名、`build_all` / `run_full_tests` 参数、八阶段顺序、三域至多一次构建、一次性 schema 初始化服务边界和结构化证据路径。
 
 ## 禁止事项
 
@@ -53,8 +53,8 @@
 
 - 平台应用环境重启、依赖检查/安装、`backend`/`frontend`/`jenkins-sync-worker` 启动、停止或重建，以及平台冒烟/全量环境验收，AI 必须且只能触发固定 Jenkins 环境 Job。
 - 固定环境 Job 名为私有 `.env` 的 `JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME`，默认 `AiApiTest-DWP-Platform-Bootstrap`；它由本地 Compose Jenkins 启动时通过版本化 init Groovy 幂等创建或修复，固定加载 `jenkins/Jenkinsfile.platform-bootstrap`，不得手工创建另一条旁路 Job。
-- 该 Job 固定经过 `Checkout/Workspace`、`Bootstrap Preflight`、`Dependency Assurance`、`Deploy`、`Health`、`Tests`、`Archive & Summary` 七阶段；`build_all=true` 默认全量重建应用镜像并重建三项应用容器，`run_full_tests=false` 默认仅冒烟。
+- 该 Job 固定经过 `Checkout/Workspace`、`Bootstrap Preflight`、`Dependency Assurance`、`Schema & Initial Data`、`Deploy`、`Health`、`Tests`、`Archive & Summary` 八阶段；schema 阶段仅通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务依序执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`，成功后才允许 Deploy。`build_all=true` 默认全量重建应用镜像并重建三项应用容器，`run_full_tests=false` 默认仅冒烟。
 - Windows 唯一入口为 `scripts/trigger-platform-bootstrap.ps1`；Linux/macOS/Git Bash 唯一入口为 `scripts/trigger-platform-bootstrap.sh`。用户在 Jenkins 页面手工点击同一 Job 也使用相同 Pipeline、参数、阶段和结果契约。
 - AI 禁止直接执行应用服务 `docker compose up/restart/stop/down`、`docker build`、宿主机或运行容器的 `pip install`、`npm install/npm ci`，也禁止直接启动 Django `runserver`、Vite 或同步 worker 替代环境 Job。
 - MySQL 与 Jenkins 仅由主人/平台运维按 `docker/DEPLOYMENT.md` 完成 bootstrap；环境 Job/helper 永不管理这两个基础服务。AI 只能检查并反馈，不能代替主人/平台运维启动。
-- 禁止 `down -v`、volume 删除、`chmod 666 /var/run/docker.sock`、migration、初始化管理员、`collectstatic`、自动 rollback 或输出真实凭据。环境失败必须阅读 Jenkins 结构化诊断，引导主人修复后重新构建，不能旁路处理。
+- 除固定 Job 的 `Schema & Initial Data` 一次性 `backend-bootstrap` 服务外，AI、宿主机、常驻服务、readiness、其他 Jenkins Job 均禁止执行 migration 或初始化管理员。禁止 `down -v`、volume 删除、`chmod 666 /var/run/docker.sock`、`collectstatic`、自动 rollback 或输出真实凭据。环境失败必须阅读 Jenkins 结构化诊断，引导主人修复后重新构建，不能旁路处理。

@@ -44,7 +44,7 @@ Compose Jenkins 会把 `jenkins/scripts/configure-local-mounted-jobs.groovy` 以
 
 AI 对平台应用环境的重启、依赖检查或安装、`backend`/`frontend`/`jenkins-sync-worker` 的启动停止重建，以及冒烟或全量环境验收，只能使用上述 helper 或 Jenkins 页面中的同一个固定 Job。AI 禁止直接运行应用服务 `docker compose up/restart/stop/down`、`docker build`、宿主机或容器内 `pip install`、`npm install/npm ci`、Django `runserver`、Vite 或同步 worker 启动命令。
 
-MySQL 与 Jenkins 不属于环境 Job 的管理范围；它们只由主人或平台运维 bootstrap。环境 Job 不执行 migration、不执行 rollback、不删除 volume，也不执行初始化管理员、`collectstatic` 或 `down -v`。
+MySQL 与 Jenkins 不属于环境 Job 的管理范围；它们只由主人或平台运维 bootstrap。环境 Job 仅在 `Schema & Initial Data` 通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`；该阶段失败会阻止 Deploy。除此之外，AI、宿主机、常驻服务、readiness、其他 Job 均不执行 migration 或初始化管理员，也不执行 rollback、不删除 volume、`collectstatic` 或 `down -v`。
 
 ### 构建参数
 
@@ -142,4 +142,4 @@ pytest jenkins/tests/test_stage13_task5_docs_static.py -q
 pytest jenkins/tests/test_platform_bootstrap_pipeline_static.py -q
 ```
 
-随后由主人在 Jenkins 中分别构建一次默认参数与 `build_all=false`、`run_full_tests=true` 参数组合，确认七阶段、Build Summary、artifact 和 Allure 入口均符合本说明。
+随后由主人在 Jenkins 中分别构建一次默认参数与 `build_all=false`、`run_full_tests=true` 参数组合，确认八阶段、Build Summary、artifact 和 Allure 入口均符合本说明。

@@ -8,7 +8,7 @@ from django.core.management import call_command
 from django.db import DataError, IntegrityError, migrations
 from django.test import override_settings
 
-from metrics.models import JenkinsTask, TestEnvironment, TestModule, TestRun
+from metrics.models import EnvironmentCatalogState, JenkinsTask, TestEnvironment, TestModule, TestRun
 
 
 def catalog_service_module():
@@ -991,6 +991,36 @@ def test_seed_environment_uses_image_catalog_instead_of_a_hard_coded_environment
     assert environment.base_url == "https://bootstrap-qa.example.invalid/api"
     assert environment.env_name == "Bootstrap QA"
     assert environment.url_desc == "镜像内初始化环境"
+
+
+@pytest.mark.django_db
+def test_seed_environment_skips_existing_catalog_without_creating_state_or_modifying_rows(tmp_path):
+    catalog_path = tmp_path / "api-test" / "utils" / "package_environment.yaml"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(
+        """bootstrap-qa:
+  base_url: https://replacement.example.invalid/api/
+  url_name: Replacement QA
+  url_desc: 不应覆盖既有环境
+""",
+        encoding="utf-8",
+    )
+    existing = TestEnvironment.objects.create(
+        env_key="legacy-qa",
+        env_name="Legacy QA",
+        base_url="https://legacy.example.invalid/api",
+        url_desc="旧库环境",
+        is_active=False,
+    )
+
+    with override_settings(REPO_ROOT=Path(tmp_path)):
+        call_command("seed_environment")
+
+    existing.refresh_from_db()
+    assert TestEnvironment.objects.count() == 1
+    assert existing.env_name == "Legacy QA"
+    assert existing.base_url == "https://legacy.example.invalid/api"
+    assert EnvironmentCatalogState.objects.count() == 0
 
 
 def test_backend_image_copies_the_environment_catalog_build_input():

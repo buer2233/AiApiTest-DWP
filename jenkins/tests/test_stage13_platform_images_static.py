@@ -53,6 +53,7 @@ def test_compose_uses_fixed_project_and_defines_platform_services():
         "mysql",
         "jenkins",
         "backend",
+        "backend-bootstrap",
         "frontend",
         "jenkins-sync-worker",
         "api-runner",
