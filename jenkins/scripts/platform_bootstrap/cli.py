@@ -19,6 +19,7 @@ from .jenkins_api import JenkinsApiClient, JenkinsTriggerConfig, TriggerOutcome
 from .models import Diagnostic, RunContext, StageResult
 from .preflight import PreflightService
 from .security import Redactor
+from .schema_initialization import SchemaInitializationService
 from .summary import SummaryService
 from .testing import TestService
 
@@ -26,6 +27,7 @@ from .testing import TestService
 COMMANDS = (
     "preflight",
     "assure-dependencies",
+    "schema-initialization",
     "deploy",
     "health",
     "test",
@@ -185,6 +187,8 @@ def run_stage(command: str, options=None) -> int:
             result = PreflightService(runner, evidence).run(context)
         elif command == "assure-dependencies":
             result = DependencyAssuranceService(runner, evidence).run(context)
+        elif command == "schema-initialization":
+            result = SchemaInitializationService(runner, evidence).run(context)
         elif command == "deploy":
             result = DeployService(runner, evidence).run(context)
         elif command == "health":

@@ -236,7 +236,14 @@ def test_missing_health_gate_creates_real_evidence_file(tmp_path):
 def test_success_summary_contains_public_addresses_and_build_artifact_links(tmp_path):
     context = make_context(tmp_path)
     store = EvidenceStore(context.evidence_dir)
-    for stage in ["preflight", "dependencies", "deploy", "health", "tests"]:
+    for stage in [
+        "preflight",
+        "dependencies",
+        "schema-initialization",
+        "deploy",
+        "health",
+        "tests",
+    ]:
         store.write_stage_result(stage, {"stage": stage, "success": True})
     config = {
         "JENKINS_PUBLIC_BASE_URL": "https://jenkins.example.invalid",
@@ -321,4 +328,5 @@ def test_summary_fails_when_any_fixed_stage_result_is_missing(tmp_path):
 
     assert result.success is False
     assert any("dependencies" in item.target for item in result.diagnostics)
+    assert any("schema-initialization" in item.target for item in result.diagnostics)
     assert any("tests" in item.target for item in result.diagnostics)

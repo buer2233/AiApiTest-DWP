@@ -34,6 +34,7 @@
 | `mysql` | MySQL 8.4，持久化卷 `aiapitest-mysql-data` | Compose 内为 `mysql:3306` | 由 `MYSQL_BIND_HOST`、`MYSQL_HOST_PORT` 决定。 |
 | `jenkins` | 由 `docker/jenkins/Dockerfile` 构建工具链镜像 | 挂载 Docker Socket、项目源码和 Init Groovy | `JENKINS_PUBLIC_BASE_URL`。 |
 | `backend` | `back-end/Dockerfile` 构建，Gunicorn 提供 DRF | 使用应用专用 `DB_USER` / `DB_PASSWORD` 访问 `mysql:3306` | `BACKEND_SERVICE_URL`、`BACKEND_API_BASE_URL`。 |
+| `backend-bootstrap` | 复用 backend 镜像，profile `bootstrap` 的一次性管理命令服务 | 仅固定 Job 的 schema 阶段访问 `mysql:3306` | 无常驻容器、无公开端口、无卷。 |
 | `frontend` | `front-end/Dockerfile` 构建，Nginx 运行时镜像 | 通过 API 代理访问 backend | `FRONTEND_SERVICE_URL`。 |
 | `jenkins-sync-worker` | 复用 backend 镜像，执行 `sync_jenkins_results --watch` | 访问 `mysql:3306` 和 `jenkins:8080` | 无宿主机端口；以心跳 healthcheck 验证。 |
 | `api-runner` | `api-test/Dockerfile` 构建 | 仅 Jenkins 以隔离容器方式运行 | 无常驻容器、无公开端口。 |
@@ -138,19 +139,20 @@ bash scripts/trigger-platform-bootstrap.sh --build-all false --run-full-tests tr
 
 helper 只通过 Jenkins API 提交并轮询固定 Job，使用相同的参数、阶段、日志和结果契约，不是本机启动旁路。
 
-## 环境 Job 的七个阶段
+## 环境 Job 的八个阶段
 
 | 阶段 | 做什么 | 失败后的处理 |
 | --- | --- | --- |
 | Checkout/Workspace | 使用当前挂载仓库或受管 SCM 获取流水线源码。 | 保留 Jenkins 控制台和可用证据。 |
 | Bootstrap Preflight | 校验 `.env`、Docker CLI/Compose、Socket/GID、MySQL/Jenkins 运行状态以及 MySQL health。 | 输出结构化诊断并停止。 |
 | Dependency Assurance | 分别校验 backend、frontend、api-runner 三个依赖域。缺失或不满足时各只安装/构建一次，完整记录日志。 | 汇总失败域，在部署前停止。 |
+| Schema & Initial Data | 仅通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务依序执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`。空库创建全部 Django 表；已有库只应用未执行 migration。 | 任一步失败即阻止 Deploy；不 rollback、不清库、不删表。 |
 | Deploy | 仅部署 backend、frontend、`jenkins-sync-worker`。 | 保留服务与部署日志；不回滚、不删除卷。 |
 | Health | 探测 backend live/ready、frontend health/SPA/API 代理和 worker 心跳。 | 输出失败服务的结构化原因与证据。 |
 | Tests | 默认执行公开健康与冒烟探针；全量模式还运行 backend pytest、frontend unit/build/Playwright、api-runner/Jenkins 静态测试。 | 归档已有测试证据并标记构建失败。 |
 | Archive & Summary | 归档证据并发布可用的 Allure 结果。 | 即使前序失败也尽力生成 Summary 与归档。 |
 
-环境 Job 不执行 Django migration、初始化管理员、`collectstatic`、自动 rollback、`down -v` 或 volume 删除。服务或依赖失败时，先阅读 Jenkins 的 Summary、结构化诊断和 Artifact，修复根因后重新构建。
+环境 Job 仅在 `Schema & Initial Data` 通过一次性 `backend-bootstrap` 服务执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`；该服务无端口、卷、`container_name`、healthcheck、`depends_on` 或常驻 restart，且不属于 Deploy 的应用服务。AI、宿主机、常驻 backend/worker、readiness 和其他 Job 不执行 migration 或初始化管理员。所有路径继续禁止 `collectstatic`、自动 rollback、`down -v`、volume 删除、清库、删表或 reset。服务或依赖失败时，先阅读 Jenkins 的 Summary、结构化诊断和 Artifact，修复根因后重新构建。
 
 ## 访问平台与构建产物
 

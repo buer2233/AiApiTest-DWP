@@ -166,7 +166,11 @@ def test_jenkins_readme_documents_auto_created_environment_job_and_safe_contract
         "不受信任 SCM/PR Job",
         "三域",
         "一次安装",
-        "不执行 migration",
+        "Schema & Initial Data",
+        "backend-bootstrap",
+        "migrate --noinput",
+        "seed_environment",
+        "init_admin --bootstrap-only",
         "不执行 rollback",
         "不删除 volume",
         "Jenkins Allure 插件",
@@ -253,7 +257,15 @@ def test_deployment_documents_actual_compose_service_and_default_jenkins_image_f
     ]:
         assert marker in deployment
 
-    for service in ["mysql:", "jenkins:", "backend:", "frontend:", "jenkins-sync-worker:", "api-runner:"]:
+    for service in [
+        "mysql:",
+        "jenkins:",
+        "backend:",
+        "backend-bootstrap:",
+        "frontend:",
+        "jenkins-sync-worker:",
+        "api-runner:",
+    ]:
         assert service in compose
     assert "dockerfile: docker/jenkins/Dockerfile" in compose
     assert "aiapitest-jenkins:lts-jdk17-tools" in compose

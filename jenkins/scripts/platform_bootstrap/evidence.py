@@ -59,7 +59,12 @@ class EvidenceStore:
         return json.loads(path.read_text(encoding="utf-8"))
 
     def read_stage_results(self) -> list[dict[str, object]]:
-        order = {name: index for index, name in enumerate(("preflight", "dependencies", "deploy", "health", "tests"))}
+        order = {
+            name: index
+            for index, name in enumerate(
+                ("preflight", "dependencies", "schema-initialization", "deploy", "health", "tests")
+            )
+        }
         values = []
         for path in self.root.glob("*.json"):
             if path.name.startswith("platform-bootstrap-"):

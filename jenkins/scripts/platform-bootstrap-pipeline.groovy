@@ -51,6 +51,9 @@ def call() {
             stage('Dependency Assurance') {
                 runCli('assure-dependencies', 180)
             }
+            stage('Schema & Initial Data') {
+                runCli('schema-initialization', 15)
+            }
             stage('Deploy') {
                 runCli('deploy', 20)
             }

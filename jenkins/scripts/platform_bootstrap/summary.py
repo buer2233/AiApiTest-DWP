@@ -19,7 +19,14 @@ REQUIRED_ADDRESS_KEYS = (
     "BACKEND_SERVICE_URL",
     "BACKEND_API_BASE_URL",
 )
-REQUIRED_STAGES = ("preflight", "dependencies", "deploy", "health", "tests")
+REQUIRED_STAGES = (
+    "preflight",
+    "dependencies",
+    "schema-initialization",
+    "deploy",
+    "health",
+    "tests",
+)
 
 
 @dataclass(frozen=True)

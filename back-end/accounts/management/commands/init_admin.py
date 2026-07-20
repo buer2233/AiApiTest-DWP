@@ -10,7 +10,19 @@ from accounts.models import UserAccount
 class Command(BaseCommand):
     help = "从环境变量初始化首个管理人员账号。"
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--bootstrap-only",
+            action="store_true",
+            help="仅在账号表为空时初始化首个管理人员账号。",
+        )
+
     def handle(self, *args, **options):
+        if options["bootstrap_only"] and UserAccount.objects.exists():
+            # 首装幂等短路必须发生在读取私有变量之前，绝不修改既有账号。
+            self.stdout.write("初始化管理人员已跳过：账号表已有记录。")
+            return
+
         required = ["INITIAL_ADMIN_USERNAME", "INITIAL_ADMIN_DISPLAY_NAME", "INITIAL_ADMIN_PASSWORD"]
         missing = [name for name in required if not os.getenv(name)]
         if missing:
