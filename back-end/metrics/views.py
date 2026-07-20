@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 
 from accounts.authentication import CookieJWTAuthentication
 from accounts.models import UserAccount
-from common.exceptions import api_error_response
+from common.exceptions import ApiError, api_error_response
 from common.pagination import parse_pagination
 from common.serializers import ApiErrorResponseSerializer
 from metrics.jenkins_service import (
@@ -709,6 +709,17 @@ class DailyParentEnvironmentError(RuntimeError):
     """父构建未提供可精确匹配的环境时，禁止猜测并创建平台任务。"""
 
 
+class EnvironmentCatalogDispatchPersistenceError(ApiError):
+    """远端已受理但本地补偿也无法持久化时的受控异常。"""
+
+    def __init__(self):
+        super().__init__(
+            code="environment_catalog_dispatch_persistence_failed",
+            message="环境目录同步状态暂不可用，请人工核对 Jenkins 后重试。",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+
 def apply_daily_parent_summary(task: JenkinsTask, summary: dict) -> str | None:
     """把 Daily 父摘要按模块投影，单模块异常不回滚其他模块。"""
     if task.module_id is not None or task.environment_id is None:
@@ -831,6 +842,15 @@ def sync_task_with_result(task: JenkinsTask, result: dict) -> JenkinsTask:
             task.status = TestRun.Status.FAILED
             if not task.error_summary:
                 task.error_summary = "Jenkins summary artifact is missing."
+        elif (
+            task.task_type == TestRun.RunType.DAILY_FULL
+            and task.jenkins_result not in {"", "SUCCESS", "ABORTED"}
+            and summary.get("status") == "passed"
+        ):
+            # Daily 摘要归档后才发布 Allure；Jenkins FAILURE 说明父任务基础设施未完成。
+            task.status = TestRun.Status.FAILED
+            task.allure_report_url = ""
+            task.error_summary = "Jenkins Daily parent build failed after the summary passed."
         elif task.task_type != TestRun.RunType.DAILY_FULL and summary.get("allure_report_status") != "generated":
             task.status = TestRun.Status.FAILED
             allure_message = summary.get("allure_report_message") or summary.get("allure_report_status") or "unknown"
@@ -1047,6 +1067,21 @@ def dispatch_environment_catalog_sync_attempt(attempt: EnvironmentCatalogSyncAtt
     except catalog_service.EnvironmentCatalogStateError as exc:
         logger.warning("Environment catalog queue state rejected: error_type=%s", type(exc).__name__)
         return EnvironmentCatalogSyncAttempt.objects.get(pk=attempt.pk)
+    except Exception as exc:
+        # 远端已拿到 queue id，绝不能自动重试，否则可能创建重复 Jenkins Job。
+        logger.error("Environment catalog queue persistence failed: error_type=%s", type(exc).__name__)
+        try:
+            return catalog_service.fail_sync_attempt(
+                attempt,
+                error_code="jenkins_queue_state_persistence_failed",
+                error_summary="环境目录同步任务状态记录失败，请人工核对 Jenkins 后重试。",
+            )
+        except Exception as compensation_exc:
+            logger.error(
+                "Environment catalog queue persistence compensation failed: error_type=%s",
+                type(compensation_exc).__name__,
+            )
+            raise EnvironmentCatalogDispatchPersistenceError() from compensation_exc
 
 
 def environment_catalog_write_response(environment: TestEnvironment, attempt: EnvironmentCatalogSyncAttempt) -> Response:
@@ -1069,7 +1104,7 @@ class TestEnvironmentListView(APIView):
     @extend_schema(
         tags=["通过率"],
         summary="查询测试环境列表",
-        description="登录用户查询环境；member 只读取启用环境，响应带目录状态。",
+        description="登录用户查询环境；member 只读取启用环境；仅管理人员响应额外包含目录同步状态。",
         parameters=[
             OpenApiParameter("is_active", OpenApiTypes.BOOL, OpenApiParameter.QUERY, description="是否筛选启用环境"),
         ],
@@ -1084,20 +1119,18 @@ class TestEnvironmentListView(APIView):
         if raw_is_active is not None and raw_is_active.lower() not in {"true", "false"}:
             return api_error_response("validation_error", "is_active 仅支持 true 或 false。", status.HTTP_400_BAD_REQUEST)
         queryset = TestEnvironment.objects.all()
+        response_data = {"data": None}
         if is_admin(request.user):
             if raw_is_active is not None:
                 queryset = queryset.filter(is_active=raw_is_active.lower() == "true")
+            catalog_state, _ = EnvironmentCatalogState.objects.get_or_create(
+                catalog_key=EnvironmentCatalogState.CATALOG_KEY
+            )
+            response_data["catalog_state"] = EnvironmentCatalogStateSerializer(catalog_state).data
         else:
             queryset = queryset.filter(is_active=True)
-        catalog_state, _ = EnvironmentCatalogState.objects.get_or_create(
-            catalog_key=EnvironmentCatalogState.CATALOG_KEY
-        )
-        return Response(
-            {
-                "data": EnvironmentCatalogEnvironmentSerializer(queryset, many=True).data,
-                "catalog_state": EnvironmentCatalogStateSerializer(catalog_state).data,
-            }
-        )
+        response_data["data"] = EnvironmentCatalogEnvironmentSerializer(queryset, many=True).data
+        return Response(response_data)
 
     @extend_schema(
         tags=["通过率"],
@@ -1108,6 +1141,10 @@ class TestEnvironmentListView(APIView):
             400: OpenApiResponse(ApiErrorResponseSerializer, description="请求参数非法：validation_error"),
             403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
             409: OpenApiResponse(ApiErrorResponseSerializer, description="环境重复或已有活动同步"),
+            503: OpenApiResponse(
+                ApiErrorResponseSerializer,
+                description="同步状态持久化不可用：environment_catalog_dispatch_persistence_failed",
+            ),
         },
     )
     def post(self, request):
@@ -1143,6 +1180,10 @@ class TestEnvironmentDetailView(APIView):
             403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
             404: OpenApiResponse(ApiErrorResponseSerializer, description="环境不存在：environment_not_found"),
             409: OpenApiResponse(ApiErrorResponseSerializer, description="同步冲突或最后一个启用环境不可停用"),
+            503: OpenApiResponse(
+                ApiErrorResponseSerializer,
+                description="同步状态持久化不可用：environment_catalog_dispatch_persistence_failed",
+            ),
         },
     )
     def patch(self, request, environment_id: int):
@@ -1176,6 +1217,10 @@ class TestEnvironmentDetailView(APIView):
             403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
             404: OpenApiResponse(ApiErrorResponseSerializer, description="环境不存在：environment_not_found"),
             409: OpenApiResponse(ApiErrorResponseSerializer, description="同步冲突或最后一个启用环境不可停用"),
+            503: OpenApiResponse(
+                ApiErrorResponseSerializer,
+                description="同步状态持久化不可用：environment_catalog_dispatch_persistence_failed",
+            ),
         },
     )
     def delete(self, request, environment_id: int):
@@ -1207,6 +1252,10 @@ class TestEnvironmentSyncFromYamlView(APIView):
             400: OpenApiResponse(ApiErrorResponseSerializer, description="请求体必须为空：validation_error"),
             403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
             409: OpenApiResponse(ApiErrorResponseSerializer, description="已有活动同步：environment_config_sync_busy"),
+            503: OpenApiResponse(
+                ApiErrorResponseSerializer,
+                description="同步状态持久化不可用：environment_catalog_dispatch_persistence_failed",
+            ),
         },
     )
     def post(self, request):
@@ -1256,6 +1305,10 @@ class EnvironmentCatalogSyncAttemptRetryView(APIView):
             403: OpenApiResponse(ApiErrorResponseSerializer, description="需要管理人员权限：admin_required"),
             404: OpenApiResponse(ApiErrorResponseSerializer, description="同步请求不存在：environment_catalog_sync_not_found"),
             409: OpenApiResponse(ApiErrorResponseSerializer, description="同步请求不可重试或已有活动同步"),
+            503: OpenApiResponse(
+                ApiErrorResponseSerializer,
+                description="同步状态持久化不可用：environment_catalog_dispatch_persistence_failed",
+            ),
         },
     )
     def post(self, request, attempt_id: int):
@@ -1310,7 +1363,10 @@ class EnvironmentCatalogSyncExportView(InternalEnvironmentCatalogView):
         if attempt.direction != EnvironmentCatalogSyncAttempt.Direction.MYSQL_TO_YAML:
             return api_error_response("invalid_sync_direction", "当前同步请求不支持导出。", status.HTTP_409_CONFLICT)
         try:
-            if attempt.status == EnvironmentCatalogSyncAttempt.Status.QUEUED:
+            if attempt.status in {
+                EnvironmentCatalogSyncAttempt.Status.PENDING,
+                EnvironmentCatalogSyncAttempt.Status.QUEUED,
+            }:
                 attempt = catalog_service.mark_sync_attempt_running(attempt)
             elif attempt.status != EnvironmentCatalogSyncAttempt.Status.RUNNING:
                 raise catalog_service.EnvironmentCatalogStateError("同步请求不能导出。")
@@ -1365,7 +1421,10 @@ class EnvironmentCatalogSyncCallbackView(InternalEnvironmentCatalogView):
         if set(payload) - allowed or required - set(payload):
             return self.invalid_callback_schema_response(attempt)
         try:
-            if attempt.status == EnvironmentCatalogSyncAttempt.Status.QUEUED:
+            if attempt.status in {
+                EnvironmentCatalogSyncAttempt.Status.PENDING,
+                EnvironmentCatalogSyncAttempt.Status.QUEUED,
+            }:
                 attempt = catalog_service.mark_sync_attempt_running(attempt)
             if attempt.direction == EnvironmentCatalogSyncAttempt.Direction.YAML_TO_MYSQL:
                 completed, _ = catalog_service.complete_yaml_to_mysql_sync_attempt(

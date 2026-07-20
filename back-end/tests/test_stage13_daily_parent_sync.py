@@ -195,6 +195,97 @@ def test_daily_parent_summary_preserves_valid_module_projection_when_another_mod
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("jenkins_result", ["FAILURE", "UNSTABLE"])
+def test_daily_parent_passed_summary_is_failed_when_jenkins_result_is_not_success(jenkins_result):
+    """父级摘要已通过不能掩盖归档后 Allure 发布导致的 Jenkins FAILURE。"""
+    from metrics.serializers import JenkinsTaskSerializer
+    from metrics.views import create_or_get_daily_task_from_discovery, sync_task_with_result
+
+    environment = create_environment()
+    module = create_module("module-allure-failure")
+    ModuleSnapshot.objects.create(environment=environment, module=module)
+    binding = JenkinsJobBinding.objects.create(
+        environment=None,
+        module=None,
+        task_type=MetricRun.RunType.DAILY_FULL,
+        job_full_name="AiApiTest-DWP-Daily-Full-Module",
+        is_active=True,
+    )
+    task, _ = create_or_get_daily_task_from_discovery(
+        binding,
+        {
+            "job_full_name": binding.job_full_name,
+            "build_number": 104,
+            "run_id": "daily-parent-104",
+            "target_base_url": environment.base_url,
+            "jenkins_build_url": "https://ci.example.invalid/job/daily/104/",
+        },
+    )
+
+    synced = sync_task_with_result(
+        task,
+        {
+            "jenkins_result": jenkins_result,
+            "summary": {
+                "status": "passed",
+                "module_count": 1,
+                "modules": [
+                    module_detail(
+                        module_key=module.package_name,
+                        status="passed",
+                        node_id="test_case/module-allure-failure/test_api.py::test_passed",
+                    )
+                ],
+            },
+            "allure_report_url": "https://ci.example.invalid/job/daily/104/allure/",
+            "finished_at": timezone.now(),
+        },
+    )
+
+    serialized = JenkinsTaskSerializer(synced).data
+    assert synced.status == MetricRun.Status.FAILED
+    assert synced.run.status == MetricRun.Status.FAILED
+    assert synced.allure_report_url == ""
+    assert serialized["allure_report_url"] == ""
+    assert serialized["actions"]["view_report"] is False
+
+
+@pytest.mark.django_db
+def test_daily_parent_aborted_build_remains_canceled_before_summary_status_is_evaluated():
+    """ABORTED 仍优先映射为取消，不能被 Daily 摘要通过状态覆盖。"""
+    from metrics.views import sync_task_with_result
+
+    environment = create_environment()
+    run = MetricRun.objects.create(
+        run_key="daily-parent-aborted",
+        run_type=MetricRun.RunType.DAILY_FULL,
+        environment=environment,
+        status=MetricRun.Status.RUNNING,
+    )
+    task = JenkinsTask.objects.create(
+        run=run,
+        environment=environment,
+        module=None,
+        task_type=MetricRun.RunType.DAILY_FULL,
+        job_full_name="AiApiTest-DWP-Daily-Full-Module",
+        build_number=105,
+        status=MetricRun.Status.RUNNING,
+    )
+
+    synced = sync_task_with_result(
+        task,
+        {
+            "jenkins_result": "ABORTED",
+            "summary": {"status": "passed"},
+            "finished_at": timezone.now(),
+        },
+    )
+
+    assert synced.status == MetricRun.Status.CANCELED
+    assert synced.run.status == MetricRun.Status.CANCELED
+
+
+@pytest.mark.django_db
 def test_daily_parent_without_resolved_environment_does_not_create_a_platform_task():
     from metrics.views import DailyParentEnvironmentError, create_or_get_daily_task_from_discovery
 

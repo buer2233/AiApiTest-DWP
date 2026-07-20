@@ -153,6 +153,22 @@ def test_daily_worker_accepts_only_daily_parent_cause_and_skips_module_allure_pu
     assert "publishAllure:" not in failed_rerun_pipeline
 
 
+def test_daily_parent_is_the_only_daily_pipeline_that_publishes_allure_after_archiving():
+    """Daily 模块 Worker 只归档，父 Pipeline 独占唯一 Allure 发布入口。"""
+    parent_pipeline = read_source("scripts/daily-full-module-pipeline.groovy")
+    worker_pipeline = read_source("scripts/daily-full-module-worker-pipeline.groovy")
+
+    assert parent_pipeline.count("allure([") == 1
+    assert "allure([" not in worker_pipeline
+    assert parent_pipeline.index("archiveArtifacts") < parent_pipeline.index("allure([")
+    assert parent_pipeline.index("allure([") < parent_pipeline.index('def summary = new JsonSlurperClassic()')
+    archive_stage = parent_pipeline[
+        parent_pipeline.index("stage('Archive Daily Parent')"):parent_pipeline.index('def summary = new JsonSlurperClassic()')
+    ]
+    assert "catchError" not in archive_stage
+    assert "try {" not in archive_stage
+
+
 def test_environment_catalog_sync_uses_clean_scm_checkout_and_blob_guard_before_callback():
     """TC-S13-F3-005/006：同步 Job 隔离、串行并在快进推送后才回调。"""
     init_script = read_source("scripts/configure-local-mounted-jobs.groovy")

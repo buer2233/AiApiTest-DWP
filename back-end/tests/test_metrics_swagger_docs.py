@@ -101,3 +101,15 @@ def test_openapi_schema_excludes_internal_catalog_contract_and_keeps_browser_cat
     assert "/api/v1/environment-catalog-sync-attempts/{attempt_id}/retry" in paths
     assert "/api/v1/internal/environment-catalog-sync-attempts/{sync_request_id}/export/" not in paths
     assert "/api/v1/internal/environment-catalog-sync-attempts/{sync_request_id}/callback/" not in paths
+
+    environment_list_get = paths["/api/v1/test-environments"]["get"]
+    response_schema_ref = environment_list_get["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+    response_schema_name = response_schema_ref.rsplit("/", 1)[-1]
+    response_schema = response.data["components"]["schemas"][response_schema_name]
+    assert "catalog_state" in response_schema["properties"]
+    assert "catalog_state" not in response_schema.get("required", [])
+    assert "仅管理人员响应额外包含目录同步状态" in environment_list_get["description"]
+
+    environment_create_post = paths["/api/v1/test-environments"]["post"]
+    assert "503" in environment_create_post["responses"]
+    assert "environment_catalog_dispatch_persistence_failed" in environment_create_post["responses"]["503"]["description"]

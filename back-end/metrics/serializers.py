@@ -17,6 +17,7 @@ from metrics.models import (
     ModuleSnapshot,
     TestCaseResult,
     TestEnvironment,
+    TestRun,
 )
 
 
@@ -149,7 +150,8 @@ class EnvironmentCatalogSyncAttemptResponseSerializer(serializers.Serializer):
 
 class EnvironmentCatalogListResponseSerializer(serializers.Serializer):
     data = EnvironmentCatalogEnvironmentSerializer(many=True)
-    catalog_state = EnvironmentCatalogStateSerializer()
+    # 目录同步审计只对管理人员返回，普通成员响应中没有该字段。
+    catalog_state = EnvironmentCatalogStateSerializer(required=False)
 
 
 class EnvironmentSummarySerializer(serializers.Serializer):
@@ -382,6 +384,13 @@ class JenkinsTaskSerializer(serializers.ModelSerializer):
         return f"{public_base_url}/{self._job_path(obj.job_full_name)}/{obj.build_number}/"
 
     def get_allure_report_url(self, obj: JenkinsTask) -> str:
+        if (
+            obj.task_type == TestRun.RunType.DAILY_FULL
+            and obj.status == TestRun.Status.FAILED
+            and obj.jenkins_result not in {"", "SUCCESS", "ABORTED"}
+        ):
+            # 父级构建在摘要通过后失败时，Allure 插件入口不能视为可用报告。
+            return ""
         if not obj.build_number:
             return ""
         build_url = self.get_jenkins_build_url(obj)

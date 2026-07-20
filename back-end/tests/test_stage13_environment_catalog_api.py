@@ -4,6 +4,7 @@ import importlib
 from unittest.mock import patch
 
 import pytest
+from django.db import DatabaseError
 from django.test import override_settings
 from rest_framework.test import APIClient
 
@@ -52,7 +53,7 @@ def catalog_state(db) -> EnvironmentCatalogState:
 
 
 @pytest.mark.django_db
-def test_member_lists_only_active_environments_with_catalog_state(member_client, catalog_state):
+def test_member_lists_only_active_environments_without_catalog_state(member_client, catalog_state):
     active = create_environment(env_key="stage13-active")
     inactive = create_environment(env_key="stage13-inactive", is_active=False)
 
@@ -60,6 +61,17 @@ def test_member_lists_only_active_environments_with_catalog_state(member_client,
 
     assert response.status_code == 200
     assert [item["id"] for item in response.data["data"]] == [active.id]
+    assert "catalog_state" not in response.data
+    assert inactive.id not in [item["id"] for item in response.data["data"]]
+
+
+@pytest.mark.django_db
+def test_admin_lists_environment_catalog_state(admin_client, catalog_state):
+    create_environment(env_key="stage13-admin-active")
+
+    response = admin_client.get("/api/v1/test-environments")
+
+    assert response.status_code == 200
     assert response.data["catalog_state"] == {
         "status": "synced",
         "yaml_blob_sha": INITIAL_YAML_BLOB_SHA,
@@ -68,7 +80,6 @@ def test_member_lists_only_active_environments_with_catalog_state(member_client,
         "last_error_code": "",
         "last_error_summary": "",
     }
-    assert inactive.id not in [item["id"] for item in response.data["data"]]
 
 
 @pytest.mark.django_db
@@ -238,6 +249,84 @@ def test_environment_catalog_dispatch_failure_ends_attempt_and_retry_requeues_it
 
 
 @pytest.mark.django_db
+def test_environment_catalog_queue_persistence_error_after_remote_acceptance_fails_attempt_and_releases_lock(
+    admin_client,
+    catalog_state,
+):
+    """远端已接受请求时，本地 queue 状态写入失败也必须释放同步锁。"""
+    real_fail_sync_attempt = catalog_service().fail_sync_attempt
+    with patch("metrics.views.trigger_jenkins_build", return_value={"queue_id": "accepted-queue"}) as trigger_build, patch(
+        "metrics.views.catalog_service.mark_sync_attempt_queued",
+        side_effect=DatabaseError("queue state storage failed: https://internal.example.invalid/secret"),
+    ), patch(
+        "metrics.views.catalog_service.fail_sync_attempt",
+        wraps=real_fail_sync_attempt,
+    ) as fail_sync_attempt:
+        created = admin_client.post(
+            "/api/v1/test-environments",
+            {
+                "env_key": "dispatch-queue-persistence-error",
+                "url_name": "队列持久化失败环境",
+                "base_url": "https://dispatch-queue-persistence-error.example.invalid/api",
+                "url_desc": "验证远端已受理后的补偿失败状态",
+            },
+            format="json",
+        )
+
+    assert created.status_code == 202
+    assert "internal.example.invalid" not in str(created.data)
+    attempt = EnvironmentCatalogSyncAttempt.objects.get(id=created.data["data"]["sync_attempt"]["id"])
+    assert attempt.status == EnvironmentCatalogSyncAttempt.Status.FAILED
+    assert attempt.error_code == "jenkins_queue_state_persistence_failed"
+    assert attempt.active_attempt_key is None
+    assert EnvironmentCatalogState.objects.get().status == EnvironmentCatalogState.Status.FAILED
+    assert fail_sync_attempt.call_count == 1
+    assert fail_sync_attempt.call_args.kwargs == {
+        "error_code": "jenkins_queue_state_persistence_failed",
+        "error_summary": "环境目录同步任务状态记录失败，请人工核对 Jenkins 后重试。",
+    }
+    assert fail_sync_attempt.call_args.args[0].id == attempt.id
+    trigger_build.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_environment_catalog_queue_persistence_and_compensation_errors_return_a_sanitized_service_error(
+    admin_client,
+    catalog_state,
+):
+    """补偿无法落库时不伪装排队成功，并返回可监控的脱敏服务错误。"""
+    with patch("metrics.views.trigger_jenkins_build", return_value={"queue_id": "accepted-queue"}) as trigger_build, patch(
+        "metrics.views.catalog_service.mark_sync_attempt_queued",
+        side_effect=DatabaseError("queue state storage failed: https://internal.example.invalid/secret"),
+    ), patch(
+        "metrics.views.catalog_service.fail_sync_attempt",
+        side_effect=DatabaseError("compensation storage failed: token=private"),
+    ):
+        response = admin_client.post(
+            "/api/v1/test-environments",
+            {
+                "env_key": "dispatch-compensation-error",
+                "url_name": "补偿持久化失败环境",
+                "base_url": "https://dispatch-compensation-error.example.invalid/api",
+                "url_desc": "验证补偿失败时的受控服务错误",
+            },
+            format="json",
+        )
+
+    assert response.status_code == 503
+    assert response.data == {
+        "error": {
+            "code": "environment_catalog_dispatch_persistence_failed",
+            "message": "环境目录同步状态暂不可用，请人工核对 Jenkins 后重试。",
+            "details": [],
+        }
+    }
+    assert "internal.example.invalid" not in str(response.data)
+    assert "private" not in str(response.data)
+    trigger_build.assert_called_once()
+
+
+@pytest.mark.django_db
 def test_empty_environment_catalog_sync_job_name_fails_attempt_and_allows_retry(
     admin_client,
     catalog_state,
@@ -277,6 +366,24 @@ def test_empty_environment_catalog_sync_job_name_fails_attempt_and_allows_retry(
     assert retried_attempt.status == EnvironmentCatalogSyncAttempt.Status.FAILED
     assert retried_attempt.active_attempt_key is None
     trigger_build.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_internal_export_recovers_a_pending_attempt_after_remote_queue_state_persistence_failed(catalog_state):
+    """远端 Job 已实际开始时，内部令牌可恢复补偿失败遗留的 pending 请求。"""
+    create_environment(env_key="pending-export-recovery")
+    attempt = catalog_service().create_mysql_to_yaml_sync_attempt()
+
+    with override_settings(ENVIRONMENT_CATALOG_SERVICE_TOKEN="service-token-for-tests"):
+        response = APIClient().get(
+            f"/api/v1/internal/environment-catalog-sync-attempts/{attempt.request_id}/export/",
+            HTTP_AUTHORIZATION="Bearer service-token-for-tests",
+        )
+
+    assert response.status_code == 200
+    attempt.refresh_from_db()
+    assert attempt.status == EnvironmentCatalogSyncAttempt.Status.RUNNING
+    assert EnvironmentCatalogState.objects.get().status == EnvironmentCatalogState.Status.RUNNING
 
 
 @pytest.mark.django_db
@@ -335,6 +442,36 @@ def test_internal_yaml_import_callback_uses_service_state_machine_without_leakin
     assert attempt.status == EnvironmentCatalogSyncAttempt.Status.SYNCED
     assert MetricEnvironment.objects.get(env_key="stage13-yaml-import").is_active is True
     assert "service-token-for-tests" not in str(completed.data)
+
+
+@pytest.mark.django_db
+def test_internal_yaml_callback_recovers_a_pending_attempt_after_remote_queue_state_persistence_failed(catalog_state):
+    """YAML 导入 Job 已实际回调时也可恢复补偿失败遗留的 pending 请求。"""
+    attempt = catalog_service().create_yaml_to_mysql_sync_attempt()
+
+    with override_settings(ENVIRONMENT_CATALOG_SERVICE_TOKEN="service-token-for-tests"):
+        completed = APIClient().post(
+            f"/api/v1/internal/environment-catalog-sync-attempts/{attempt.request_id}/callback/",
+            {
+                "direction": "yaml_to_mysql",
+                "expected_yaml_blob_sha": INITIAL_YAML_BLOB_SHA,
+                "observed_yaml_blob_sha": "c" * 40,
+                "catalog": {
+                    "pending-yaml-recovery": {
+                        "base_url": "https://pending-yaml-recovery.example.invalid/api",
+                        "url_name": "Pending YAML Recovery",
+                        "url_desc": "验证 pending 内部回调恢复",
+                    }
+                },
+            },
+            format="json",
+            HTTP_AUTHORIZATION="Bearer service-token-for-tests",
+        )
+
+    assert completed.status_code == 200
+    attempt.refresh_from_db()
+    assert attempt.status == EnvironmentCatalogSyncAttempt.Status.SYNCED
+    assert EnvironmentCatalogState.objects.get().status == EnvironmentCatalogState.Status.SYNCED
 
 
 @pytest.mark.django_db

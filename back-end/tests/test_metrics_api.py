@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pytest
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from metrics.models import (
     EnvironmentSnapshot,
@@ -12,6 +13,7 @@ from metrics.models import (
     TestModule as MetricModule,
     TestRun as MetricRun,
 )
+from tests.conftest import TEST_PASSWORD
 
 
 pytestmark = pytest.mark.api
@@ -100,23 +102,35 @@ def seeded_snapshots(environment: MetricEnvironment, modules: list[MetricModule]
     return run
 
 
-def test_environment_list_is_login_readable_for_admin_and_member(admin_client, member_client, environment):
-    for client in [admin_client, member_client]:
-        response = client.get("/api/v1/test-environments")
+def test_environment_list_is_login_readable_for_admin_and_member(admin_client, member_user, environment):
+    expected_environments = [
+        {
+            "id": environment.id,
+            "env_key": "mock-gbif",
+            "env_name": "模拟测试环境",
+            "url_name": "模拟测试环境",
+            "base_url": "https://api.gbif.org",
+            "url_desc": "未提供环境描述",
+            "is_active": True,
+        }
+    ]
 
-        assert response.status_code == 200
-        assert response.data["catalog_state"]["status"] == "synced"
-        assert response.data["data"] == [
-            {
-                "id": environment.id,
-                "env_key": "mock-gbif",
-                "env_name": "模拟测试环境",
-                "url_name": "模拟测试环境",
-                "base_url": "https://api.gbif.org",
-                "url_desc": "未提供环境描述",
-                "is_active": True,
-            }
-        ]
+    admin_response = admin_client.get("/api/v1/test-environments")
+    member_client = APIClient()
+    login_response = member_client.post(
+        "/api/v1/auth/login",
+        {"username": member_user.username, "password": TEST_PASSWORD},
+        format="json",
+    )
+    member_response = member_client.get("/api/v1/test-environments")
+
+    assert login_response.status_code == 200
+    assert admin_response.status_code == 200
+    assert admin_response.data["catalog_state"]["status"] == "synced"
+    assert admin_response.data["data"] == expected_environments
+    assert member_response.status_code == 200
+    assert "catalog_state" not in member_response.data
+    assert member_response.data["data"] == expected_environments
 
 
 def test_environment_summary_returns_snapshot_fields(admin_client, environment, seeded_snapshots):
