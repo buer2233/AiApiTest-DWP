@@ -2,6 +2,9 @@
 
 ## 2026-07-20 Task 4 最终审查整改
 
+- v2.2 实现前调研确认：当前 `seed_environment` 仅以目录 SHA 判断是否初始化；旧库已有环境但无 SHA 时会重新投影并可能覆盖目录。AC5.3 已冻结“已有任意环境即跳过”，因此必须先补该 RED 回归并修复首次投影守卫。
+- v2.2 实现前调研确认：当前 `init_admin` 会先校验变量并按同名账号提权/更新，违反 AC5.4。`--bootstrap-only` 必须先检查任意账号是否存在；存在时不得读取变量或修改账号。
+
 - 最终审查范围冻结为四项后端韧性缺口：回调语义校验失败必须终结 attempt、Jenkins 调度异常或无 queue id 必须释放同步键、Daily 既有任务两条查询路径均须验证父任务形态、首次 global Daily binding 创建须有 MySQL 跨事务互斥。
 - 不新增 migration；global binding 采用 MySQL advisory lock，并保留 SQLite pytest 兼容分支。
 - 新增的回调语义错误回归已直接通过，证实服务层已有失败落库和重试键释放逻辑，不修改该项生产代码。

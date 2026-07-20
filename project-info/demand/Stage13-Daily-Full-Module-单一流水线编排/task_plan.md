@@ -13,9 +13,9 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 阶段 | 状态 | 说明 |
 | --- | --- | --- |
 | 1. 现状与根因调查 | 已完成 | 已定位 Job 创建、Daily 执行和后端绑定均按模块拆分。 |
-| 2. 需求澄清与规格冻结 | 已完成 | 主人于 2026-07-19 确认冻结；API 与架构边界可作为下游唯一输入。 |
-| 3. 测试用例与 UI 设计 | 已完成 | 测试用例、RTM 与覆盖校准完成；主人已选择 C01 作为前端视觉基准。 |
-| 4. 后端与 Jenkins TDD 实施 | 已完成 | Task 1-4 完成；Task 4 最终复审的三项 Important 已按 TDD 整改并通过定向回归。 |
+| 2. 需求澄清与规格冻结 | 已完成 | 主人于 2026-07-20 确认 v2.2：固定 Platform Bootstrap Job 自动执行增量 migration、环境投影和首次管理员初始化。 |
+| 3. 测试用例与 UI 设计 | 进行中 | 正在补齐 F5 测试用例、RTM 与无新增页面的 UI 覆盖校准；C01 原有视觉范围不变。 |
+| 4. 后端与 Jenkins TDD 实施 | 待开始 | Task 1-4 保持已完成；新增 Task 7 将按 RED -> GREEN -> REFACTOR 实现 Bootstrap schema 与首次数据阶段。 |
 | 5. 前端 TDD 实施 | 已完成 | C01、R1-R4、API 契约、Vitest 与类型检查均已完成；Playwright 留待固定 Jenkins 环境 Job。 |
 | 6. 独立审查、验证与验收包 | 受阻 | 固定 Jenkins 环境 Job #26 已运行但因既有数据库 schema 未就绪失败；等待主人/平台运维按既定流程处理 migration 后重建同一 Job。 |
 
@@ -36,6 +36,15 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 4C 后端/Jenkins 独立审查 | 已完成 | 最终复审发现的 member 审计泄露、Daily Allure 失败收敛和 queued 持久化补偿均已整改；定向 pytest/Jenkins 静态回归通过。 |
 | 5A 前端 Playwright 与 Vue TDD | 已完成 | 已新增 Playwright 用例、API Vitest、C01 组件与组合式函数；本地 Vitest 和 typecheck 通过。 |
 | 5B 前端独立审查 | 已完成 | 非实现代理完成 C01、R1-R4、权限与 API 契约代码审读；无阻断问题，运行态截图留给固定 Jenkins Job。 |
+
+### v2.2 追加任务
+
+| 子任务 | 状态 | 依赖 |
+| --- | --- | --- |
+| 7A F5 测试设计与 RTM | 进行中 | 仅扩展 F5 的测试用例、RTM 与 UI 无范围变化校准。 |
+| 7B Jenkins/Compose/后端 RED | 待开始 | 先增加 Platform Bootstrap 阶段、一次性容器、脱敏与 `init_admin --bootstrap-only` 的失败测试。 |
+| 7C F5 GREEN/REFACTOR | 待开始 | 仅修改 Jenkins Bootstrap 核心/Groovy、Compose 一次性服务、管理命令与必要文档规则。 |
+| 7D 独立审查与固定 Job 验收 | 待开始 | 独立 review agent 审查后，AI 仅触发同一固定 Platform Bootstrap Job 取得空库/增量实际证据。 |
 
 ## 实施任务详情
 
