@@ -14,17 +14,17 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | --- | --- | --- |
 | 1. 现状与根因调查 | 已完成 | 已定位 Job 创建、Daily 执行和后端绑定均按模块拆分。 |
 | 2. 需求澄清与规格冻结 | 已完成 | 主人于 2026-07-19 确认冻结；API 与架构边界可作为下游唯一输入。 |
-| 3. 测试用例与 UI 设计 | 进行中 | 测试用例、RTM 与覆盖校准完成；UI 候选已产出，等待主人选择后生成正式稿。 |
-| 4. 后端与 Jenkins TDD 实施 | 进行中 | Task 1/2/3 已完成；Task 4 API/结果同步及最终审查整改已完成，待独立审查。 |
-| 5. 前端 TDD 实施 | 未开始 | 以冻结 API、UI 映射和 Playwright 用例为输入。 |
-| 6. 独立审查、验证与验收包 | 未开始 | 执行回归，留存可提交的验收索引。 |
+| 3. 测试用例与 UI 设计 | 已完成 | 测试用例、RTM 与覆盖校准完成；主人已选择 C01 作为前端视觉基准。 |
+| 4. 后端与 Jenkins TDD 实施 | 已完成 | Task 1-4 完成；Task 4 最终复审的三项 Important 已按 TDD 整改并通过定向回归。 |
+| 5. 前端 TDD 实施 | 已完成 | C01、R1-R4、API 契约、Vitest 与类型检查均已完成；Playwright 留待固定 Jenkins 环境 Job。 |
+| 6. 独立审查、验证与验收包 | 进行中 | 代码和静态回归已通过，待提交推送后运行固定 Jenkins 环境 Job。 |
 
 ### 阶段 3 子任务
 
 | 子任务 | 状态 | 输出边界 |
 | --- | --- | --- |
 | 3A 功能测试用例与 RTM | 已完成 | `project-info/test_case/Stage13-Daily-Full-Module-单一流水线编排/`，27 条用例覆盖 AC1.1-AC4.2。 |
-| 3B UI 候选与交互映射 | 等待主人选择 | `project-info/UI/Stage13-Daily-Full-Module-单一流水线编排/`，5 张候选图、原型说明、区域语义拆解和实现映射已完成；待选定视觉基准。 |
+| 3B UI 候选与交互映射 | 已完成 | `project-info/UI/Stage13-Daily-Full-Module-单一流水线编排/`，主人已选择 C01；区域语义拆解和实现映射已冻结。 |
 | 3C 覆盖校准 | 已完成 | 已核对测试用例、UI 区域、API 契约与 RTM；前端仍须等待候选图选择和后端 API 实现。 |
 
 ### 后续实现任务
@@ -33,9 +33,9 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | --- | --- | --- |
 | 4A api-test 与 Jenkins TDD | 已完成 | Task 1/2 已完成三轮独立审查与静态回归；不触及后端/前端源码。 |
 | 4B 后端数据模型与 API TDD | 已完成 | Task 4 API、结果同步与最终审查整改均已完成，待独立审查。 |
-| 4C 后端/Jenkins 独立审查 | 进行中 | 4A、4B 已完成，等待最终对抗审查结论。 |
-| 5A 前端 Playwright 与 Vue TDD | 未开始 | 3B 主人选定候选图、3C、4B API 已实现。 |
-| 5B 前端独立审查 | 未开始 | 5A 已完成。 |
+| 4C 后端/Jenkins 独立审查 | 已完成 | 最终复审发现的 member 审计泄露、Daily Allure 失败收敛和 queued 持久化补偿均已整改；定向 pytest/Jenkins 静态回归通过。 |
+| 5A 前端 Playwright 与 Vue TDD | 已完成 | 已新增 Playwright 用例、API Vitest、C01 组件与组合式函数；本地 Vitest 和 typecheck 通过。 |
+| 5B 前端独立审查 | 已完成 | 非实现代理完成 C01、R1-R4、权限与 API 契约代码审读；无阻断问题，运行态截图留给固定 Jenkins Job。 |
 
 ## 实施任务详情
 
@@ -93,9 +93,9 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 **完成条件**：TC-S13-F2-001 至 F2-004、F3-003 至 F3-013 的后端 API/同步行为先红后绿；无模块子任务 API、无直接 Jenkins/pytest shell 调用。
 
-### Task 5 前端环境管理（等待主人选择 UI 候选）
+### Task 5 前端环境管理（C01 已选）
 
-**状态**：阻塞于主人选择 C01-C05 并确认浏览器高保真候选可作为 Figma 正式稿输入；不能提前编写 Vue 生产代码。
+**状态**：已完成。C01 已按 R1-R4 组件映射实现，admin 目录管理与 member R1 隔离已落地；本地 API Vitest、全量 Vitest 和 `vue-tsc` 均通过，Playwright 运行态验收待固定 Jenkins 环境 Job。
 
 **所有权**：仅 `front-end/`（Playwright、Vue、Vitest）及 Stage13 UI 正式稿资料。实现时遵循 R1-R4 映射、冻结 API、`DESIGN-claude.md` 与 375/768/1024/1440px 状态矩阵。
 
@@ -124,3 +124,6 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 阶段 3 校准发现 AC1.5 与 Daily 父任务状态机冲突 | 1 | 以已冻结 AC1.5 为准，预检失败只保留 Jenkins 诊断，不创建平台父任务。 |
 | 组合读取命令的 PowerShell 括号错误、图像查看的 `low` 细节参数无效 | 1 | 已拆分读取命令，并改用受支持的 `high` 图像查看；未改动业务文件。 |
 | WSL `bash.exe` 不识别 Windows 路径，PowerShell `rg` 的 glob 参数顺序不兼容，以及假定 `config/settings.py` 存在 | 1 | 改用 `apply_patch` 写入 SDD 简报；后续 shell 搜索使用实际存在的路径和 PowerShell 兼容参数。 |
+| C01 资料回写补丁引用了已变更的 `findings.md` 文本 | 1 | 补丁未产生部分修改；读取精确尾部上下文后按文件分段回写。 |
+| 前端资料组合读取脚本末尾多余右括号 | 1 | 未执行读取或修改；移除多余括号后重试成功。 |
+| Stage13 前端 RED 命令携带冗余 `--run` | 1 | 已观察到预期的缺模块失败；后续 Vitest 使用脚本加测试文件路径，避免 npm 警告。 |

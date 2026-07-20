@@ -1,5 +1,19 @@
 # Stage13-Daily-Full-Module-单一流水线编排：进度记录
 
+## 2026-07-20 C01 视觉基准确认
+
+- 主人选择 C01 并确认受控浏览器渲染候选可作为前端正式视觉输入。
+- 已将 UI 原型、任务计划和调查记录同步为 C01 全宽环境台账；前端 TDD 阶段从未开始更新为进行中。
+- 当前并行门禁：Task 4 后端/Jenkins 最终独立综合审查，以及 Task 5 前端 Playwright/Vue TDD。
+- Task 5 RED：新增 `stage13-environment-catalog-api.test.ts` 后定向 Vitest 如预期因缺少 `@/api/environment-catalog` 失败；尚未写入对应生产代码。首次测试命令带有冗余 `--run` 参数且产生 npm 警告，后续使用既有脚本加测试文件路径，不重复该参数。
+- 资料检索命令曾因脚本末尾多余右括号而未执行；立即改正后完成读取，未产生文件修改。
+- Task 5 实施基线为 `1f642241ef3d634c094efb4f7be7f600d23e2174`；实现代理仅接触 `front-end/`，并以新增 RED 测试、C01 映射和冻结 DRF 字段为输入。
+- Task 4 最终独立综合审查不批准，确认 3 项 Important：member 目录状态泄露、Daily 父 Allure 发布失败可被同步为成功、远端受理而本地 queued 持久化异常可永久占用同步锁。已完成根因对照并独立分派 TDD 整改。
+- Task 4 整改完成：member 响应不再含目录审计；Daily `summary.status=passed` 但 Jenkins `FAILURE/UNSTABLE` 时父任务和运行收敛为 `failed` 且无 Allure 入口；queue 状态持久化失败优先补偿为 `failed`，补偿也失败时返回脱敏 503，并允许受控内部回调从遗留 `pending` 继续为 `running`，不重复触发远端 Job。整改代理报告 pytest `97 passed`、Jenkins 静态 `57 passed`。
+- 主协调代理复跑 Task 4 重点后端回归：`50 passed`；Jenkins 静态 `15 passed`；未运行真实 Jenkins/Allure 插件集成。
+- Task 5 实现完成：C01 拆分 R1 `EnvironmentSnapshotPanel` 和仅 admin 的目录容器、表格、编辑与同步弹窗；member 不挂载 R2-R4。复跑 `npm run test:unit` 为 `9 files / 22 passed`，`npm run typecheck` 通过。Stage13 Playwright 用例只写入，按唯一入口约束待固定 Jenkins 环境 Job 运行。
+- 已清理 pytest 产生的 `back-end/tests/evidence/htmlcov/` 覆盖率 HTML，仅保留目录 `.gitignore`；不提交运行产物。
+
 ## 2026-07-20
 
 - Task 4 最终审查整改完成：回调语义失败回归直接验证现有服务层已正确落为 `failed`；Jenkins 调度异常与空 queue id 现在释放同步键；Daily 已有父任务在正常命中和并发回退均验证 task/run 形态；MySQL 首次 global Daily binding 创建使用 advisory lock，SQLite 保持兼容。

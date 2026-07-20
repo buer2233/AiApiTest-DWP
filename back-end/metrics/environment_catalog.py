@@ -435,8 +435,9 @@ def mark_sync_attempt_running(
 ) -> EnvironmentCatalogSyncAttempt:
     with transaction.atomic():
         locked_attempt = EnvironmentCatalogSyncAttempt.objects.select_for_update().get(pk=attempt.pk)
-        if locked_attempt.status != locked_attempt.Status.QUEUED:
+        if locked_attempt.status not in {locked_attempt.Status.PENDING, locked_attempt.Status.QUEUED}:
             raise EnvironmentCatalogStateError("同步请求不能进入 running 状态。")
+        # 远端已受理但 queued 持久化及补偿都失败时，受控内部回调可从 pending 继续。
         locked_attempt.status = locked_attempt.Status.RUNNING
         locked_attempt.build_number = build_number
         locked_attempt.jenkins_build_url = jenkins_build_url
