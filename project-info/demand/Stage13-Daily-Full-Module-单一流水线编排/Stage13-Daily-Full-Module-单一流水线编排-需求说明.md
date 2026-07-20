@@ -8,7 +8,7 @@
 | 需求分级 | L |
 | 裁剪说明 | 不裁剪。本需求影响 Jenkins Job 创建策略、执行并发协议、Allure 聚合、后端同步与前端任务展示。 |
 | 关联模块 | api-test / back-end / front-end / jenkins / docker |
-| 文档状态 | 澄清中（v2.2 书面规格复核前；既有已实现范围保持有效） |
+| 文档状态 | 已冻结（v2.2；既有已实现范围保持有效） |
 | 负责人 | 主人 |
 
 ## §0 待澄清清单（澄清门禁）
@@ -311,7 +311,7 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 | 2026-07-19 | 1.9 | 校准 Daily 预检状态机：预检失败只保留 Jenkins 诊断，不创建平台父任务、`TestRun` 或快照。 | 消除状态机与 AC1.5 的内部矛盾，不改变已冻结的验收决策。 |
 | 2026-07-19 | 2.0 | 主人裁决：始终至少保留一个启用测试环境；拒绝停用最后一项，统一返回 `409 last_active_environment`。 | 消除环境逻辑停用与环境 YAML 非空契约的冲突。 |
 | 2026-07-20 | 2.1 | 主人裁决：Jenkins 环境目录同步 Job 在成功 push 后回传实际 Git `HEAD` commit SHA，供后端 `mysql_to_yaml` 审计持久化。 | 禁止后端伪造或放宽成功回调的 commit SHA；修复仅在推送成功后执行。 |
-| 2026-07-20 | 2.2-draft | 增加 F5：固定 Platform Bootstrap Job 自动执行标准 Django migration、环境目录投影和仅空账号表的管理员初始化；冻结一次性 bootstrap 容器、八阶段顺序、失败/脱敏边界。 | Job #26 因空库 schema 未就绪失败；主人选择 B 并确认设计，等待书面规格复核。 |
+| 2026-07-20 | 2.2 | 增加 F5：固定 Platform Bootstrap Job 自动执行标准 Django migration、环境目录投影和仅空账号表的管理员初始化；冻结一次性 bootstrap 容器、八阶段顺序、失败/脱敏边界。 | Job #26 因空库 schema 未就绪失败；主人选择 B 并完成书面规格确认。 |
 
 ## §14 冻结确认（主人签字门禁）
 
@@ -323,4 +323,4 @@ Daily 建模调整：`JenkinsJobBinding` 的 `daily_full` 绑定允许 `environm
 
 **v1.9 冻结人（主人）**：`主人`　　**冻结日期**：`2026-07-19`
 
-**v2.2 规格复核**：待主人确认本次书面修订后冻结。
+**v2.2 冻结人（主人）**：`主人`　　**冻结日期**：`2026-07-20`

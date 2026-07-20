@@ -481,15 +481,84 @@
   - 迁移输出包含脱敏删除清单、签字依据和可追溯结果；缺签字时必须拒绝执行并回到 TC-S13-F4-001 行为。
 - **备注**：生产删除必须在主人最终验收后按受控发布流程执行；本阶段不执行实际删除。
 
+## F5 Platform Bootstrap schema 与首次数据初始化（P0）
+
+### TC-S13-F5-001：空库建表与已有库增量迁移
+
+- **关联 AC**：AC5.1、AC5.2、AC5.8
+- **测试目标**：验证固定 Job 只在 Dependency Assurance 后、Deploy 前调用一次性 bootstrap 容器的标准 `migrate --noinput`，并在空库与已有库保持非破坏性语义。
+- **优先级**：P0
+- **前置条件**：MySQL/Jenkins 基础服务健康；backend 镜像已由 Dependency Assurance 确认可用；测试分别准备空 MySQL 数据库和已记录当前 migration 的数据库。
+- **脱敏测试数据**：无真实库名、账号或地址；仅记录 migration 状态为 `empty`、`up_to_date`、`pending`。
+- **操作步骤**：
+  1. 使用 fake Compose runner 验证八阶段顺序、`backend-bootstrap` 一次性容器命令及 `migrate --noinput` 的参数。
+  2. 在隔离空库运行同一固定 Job，检查 migration 记录和全部 Django 表。
+  3. 在已有库模拟无待执行与存在一项待执行 migration 两种状态，重新运行 Job 并比较既有数据。
+- **可观察预期**：
+  - `Schema & Initial Data` 仅在 dependencies 成功后执行，成功后才允许 Deploy；不新增人工参数或旁路命令。
+  - 空库生成 `django_migrations` 和当前全部模型表；已有库只应用待执行版本，数据、既有表和 volume 均不被删除或重建。
+  - 命令不包含 `flush`、`reset`、`drop`、volume 删除或自动 rollback。
+- **备注**：实际空库验证只能通过固定 Jenkins Job 和主人/平台运维准备的隔离基础服务完成，AI 不直接创建/清理数据库。
+
+### TC-S13-F5-002：环境目录与首次管理员幂等初始化
+
+- **关联 AC**：AC5.3、AC5.4
+- **测试目标**：验证 migration 后的环境目录和管理员初始化只处理未初始化状态，不覆盖平台已有数据。
+- **优先级**：P0
+- **前置条件**：镜像内存在合法环境 YAML；分别准备无环境/无账号、已有环境/已有账号，以及“已有环境但 `EnvironmentCatalogState.yaml_blob_sha` 为空”的旧库 fixture。
+- **脱敏测试数据**：环境 key `bootstrap-qa`；管理员用户名 `bootstrap-admin`；密码仅使用测试 fixture 且不写入断言输出。
+- **操作步骤**：
+  1. 在空 fixture 执行 `seed_environment` 与 `init_admin --bootstrap-only`，检查首次创建结果。
+  2. 对同一 fixture 重复执行全部三个初始化命令。
+  3. 在已有环境和至少一个账号的 fixture 重复执行；再以旧库 fixture 重复执行 `seed_environment`，比较命令前后的环境字段、状态 SHA、账号角色、显示名称和密码校验结果。
+- **可观察预期**：
+  - 环境投影仅来自镜像 YAML，重复执行不会增加、更新或停用既有平台环境；旧库存在任意环境但目录状态 SHA 为空时也成功跳过，且不写入新的 SHA。
+  - 仅账号表为空时创建一个 admin；已有任意账号时命令成功跳过，不提升角色、不改显示名称、不改密码。
+  - 三个步骤的顺序固定为 migration、环境投影、管理员初始化。
+- **备注**：不得把 `INITIAL_ADMIN_*` 注入常驻 backend 或 worker 服务。
+
+### TC-S13-F5-003：初始化失败阻断部署且全过程脱敏
+
+- **关联 AC**：AC5.5、AC5.6
+- **测试目标**：验证任一初始化步骤失败的中断、证据和安全边界。
+- **优先级**：P0
+- **前置条件**：可分别模拟 migration、环境 YAML 校验和首次管理员变量缺失/不合规；测试输入含可识别的虚拟密码与 token。
+- **脱敏测试数据**：`<test-admin-password>`、`<test-service-token>`，仅作为 redactor 输入，不得出现在预期输出正文。
+- **操作步骤**：
+  1. 分别注入三个子命令失败，执行 Bootstrap 核心与 Pipeline static 测试。
+  2. 检查 Deploy/Health/Tests 是否调用，以及迁移阶段的结构化诊断、文本证据和 Summary。
+  3. 检查 mysql/jenkins 容器操作记录与所有已归档内容。
+- **可观察预期**：
+  - 失败后不调用 Deploy、Health 或 Tests，不自动回滚 migration，不清理数据库或 volume。
+  - 诊断能标识失败子步骤并给出重建同一 Job 的建议；证据、Summary 和控制台均不含测试密码、token、管理员变量值或绝对工作区路径。
+  - 不启动、停止、重建或删除 mysql/jenkins 基础服务。
+- **备注**：测试应使用 fake runner 和 EvidenceStore，不依赖真实 Docker 或 Jenkins。
+
+### TC-S13-F5-004：readiness 保持只读且阶段证据可追溯
+
+- **关联 AC**：AC5.7、AC5.8
+- **测试目标**：验证 schema 检查职责没有被迁移阶段侵入，并验证八阶段 Summary/归档契约。
+- **优先级**：P1
+- **前置条件**：可 mock `MigrationExecutor`；存在 schema 未就绪和已就绪两种数据库状态；Pipeline 可读取阶段结果 fixture。
+- **操作步骤**：
+  1. 对 ready endpoint 的 `MigrationExecutor.migrate` 设置断言失败，分别请求未就绪和已就绪状态。
+  2. 执行 Bootstrap 阶段结果汇总，检查 `schema-initialization.json`、Summary 和归档顺序。
+  3. 审核 Groovy/Jenkinsfile，确认不内联 Docker、Django 或凭据值。
+- **可观察预期**：
+  - ready endpoint 只计算 migration plan；schema 未就绪返回既有 `schema_not_ready`，绝不执行迁移。
+  - Summary 能显示 schema 阶段成功/失败和脱敏证据链接，且八阶段顺序稳定。
+  - Groovy 只编排 `platform_bootstrap` CLI，复杂命令和错误处理位于可单测 Python 核心。
+- **备注**：该用例不新增浏览器页面、DRF API 或前端断言。
+
 ## 覆盖与交接
 
 | 覆盖类别 | 测试用例 |
 | --- | --- |
-| 正常路径 | TC-S13-F1-001~004、TC-S13-F2-001~003、TC-S13-F3-001/003/005/007/012、TC-S13-F4-002 |
-| 异常与恢复 | TC-S13-F1-005/007、TC-S13-F2-004、TC-S13-F3-002/006/008/009/013 |
+| 正常路径 | TC-S13-F1-001~004、TC-S13-F2-001~003、TC-S13-F3-001/003/005/007/012、TC-S13-F4-002、TC-S13-F5-001/002 |
+| 异常与恢复 | TC-S13-F1-005/007、TC-S13-F2-004、TC-S13-F3-002/006/008/009/013、TC-S13-F5-003 |
 | 边界与并发 | TC-S13-F1-002/004、TC-S13-F3-001/002/004/010 |
 | 权限与 UI 范围 | TC-S13-F3-011/014 |
-| 状态机与幂等 | TC-S13-F1-003/006、TC-S13-F2-001/003、TC-S13-F3-004/006/008/009/010 |
-| Jenkins / Docker 协议 | TC-S13-F1-001/002/007、TC-S13-F3-005/006/007/012、TC-S13-F4-001/002 |
+| 状态机与幂等 | TC-S13-F1-003/006、TC-S13-F2-001/003、TC-S13-F3-004/006/008/009/010、TC-S13-F5-001/002 |
+| Jenkins / Docker 协议 | TC-S13-F1-001/002/007、TC-S13-F3-005/006/007/012、TC-S13-F4-001/002、TC-S13-F5-001/003/004 |
 
 后端 pytest、Pipeline/`api-test` 测试和前端 Playwright 用例应以本文件编号拆分；实际日志、截图、Allure 原始结果和 Jenkins 输出仅作为构建 artifact 保存，不提交到本目录。

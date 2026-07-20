@@ -1,6 +1,6 @@
 # Stage13-Daily-Full-Module-单一流水线编排-可追溯矩阵（RTM）
 
-> 需求来源：`../../demand/Stage13-Daily-Full-Module-单一流水线编排/Stage13-Daily-Full-Module-单一流水线编排-需求说明.md`（2026-07-19 已冻结）。
+> 需求来源：`../../demand/Stage13-Daily-Full-Module-单一流水线编排/Stage13-Daily-Full-Module-单一流水线编排-需求说明.md`（v2.2，2026-07-20 已冻结）。
 >
 > 本阶段已填写每项 AC 的测试用例、UI 范围和 API/Pipeline 契约；“实现位置”和“验收状态”必须由后续实施、独立审查与验收阶段填写，当前不得预填为通过。
 
@@ -26,28 +26,36 @@
 | `AC3.8` | F3 环境初始化不再硬编码默认环境 | `TC-S13-F3-012` | 无；初始化不可作为页面直接操作 | 镜像内环境 YAML 初始投影；运行时仅 Jenkins 页面导入 | `back-end/Dockerfile`、`metrics/management/commands/seed_environment.py` | 待验收阶段填写 |
 | `AC4.1` | F4 验收前不删除旧 Daily Job | `TC-S13-F4-001`、`TC-S13-F1-001` | 无；Jenkins Job 页面 | 版本化迁移删除守卫；未签字不删除 | `jenkins/init.groovy` 的旧 Job 删除守卫 | 静态回归通过；环境 Job 待运行 |
 | `AC4.2` | F4 验收后受控删除旧 Job 与构建历史 | `TC-S13-F4-002` | 无；Jenkins Job 页面 | 主人最终签字守卫；受控旧 Job/历史删除 | 待实施阶段填写 | 待验收阶段填写 |
+| `AC5.1` | F5 空库全量建表且无破坏性操作 | `TC-S13-F5-001` | 无 | 八阶段；`migrate --noinput`；一次性容器 | 待 TDD：Jenkins Bootstrap 核心与 Compose | 待实施 |
+| `AC5.2` | F5 已有库只增量应用 migration | `TC-S13-F5-001` | 无 | 标准 Django 增量 migration；无清库/重建 | 待 TDD：Jenkins Bootstrap 核心 | 待实施 |
+| `AC5.3` | F5 首次环境目录投影幂等 | `TC-S13-F5-002` | 无 | `seed_environment`；镜像环境 YAML | 待 TDD：后端管理命令与 Bootstrap 核心 | 待实施 |
+| `AC5.4` | F5 仅空账号表初始化管理员 | `TC-S13-F5-002` | 无 | `init_admin --bootstrap-only`；私有变量 | 待 TDD：后端管理命令与 Compose 一次性服务 | 待实施 |
+| `AC5.5` | F5 初始化配置失败阻断部署 | `TC-S13-F5-003` | 无 | schema 阶段失败、后续阶段门禁 | 待 TDD：Jenkins Bootstrap 核心/Groovy | 待实施 |
+| `AC5.6` | F5 失败诊断脱敏且基础服务不受管 | `TC-S13-F5-003` | 无 | EvidenceStore 脱敏；基础服务 ID 边界 | 待 TDD：Jenkins Bootstrap 核心与静态门禁 | 待实施 |
+| `AC5.7` | F5 readiness 始终只读 | `TC-S13-F5-004` | 无 | `/health/ready/` 只读 schema 计划 | 已有 `common.health`；补回归断言 | 待实施 |
+| `AC5.8` | F5 受控八阶段与可测试核心 | `TC-S13-F5-001`、`TC-S13-F5-004` | 无 | Groovy 调用 CLI；Python 核心阶段 | 待 TDD：Pipeline/Groovy/CLI | 待实施 |
 
 ## 双向覆盖检查
 
 | 检查项 | 结果 | 说明 |
 | --- | --- | --- |
-| AC 到测试用例 | 已覆盖 | 18/18 项 AC 至少映射一条主用例，关键高风险 AC 映射正常、异常、状态/权限扩展用例。 |
-| 测试用例到 AC | 已覆盖 | 27 条 `TC-S13-*` 测试用例均在其用例正文和本矩阵中关联至少一项 AC。 |
+| AC 到测试用例 | 已覆盖 | 26/26 项 AC 至少映射一条主用例，关键高风险 AC 映射正常、异常、状态/权限扩展用例。 |
+| 测试用例到 AC | 已覆盖 | 31 条 `TC-S13-*` 测试用例均在其用例正文和本矩阵中关联至少一项 AC。 |
 | UI 范围 | 已覆盖 | C01、R1-R4 映射已落实；member 不渲染 R2-R4，禁止 DOM 已写入 Playwright 用例。 |
 | API / Pipeline 契约 | 已覆盖 | 写接口、读接口、Jenkins 父/Worker/同步 Job、聚合产物协议均已定位。 |
-| 实施位置 | 已填写 | 关键 AC 已回填 api-test、Jenkins、后端和前端文件/符号。 |
-| 验收状态 | 受阻 | 静态、pytest、Vitest、typecheck 与独立审查完成；固定 Jenkins Job #26 因 `schema_not_ready` 在 Health 失败，Tests/Playwright 未启动。 |
+| 实施位置 | 部分待实施 | AC1-AC4 已回填；AC5 已冻结 TDD 所有权，禁止预填为通过。 |
+| 验收状态 | 进行中 | AC1-AC4 的既有验证保持有效；AC5 实施完成后，固定 Jenkins Job 将替代 #26 的 schema 阻塞并取得运行态证据。 |
 
 ## 漂移检查清单（一致性自动门禁）
 
-- [x] **无遗漏需求**：AC1.1 至 AC4.2 全部在本矩阵中有测试用例。
-- [x] **无凭空用例**：27 条 `TC-S13-*` 均能回溯到至少一项冻结 AC。
+- [x] **无遗漏需求**：AC1.1 至 AC5.8 全部在本矩阵中有测试用例。
+- [x] **无凭空用例**：31 条 `TC-S13-*` 均能回溯到至少一项冻结 AC。
 - [x] **正常、异常、边界、权限、状态机、并发、Jenkins/Docker 协议已设计覆盖**：见测试用例文档“覆盖与交接”。
 - [x] **无遗漏界面**：C01、R1-R4 及禁止 DOM 项已实施并纳入 Playwright 用例。
 - [x] **无契约漂移**：后端 API、Jenkins 静态、api-test 和前端 API 契约已核对；member 目录审计字段已从浏览器响应删除。
-- [x] **无未实现需求**：所有 AC 已填写实现位置。
+- [ ] **无未实现需求**：AC5.1-AC5.8 已冻结并完成测试设计，等待 TDD 实现和独立审查。
 - [x] **无孤儿代码**：后端/Jenkins 最终复审整改与前端独立代码审读未发现阻断问题。
-- [ ] **全部达成**：固定 Jenkins Job #26 因数据库 schema 未就绪失败；待主人/平台运维完成既定 migration 流程后重建同一 Job 并取得运行态证据。
+- [ ] **全部达成**：AC5 将修复固定 Jenkins Job #26 的 schema 阻塞；实施、独立审查和同一固定 Job 的运行态证据待完成。
 
 ## 漂移处置记录
 
