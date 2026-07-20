@@ -89,6 +89,8 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 3. 修改 Jenkins Job binding 与结果同步：唯一 Daily 父构建映射为一条 module 为空的平台任务/运行；父摘要逐模块幂等更新快照、失败用例和趋势；预检失败构建不创建父任务。
 4. 更新 Swagger/OpenAPI、已有管理命令测试和 `.env.example` 说明（仅当本任务新增配置变量）。
 
+**补充裁决**：主人于 2026-07-20 授权修复 `jenkins/` 环境目录同步回调：仅在 Git push 成功后，回传实际 `HEAD` commit SHA；后端成功回调继续严格校验并持久化该 SHA，禁止伪造。
+
 **完成条件**：TC-S13-F2-001 至 F2-004、F3-003 至 F3-013 的后端 API/同步行为先红后绿；无模块子任务 API、无直接 Jenkins/pytest shell 调用。
 
 ### Task 5 前端环境管理（等待主人选择 UI 候选）
