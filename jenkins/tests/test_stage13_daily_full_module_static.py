@@ -180,6 +180,30 @@ def test_environment_catalog_sync_uses_clean_scm_checkout_and_blob_guard_before_
     assert "dump_environment_catalog" in sync_helper
 
 
+def test_environment_catalog_sync_records_validated_head_sha_after_mysql_push_only():
+    """mysql_to_yaml 只能在成功 push 后回传经过校验的实际 HEAD SHA。"""
+    sync_pipeline = read_source("scripts/environment-catalog-sync-pipeline.groovy")
+    mysql_to_yaml_start = sync_pipeline.index("if (syncDirection == 'mysql_to_yaml')")
+    yaml_to_mysql_start = sync_pipeline.index("    } else {", mysql_to_yaml_start)
+    mysql_to_yaml_flow = sync_pipeline[mysql_to_yaml_start:yaml_to_mysql_start]
+    yaml_to_mysql_flow = sync_pipeline[yaml_to_mysql_start:]
+
+    assert "string(name: 'COMMIT_SHA'" not in sync_pipeline
+    assert "params.COMMIT_SHA" not in sync_pipeline
+    assert "def recordPushedCommitSha(String resultPath)" in sync_pipeline
+    assert "readCommand('git rev-parse HEAD', 'git rev-parse HEAD')" in sync_pipeline
+    assert 'return bat(returnStdout: true, script: "@${windowsCommand}").trim()' in sync_pipeline
+    assert "commitSha ==~ /^[0-9a-f]{40}$/" in sync_pipeline
+    assert "new JsonSlurperClassic().parseText(readFile(file: resultPath))" in sync_pipeline
+    assert "resultPayload.commit_sha = commitSha" in sync_pipeline
+    assert "JsonOutput.toJson(resultPayload)" in sync_pipeline
+    assert "recordPushedCommitSha(resultPath)" in mysql_to_yaml_flow
+    assert "recordPushedCommitSha(resultPath)" not in yaml_to_mysql_flow
+    assert mysql_to_yaml_flow.index("git push --quiet origin HEAD:${branchName}") < mysql_to_yaml_flow.index(
+        "recordPushedCommitSha(resultPath)"
+    ) < mysql_to_yaml_flow.index("callbackAfterSuccessfulPush(resultPath, catalogCallbackEndpoint)")
+
+
 def test_environment_catalog_sync_uses_fixed_private_service_endpoints_not_url_parameters():
     """内部导出和回调端点只能从私有服务地址与已校验请求标识构造。"""
     sync_pipeline = read_source("scripts/environment-catalog-sync-pipeline.groovy")

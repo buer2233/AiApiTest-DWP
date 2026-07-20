@@ -1,6 +1,7 @@
 // 环境目录同步 Pipeline。Git 和内部回调只使用 Jenkins Credentials，不暴露到 Groovy 源码或日志。
 
 import groovy.json.JsonSlurperClassic
+import groovy.json.JsonOutput
 
 def runCommand(String unixCommand, String windowsCommand) {
     if (isUnix()) {
@@ -14,7 +15,7 @@ def readCommand(String unixCommand, String windowsCommand) {
     if (isUnix()) {
         return sh(returnStdout: true, script: unixCommand).trim()
     }
-    return bat(returnStdout: true, script: windowsCommand).trim()
+    return bat(returnStdout: true, script: "@${windowsCommand}").trim()
 }
 
 def runCatalogTool(String arguments) {
@@ -79,6 +80,25 @@ def callbackAfterSuccessfulPush(String resultPath, String callbackEndpoint) {
             )
         }
     }
+}
+
+def recordPushedCommitSha(String resultPath) {
+    def commitSha = readCommand('git rev-parse HEAD', 'git rev-parse HEAD')
+    if (!(commitSha ==~ /^[0-9a-f]{40}$/)) {
+        error('Pushed Git HEAD must be exactly 40 lowercase hexadecimal characters.')
+    }
+    def resultPayload = new JsonSlurperClassic().parseText(readFile(file: resultPath))
+    if (!(resultPayload instanceof Map)) {
+        error('Environment catalog result payload must be a JSON object.')
+    }
+    if (resultPayload.direction != 'mysql_to_yaml') {
+        error('Only mysql_to_yaml result payloads may contain commit_sha.')
+    }
+    resultPayload.commit_sha = commitSha
+    writeFile(
+        file: resultPath,
+        text: JsonOutput.prettyPrint(JsonOutput.toJson(resultPayload)) + '\n'
+    )
 }
 
 def call() {
@@ -159,6 +179,7 @@ def call() {
             }
         }
         stage('Callback After Push') {
+            recordPushedCommitSha(resultPath)
             callbackAfterSuccessfulPush(resultPath, catalogCallbackEndpoint)
         }
     } else {
