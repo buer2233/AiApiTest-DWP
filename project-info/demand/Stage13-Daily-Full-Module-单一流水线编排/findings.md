@@ -1,5 +1,19 @@
 # Stage13-Daily-Full-Module-单一流水线编排：调查发现
 
+## 2026-07-21 验收阻断调查
+
+- 主人报告遗留 Job `AiApiTest-DWP-Daily-Full-Module-test_gbif_case` 和 `AiApiTest-DWP-Daily-Full-Module-test_gbif_case_module2` 尚未删除，并提供 Platform Bootstrap #27 控制台地址报告启动错误。
+- 当前仅开展根因调查；需要分别核实版本化删除守卫、Jenkins 实际 Job 状态、#27 失败阶段和结构化诊断，不能以直接删除 Job 或本地/容器启动命令替代受控修复。
+- 已确认 `jenkins/scripts/configure-local-mounted-jobs.groovy` 只删除遗留 Job 的 `TimerTrigger` 并保存 Job；即使 `JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED=true`，当前实现仍只输出“本任务不删除 Job 或构建历史”的提示。两条 Job 留存是当前版本的显式行为，不是 Jenkins 清理失败。
+- 未认证访问 #27 的 Jenkins JSON API 与 `consoleText` 均返回 HTTP 403。后续必须复用仓库现有的私有 Jenkins helper 认证路径，只提取结构化失败摘要和相关报错行，不能绕过认证或输出私有凭据。
+- 私有认证读取确认 #27 在约 402 秒后以 `FAILURE` 结束，且已归档 `schema-initialization.json`、`deploy.json`、`health.json`、`tests.json` 与各测试 Artifact。故失败发生在完整测试/汇总链路之后，不是 Schema、Deploy 或 Health 的启动阻断。
+- #27 的结构化摘要将失败定位为 `Tests`：后端 `test_trend_window_uses_local_date_for_snapshot_completion` 使用 2026-07-10 的固定数据，运行当日已落出 7 天窗口；静态门禁 `test_project_info_has_no_links_to_retired_evidence_directories` 命中 Stage13 `progress.md` 的历史退休证据路径；Playwright 为 3 条失败，失败期间 Vite 代理反复连接 `127.0.0.1:8000` 被拒绝。需继续从源码与测试 Artifact 区分过期断言、测试隔离缺口和产品回归，不能把它们归因于 schema 初始化。
+- Playwright 精确根因：`stage13-environment-catalog.spec.ts:140` 的 `getByText('已进入队列')` 同时命中表格按钮、同步弹窗和 Element Plus 提示，属于 locator 过宽；`stage3-p2-metrics.spec.ts:168` 断言已从当前 C01 `EnvironmentSnapshotPanel` 移除的 `aria-label=通过率汇总`，`stage3-p2-metrics.spec.ts:194` 等待源码中不存在的“生成环境报告”按钮，两项需根据冻结 Stage3 需求决定恢复产品能力还是退役旧契约。
+- E2E 测试容器未注入 `FRONTEND_DEV_API_PROXY_TARGET`，前端配置因此回退 `127.0.0.1:8000`（容器自身），导致代理拒绝连接；现有 smoke 已使用 `http://backend:8000`，可作为最小配置修复的对照。该隔离缺口与两条 mock API 的 Stage3 断言是独立问题。
+- 后端趋势 API 使用真实 `timezone.localdate()` 计算窗口，测试固定 2026-07-10 数据；应冻结测试时钟或相对当前日期，不能修改生产 API。静态失败应在不保留失效路径文字的前提下更新历史资料引用。
+- Stage13 C01 冻结原型只要求 R1 展示环境选择、通过率、统计和模块快照入口；不再包含 Stage3 的“通过率汇总”可访问区或“生成环境报告”占位。故两条 Stage3 E2E 是过期验收契约，应改为验证当前 R1 卡片与模块链接并同步 Stage3 资料/RTM，不应为绿测恢复废弃按钮。
+- 旧 Job 删除仍需主人明确裁决：当前全绿验收尚未达成，且永久删除 Job 及构建历史的精确 allowlist、执行时机、是否允许在本轮修复并完成固定 Job 验收后执行，均不能从“仍未删除”的现象自行推定。
+
 ## 2026-07-20 Task 4 最终审查整改
 
 - v2.2 实现前调研确认：当前 `seed_environment` 仅以目录 SHA 判断是否初始化；旧库已有环境但无 SHA 时会重新投影并可能覆盖目录。AC5.3 已冻结“已有任意环境即跳过”，因此必须先补该 RED 回归并修复首次投影守卫。

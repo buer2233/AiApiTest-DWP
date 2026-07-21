@@ -20,6 +20,11 @@
 - 主人确认 Platform Bootstrap 自动 migration 与首装数据初始化设计；正在将其作为 Stage13 v2.0 书面规格修订，代码实现等待规格复核。
 - 规格自审发现历史变更记录已占用 v2.0 与 v2.1，已将本次书面修订统一校正为 v2.2-draft；未发现占位符、敏感值或范围冲突。
 - v2.2 Task 7 已完成：提交 `39f8600`，Jenkins/Compose/后端 TDD 定向回归通过，独立审查批准。固定 Platform Bootstrap Job #27 的 Schema & Initial Data、Deploy、Health 成功，backend ready 不再 `schema_not_ready`；完整 Tests 仅因既有趋势日期、前端 Playwright 和退休证据路径失败而终态失败，已登记验收包等待独立治理。
+- 2026-07-21：主人报告两个旧 Daily Job 仍存在，以及 Platform Bootstrap #27 启动报错。已进入根因调查：只读核查 Job 状态、版本化删除守卫与 Jenkins 结构化诊断；尚未删除 Job、运行 migration 或直接操作应用服务。
+- 调查确认旧 Job 留存由当前版本显式设计：init Groovy 仅移除 TimerTrigger，批准变量也不执行删除。未认证读取 #27 Jenkins JSON/console 返回 403，正在切换至既有私有 helper 的只读认证路径获取失败证据。
+- 私有认证诊断已确认 #27 的 Schema、Deploy、Health 已完成；最终 `FAILURE` 来自 Tests 阶段的固定日期后端断言、3 条 Playwright 失败（含 Vite 代理拒绝连接）及 Stage13 历史资料中的退休证据路径静态门禁。正在按根因拆分最小 TDD 整改，未执行任何环境旁路操作。
+- 已定位 Playwright 失败：一条为 C01 同名文本的 locator strict-mode 问题，两条为 Stage3 旧 UI 契约与当前实现不一致；同时 E2E 容器缺少 backend service 的前端代理变量。正在对照冻结需求判定恢复还是退役旧 UI 契约，避免把测试绿化误当作产品决策。
+- 规格对照完成：Stage3 的“生成环境报告”占位和“通过率汇总”可访问区已不属于 Stage13 C01 R1；将以当前 R1 卡片、统计和模块入口更新旧 E2E/资料。旧 Job 永久删除因全绿验收未完成且缺精确授权，等待主人确认受控删除时机与范围。
 - Task 4 最终审查整改完成：回调语义失败回归直接验证现有服务层已正确落为 `failed`；Jenkins 调度异常与空 queue id 现在释放同步键；Daily 已有父任务在正常命中和并发回退均验证 task/run 形态；MySQL 首次 global Daily binding 创建使用 advisory lock，SQLite 保持兼容。
 - TDD 证据：回调语义参数化 `2 passed`；调度失败参数化 `2 passed`；Daily 任务形态与回退 `9 passed`；绑定锁与既有命令回归 `5 passed`。
 - 扩大回归：`tests/test_stage13_environment_catalog_api.py`、`tests/test_metrics_jenkins_execution_api.py`、`tests/test_metrics_commands.py` 全部通过；`py_compile`、Ruff 和 `git diff --check` 通过。未运行 migration、Docker、应用服务或 Jenkins。
