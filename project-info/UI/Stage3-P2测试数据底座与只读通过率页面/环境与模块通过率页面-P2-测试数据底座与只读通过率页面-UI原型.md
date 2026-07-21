@@ -22,7 +22,7 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 
 1. 让登录用户在 `/environments` 查看唯一初始环境“模拟测试环境”的最新执行快照。
 2. 让登录用户在 `/modules` 通过后端分页、筛选、排序查看模块最新快照。
-3. 明确 P2 边界：AI 环境报告、失败重试、模块重试、趋势和 Jenkins 任务均为后续阶段能力，本阶段只展示占位或禁用态。
+3. 明确 P2 边界：失败重试、模块重试、趋势和 Jenkins 任务均为后续阶段能力，本阶段只展示禁用态；AI 环境报告的 P2 占位设计已由 Stage13 C01 R1 取代，仅保留历史可追溯，不进入当前 DOM 或 Playwright。
 
 ## 3. 视觉规范落地
 
@@ -32,7 +32,7 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 | 主文字 | `ink #141413` | 页面标题、表格主字段、数字标题。 |
 | 正文 | `body #3d3d3a` | 说明、表格普通字段。 |
 | 弱化文字 | `muted #6c6a64` | 空态、禁用操作、辅助说明。 |
-| 主操作 | `primary #cc785c` | `查询`、`生成环境报告` 等主按钮；不用于状态含义。 |
+| 主操作 | `primary #cc785c` | 当前用于 `查询` 等主按钮；P2 的 `生成环境报告` 仅保留历史记录，已由 Stage13 C01 R1 取代。 |
 | 发丝线 | `hairline #e6dfd8` | 表格边界、筛选框、卡片分隔。 |
 | 卡片面 | `surface-card #efe9de` | 筛选区、帮助说明、状态卡。 |
 | 深色面 | `surface-dark #181715` | 低通过率诊断条或侧边导航，不做大面积装饰。 |
@@ -44,10 +44,10 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 
 | Frame ID | 名称 | 路由 / 状态 | 候选来源 | 覆盖 AC |
 | --- | --- | --- | --- | --- |
-| `P2-FR-001` | Environment Overview | `/environments` 默认有快照 | 候选 01、04 | AC3.1、AC3.2、AC3.4、AC3.5 |
+| `P2-FR-001` | Environment Overview | `/environments` 默认有快照 | 候选 01、04 | AC3.1、AC3.2、AC3.4 |
 | `P2-FR-002` | Environment Empty | `/environments` 无快照 | 候选 01、04、05 | AC3.3 |
-| `P2-FR-003` | Environment Error | `/environments` 汇总加载失败 | 候选 01、04、05 | AC3.2 异常恢复 |
-| `P2-FR-004` | Report Placeholder | 点击 `生成环境报告` | 候选 01、04、05 | AC3.5 |
+| `P2-FR-003` | Environment Error | `/environments` 汇总加载失败 | 候选 01、04、05 | AC3.2 异常提示（不含恢复按钮） |
+| `P2-FR-004` | Report Placeholder（P2 历史，已由 Stage13 C01 R1 取代） | P2 原设计为点击 `生成环境报告`；当前不进入 DOM 或 Playwright | 候选 01、04、05 | 历史 AC3.5，不再作为当前覆盖 |
 | `P2-FR-005` | Module Table | `/modules` 默认列表 | 候选 02、03、05 | AC4.1、AC4.2 |
 | `P2-FR-006` | Module Filtered Low Rate | `/modules?pass_rate_lte=90` | 候选 03 | AC4.1、AC4.2 |
 | `P2-FR-007` | Module Loading / Empty / Error | `/modules` 列表状态 | 候选 02、05 | AC4.1 边界 |
@@ -59,7 +59,7 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 
 | 区域编号 | 图片位置 | 区域类型 | 是否进入前端 | 前端落点 | 触发条件 | 禁止项 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `R1` | 候选 01/04 左侧环境页主体 | 产品页面 | 是 | `/environments`，`EnvironmentsView` | 用户点击侧边栏 `环境通过率` | 不得同屏展示完整模块表格；只保留模块页入口 |
+| `R1` | 候选 01/04 左侧环境页主体 | 产品页面 | 是，当前范围由 Stage13 C01 R1 冻结 | `/environments`，`EnvironmentsView` | 用户点击侧边栏 `环境通过率` | 不得同屏展示完整模块表格；只保留模块页入口；P2 `生成环境报告` 及占位提示仅为历史，不进入当前 DOM 或 Playwright |
 | `R2` | 候选 02/03/05 桌面模块页主体 | 产品页面 | 是 | `/modules`，`ModulesView` | 用户点击侧边栏 `模块通过率` 或从环境页带 `environment_id` 跳转 | 不得显示环境页的大型环境汇总卡作为同屏主体 |
 | `R3` | 候选 04 右侧模块通过率入口面板 | 点击后路由预览 | 是，但不是环境页同屏 DOM | `/modules?environment_id={id}`，`ModulesView` | 在 `/environments` 点击 `模块通过率` 后进入独立路由 | 不得在 `/environments` 实现为常驻右侧抽屉，除非主人另行确认 |
 | `R4` | 候选 05 右侧手机画面 | 响应式状态示例 | 是，作为断点规则 | `/environments` mobile layout，后续 `/modules` mobile card layout | 视口小于 768px | 不得新增独立移动路由；不得让桌面表格横向撑破页面 |
@@ -71,11 +71,11 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 
 | UI 区域编号 | 用户路径 | Vue route | 组件落点 | 初始是否可见 | Playwright 断言方向 |
 | --- | --- | --- | --- | --- | --- |
-| `R1` | 查看环境汇总 | `/environments` | `EnvironmentsView`、`EnvironmentSelector`、`EnvironmentSummaryPanel` | 是 | 显示 `模拟测试环境`、`环境通过率`、`https://api.gbif.org`、`96.00%`、`生成环境报告` |
+| `R1` | 查看环境汇总（当前范围由 Stage13 C01 R1 冻结） | `/environments` | `EnvironmentsView`、`EnvironmentSelector`、`EnvironmentSummaryPanel` | 是 | 当前仅断言 `模拟测试环境`、`环境通过率`、`https://api.gbif.org`、`96.00%` 和模块入口；P2 `生成环境报告` 历史已由 Stage13 C01 R1 取代，不进入当前 DOM 或 Playwright |
 | `R2` | 查看模块列表 | `/modules` | `ModulesView`、`ModuleFilters`、`ModuleSnapshotTable`、`PaginationLine` | 是 | 显示日期、用例包名、模块名称、模块开发、模块测试、通过率、执行时间 |
 | `R3` | 环境页跳模块页 | `/modules?environment_id=1` | `ModulesView` 初始化读取 query | 点击后可见 | 点击 `模块通过率` 后 URL 进入 `/modules` 并保留环境筛选 |
 | `R4` | 移动端环境页 | `/environments` | 同 `EnvironmentsView`，CSS 断点改为卡片堆叠 | 小屏可见 | 小屏不出现横向滚动；按钮高不低于 44px |
-| `R5` | 空态/错误态 | 当前 route 内状态组件 | `EmptyState`、`InlineErrorState` | 条件可见 | 无快照显示 `暂无执行结果`；加载失败显示 `可重试` |
+| `R5` | 空态/错误态 | 当前 route 内状态组件 | `EmptyState`、`InlineErrorState` | 条件可见 | 无快照显示 `暂无执行结果`；加载失败仅显示错误提示，不要求恢复按钮或相应 Playwright 断言 |
 | `R6` | 后置动作占位 | `/modules` 表格操作列 | 禁用 chip 或隐藏 | 按响应 `actions` 判断 | 不应触发 Jenkins、重试或趋势请求 |
 
 ## 7. 页面规格
@@ -89,10 +89,10 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 | 后端地址 | `https://api.gbif.org` | 来自后端响应，前端不得硬编码 |
 | 汇总卡 | 环境名、开始时间、结束时间、执行时长、总用例数、失败用例数、跳过用例数 | `GET /api/v1/test-environments/{id}/summary` |
 | 通过率 | `96.00%` + 进度条 + 文本状态 | `pass_rate`；状态色按阈值映射 |
-| 生成环境报告 | coral 主按钮 | 点击只提示 `AI 分析报告功能后续实现`，无后端请求 |
+| 生成环境报告 | P2 历史 coral 主按钮 | P2 原设计为点击提示 `AI 分析报告功能后续实现`、无后端请求；历史已由 Stage13 C01 R1 取代，当前页面不渲染该按钮或占位提示，也不编写 Playwright 断言 |
 | 模块通过率入口 | 次按钮 | 跳转 `/modules?environment_id={id}` |
 | 空态 | `暂无执行结果` | summary 无快照时显示 |
-| 错误态 | `环境汇总加载失败，可重试` | 请求失败时显示恢复按钮 |
+| 错误态 | `环境汇总加载失败` | 请求失败时仅显示错误提示；当前不要求恢复按钮或对应 Playwright 断言 |
 
 ### 7.2 `/modules` 模块通过率
 
@@ -107,7 +107,7 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 | 分页 | `共 n 条，当前第 x 页`、上一页、下一页、每页条数 | 响应 `meta` |
 | 公式说明 | `(总用例数 - 失败用例数) / 总用例数` | 帮助说明，不参与计算 |
 | 空态 | `暂无模块快照` | 返回空列表 |
-| 错误态 | `模块列表加载失败，可重试` | 请求失败 |
+| 错误态 | `模块列表加载失败` | 请求失败时仅显示错误提示；当前不要求恢复按钮或对应 Playwright 断言 |
 
 ## 8. 测试用例覆盖校准
 
@@ -116,7 +116,7 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 | TC-P2-F3-004 | 环境下拉和汇总字段已覆盖 | P2-FR-001 |
 | TC-P2-E-002 | 无快照空态已覆盖 | P2-FR-002 |
 | TC-P2-F3-005 | 环境地址来自接口响应的 UI 位置已覆盖 | P2-FR-001 |
-| TC-P2-F3-006 | 生成环境报告占位提示已覆盖 | P2-FR-004 |
+| TC-P2-F3-006 | P2 历史：生成环境报告占位提示原由 P2-FR-004 覆盖；已由 Stage13 C01 R1 取代，当前不进入 DOM 或 Playwright | P2-FR-004（历史） |
 | TC-P2-F4-005 | 模块表格核心字段已覆盖 | P2-FR-005 |
 | TC-P2-F4-006 | 96.00% 展示和语义色已覆盖 | P2-FR-005、P2-FR-006 |
 | TC-P2-F4-007 | 筛选与分页交互已覆盖 | P2-FR-005 |
@@ -124,7 +124,7 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 | TC-P2-ERR-001/005 | 未登录 401 属路由守卫，不在 P2 页面图中展示，复用 P1 登录页 | 无新增 UI |
 | TC-P2-F1-* / TC-P2-SEED-* | 管理命令，无页面 | 无 UI |
 
-覆盖校准结论：P2 涉及 UI 的正常、异常、边界、权限前置和关键状态反馈均有候选图或 frame 映射；命令类和接口文档类用例不设计页面。
+覆盖校准结论：仍在当前范围的 P2 UI 正常、异常、边界、权限前置和关键状态反馈均有候选图或 frame 映射；`TC-P2-F3-006` 与 `P2-FR-004` 仅保留历史可追溯，当前实现和 Playwright 不得恢复其按钮或占位提示；命令类和接口文档类用例不设计页面。
 
 ## 9. 安全与容器化检查
 
@@ -142,3 +142,8 @@ P2 的 UI 不是营销页，也不是 Jenkins 执行入口，而是平台首次�
 - [x] 已完成测试用例覆盖校准。
 - [x] 已确认融合方案：候选 02 + 候选 03 低通过率提示 + 候选 05 响应式卡片。
 - [x] 已进入前端正式实现并完成 Playwright 截图验收。
+
+## 2026-07-21 Stage13 C01 范围取代
+
+- 本原型中的“生成环境报告”仅保留为 P2 历史设计记录。Stage13 C01 已冻结 `/environments` R1 为环境选择、环境地址、通过率统计和模块入口；该按钮和占位提示不得重新进入当前页面 DOM 或 Playwright 断言。
+- `P2-FR-004` 和 `TC-P2-F3-006` 已明确降为历史映射；当前 R1 的 Playwright 仅覆盖 Stage13 C01 R1 冻结字段及模块入口。环境和模块错误态同样不再要求恢复按钮或其断言。

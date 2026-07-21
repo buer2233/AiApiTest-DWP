@@ -1,4 +1,4 @@
-// 本地 Compose Jenkins Job 修复脚本。所有受管 Job 可重复创建/修复，绝不删除历史 Job 或构建。
+// 本地 Compose Jenkins Job 修复脚本。受管 Job 可重复创建/修复；旧 Daily Job 删除必须经过显式双重守卫。
 
 import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.GitSCM
@@ -28,6 +28,7 @@ def catalogScmUrl = System.getenv('JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL') ?:
 def catalogScmBranch = System.getenv('JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH') ?: 'main'
 def catalogScmCredentialsId = System.getenv('JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID') ?: ''
 def legacyDailyRemovalApproved = System.getenv('JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED') ?: 'false'
+def legacyDailyRemovalJobNames = System.getenv('JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES') ?: ''
 def dailyWorkerThrottleCategory = 'aiapitest-daily-worker'
 def moduleRerunThrottleCategory = 'aiapitest-module-rerun'
 def failedRerunThrottleCategory = 'aiapitest-failed-rerun'
@@ -196,9 +197,10 @@ jobConfigs.each { config ->
     println "[AiApiTest-DWP] Configured Jenkins Job: ${config.name}"
 }
 
-// Stage13 升级后旧分模块 Daily Job 仅保留配置和历史构建，移除 TimerTrigger 避免与唯一父 Job 重复调度。
+// Stage13 升级后旧分模块 Daily Job 不再保留 TimerTrigger，避免与唯一父 Job 重复调度。
 def legacyDailyJobs = jenkins.getAllItems(WorkflowJob).findAll { legacyDailyJob ->
     legacyDailyJob.fullName.startsWith("${dailyFullJobPrefix}-") &&
+        legacyDailyJob.fullName != dailyFullParentJobName &&
         legacyDailyJob.fullName != dailyFullWorkerJobName
 }
 legacyDailyJobs.each { legacyDailyJob ->
@@ -208,8 +210,28 @@ legacyDailyJobs.each { legacyDailyJob ->
     println "[AiApiTest-DWP] Removed legacy Daily timer while preserving Job and build history: ${legacyDailyJob.fullName}"
 }
 
-if (legacyDailyRemovalApproved == 'true') {
-    println '[AiApiTest-DWP] Legacy Daily removal approval is recorded, but this Stage13 task never removes Jobs or build history.'
+// 仅删除明确列出、属于旧 Daily 前缀且不是唯一父/Worker Job 的 WorkflowJob；Job.delete() 同时清理其构建历史。
+def legacyDailyDeletionAllowlist = legacyDailyRemovalJobNames
+    .split(',', -1)
+    .collect { it.trim() }
+def legacyDailyDeletionAllowlistIsValid = legacyDailyDeletionAllowlist &&
+    legacyDailyDeletionAllowlist.toSet().size() == legacyDailyDeletionAllowlist.size() &&
+    legacyDailyDeletionAllowlist.every { it ->
+        it.startsWith("${dailyFullJobPrefix}-") &&
+            it != dailyFullParentJobName &&
+            it != dailyFullWorkerJobName
+    }
+
+if (legacyDailyRemovalApproved == 'true' && legacyDailyDeletionAllowlistIsValid) {
+    legacyDailyDeletionAllowlist.each { legacyDailyJobName ->
+        def legacyDailyJob = jenkins.getItemByFullName(legacyDailyJobName, WorkflowJob)
+        if (legacyDailyJob != null) {
+            legacyDailyJob.delete()
+            println "[AiApiTest-DWP] Deleted approved legacy Daily Job and build history: ${legacyDailyJob.fullName}"
+        }
+    }
+} else if (legacyDailyRemovalApproved == 'true') {
+    println '[AiApiTest-DWP] Legacy Daily deletion approval is enabled but its allowlist is missing or invalid; preserving all Jobs.'
 } else {
     println '[AiApiTest-DWP] Preserving legacy per-module Daily Jobs and their build history until final acceptance.'
 }

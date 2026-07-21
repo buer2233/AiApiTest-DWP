@@ -125,6 +125,8 @@ class TestService:
                     f"{prefix}-frontend-e2e",
                     "--network",
                     "aiapitest-platform",
+                    "--env",
+                    "FRONTEND_DEV_API_PROXY_TARGET=http://backend:8000",
                     "aiapitest-frontend-test:local",
                     "sh",
                     "-c",

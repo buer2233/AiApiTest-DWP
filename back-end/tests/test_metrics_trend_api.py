@@ -171,10 +171,11 @@ def test_trend_uses_latest_id_when_module_rerun_completion_times_are_missing(adm
     assert response.data["data"]["series"][0]["failed_count"] == latest.failed_count
 
 
-def test_trend_window_uses_local_date_for_snapshot_completion(admin_client, db):
+def test_trend_window_uses_local_date_for_snapshot_completion(admin_client, db, monkeypatch):
     context = create_p3_metric_context(suffix="-trend-local-date")
     completed_at = datetime(2026, 7, 9, 16, 30, tzinfo=datetime_timezone.utc)
     local_run_date = django_timezone.localtime(completed_at).date()
+    monkeypatch.setattr("metrics.views.timezone.localdate", lambda: local_run_date)
     snapshot = context["module_snapshot"]
     snapshot.completed_at = completed_at
     snapshot.save(update_fields=["completed_at", "updated_at"])

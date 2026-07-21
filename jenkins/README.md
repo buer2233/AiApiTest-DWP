@@ -110,7 +110,9 @@ Allure 是 Jenkins Allure 插件提供的 Build 级报告与 artifact 入口，�
 
 父 Job 不会因单个模块测试失败而中止其他模块。它等待所有可调度 Worker，回收 Worker 工件，调用 `api-test` 聚合协议生成稳定父级 `summary.json`、模块明细和合并 Allure 原始结果，归档并仅发布父级 Allure。Worker、聚合或归档基础设施异常同样在所有可用结果归档后使父构建失败。
 
-旧分模块 Daily Job 与已有构建历史在最终验收前保持不变。`JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED` 目前只作为将来受控迁移的审计守卫，当前版本不执行删除。
+旧分模块 Daily Job 与已有构建历史默认保留；init 脚本只移除其 `TimerTrigger`，避免与唯一 Daily 父 Job 重复调度。只有同时设置 `JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED=true`，并将 `JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES` 配置为合法精确白名单时，才会删除白名单中的旧 Job 及其构建历史。白名单使用英文逗号分隔完整 Job 名，不接受空项、重复项、父 Job、Worker 或非 Daily 前缀项；每一项均以精确 Job 名查询，不执行通配符删除。
+
+受控删除只允许在固定 Platform Bootstrap Job 全绿后，由主人/平台运维重启 Jenkins，使版本化 init Groovy 在 Jenkins bootstrap 时执行。未批准、白名单缺失或校验失败时，脚本保留全部旧 Job；白名单中的不存在项安全跳过，可重复执行。
 
 环境目录同步 Job 不读取 MySQL、不写开发挂载工作区，也不运行接口测试。它使用 `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL` 指向的受控仓库建立干净 checkout，在写入前校验目标 YAML 的 Git blob SHA；仅在快进推送成功后回调受限内部 API。`JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL` 仅在私有环境配置中维护，Pipeline 固定拼接内部导出与回调路径，绝不接受 URL 构建参数。`JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID` 是独立最小权限的用户名/密码 Credentials ID，仅通过 askpass helper 包裹 Git fetch/push；checkout、push 和服务令牌凭据彼此独立，凭据、远端地址及令牌均不能写入模板、Pipeline 或日志。
 
