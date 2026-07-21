@@ -162,10 +162,11 @@ test.describe('Stage3 P2 环境与模块通过率页面', () => {
 
     await expect(page.getByRole('heading', { name: '环境通过率' })).toBeVisible()
     const environmentSelect = page.getByLabel('当前查看环境')
+    const environmentSummary = page.getByLabel('环境通过率')
     await expect(environmentSelect).toBeVisible()
     await expect(environmentSelect).toHaveValue('1')
     await expect(environmentSelect.locator('option:checked')).toHaveText('模拟测试环境')
-    await expect(page.getByText(TEST_ENV_BASE_URL, { exact: true })).toBeVisible()
+    await expect(environmentSummary.getByText(TEST_ENV_BASE_URL, { exact: true })).toBeVisible()
     await expect(page.getByText('https://api.gbif.org')).toHaveCount(0)
     await expect(page.getByText('96.00%', { exact: true })).toBeVisible()
     await expect(page.getByText('已通过 / 总用例', { exact: true })).toBeVisible()
