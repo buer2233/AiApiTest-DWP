@@ -24,12 +24,12 @@
 | `AC3.6` | F3 blob SHA 冲突拒绝覆盖 | `TC-S13-F3-009`、`TC-S13-F3-010`、`TC-S13-F3-014` | R4 冲突操作 | `expected_yaml_blob_sha` 与 `observed_yaml_blob_sha`；`conflict`；`409 sync_not_retryable` | `back-end/metrics/environment_catalog.py`、`EnvironmentCatalogSyncDialog.vue` | pytest / Vitest 通过；环境 Job 待运行 |
 | `AC3.7` | F3 member 无环境管理权限 | `TC-S13-F3-011`、`TC-S13-F3-013`、`TC-S13-F3-014` | `/environments` R2-R4 对 member 不渲染 | 写接口/同步审计 `403 admin_required`；Cookie JWT | `metrics/views.py:TestEnvironmentListView`、`EnvironmentsView.vue` | pytest / Playwright 用例已写；运行待环境 Job |
 | `AC3.8` | F3 环境初始化不再硬编码默认环境 | `TC-S13-F3-012` | 无；初始化不可作为页面直接操作 | 镜像内环境 YAML 初始投影；运行时仅 Jenkins 页面导入 | `back-end/Dockerfile`、`metrics/management/commands/seed_environment.py` | 待验收阶段填写 |
-| `AC4.1` | F4 验收前不删除旧 Daily Job | `TC-S13-F4-001`、`TC-S13-F1-001` | 无；Jenkins Job 页面 | 默认保留；批准值或精确白名单缺失/非法时不删除 | `jenkins/scripts/configure-local-mounted-jobs.groovy` 的 allowlist 守卫 | Jenkins 静态回归通过；全绿环境验收待运行 |
-| `AC4.2` | F4 验收后受控删除旧 Job 与构建历史 | `TC-S13-F4-002` | 无；Jenkins Job 页面 | 全绿后严格 `true` + 精确白名单；仅 Jenkins bootstrap 执行 | `jenkins/scripts/configure-local-mounted-jobs.groovy` 的 `WorkflowJob.delete()` 分支 | 静态回归通过；全绿后等待主人/运维执行 bootstrap 删除 |
-| `AC5.1` | F5 空库全量建表且无破坏性操作 | `TC-S13-F5-001` | 无 | 八阶段；`migrate --noinput`；一次性容器 | `schema_initialization.py:SchemaInitializationService`、`docker-compose.yml:backend-bootstrap` | Job #27 schema 成功；完整 Tests 待基线修复 |
-| `AC5.2` | F5 已有库只增量应用 migration | `TC-S13-F5-001` | 无 | 标准 Django 增量 migration；无清库/重建 | `schema_initialization.py:SchemaInitializationService` | 单元/静态通过；增量环境回归待基线修复后重跑 |
-| `AC5.3` | F5 首次环境目录投影幂等 | `TC-S13-F5-002` | 无 | `seed_environment`；镜像环境 YAML | `metrics/environment_catalog.py:initialize_environment_catalog_from_image` | 定向 pytest 通过；Job #27 schema 成功 |
-| `AC5.4` | F5 仅空账号表初始化管理员 | `TC-S13-F5-002` | 无 | `init_admin --bootstrap-only`；私有变量 | `accounts/management/commands/init_admin.py:Command` | 定向 pytest 通过；Job #27 schema 成功 |
+| `AC4.1` | F4 验收前不删除旧 Daily Job | `TC-S13-F4-001`、`TC-S13-F1-001` | 无；Jenkins Job 页面 | 默认保留；批准值或精确白名单缺失/非法时不删除 | `jenkins/scripts/configure-local-mounted-jobs.groovy` 的 allowlist 守卫 | Job #29 全绿；未授权时默认保留已由静态回归验证 |
+| `AC4.2` | F4 验收后受控删除旧 Job 与构建历史 | `TC-S13-F4-002` | 无；Jenkins Job 页面 | 全绿后严格 `true` + 精确白名单；仅 Jenkins bootstrap 执行 | `jenkins/scripts/configure-local-mounted-jobs.groovy` 的 `WorkflowJob.delete()` 分支 | Job #29 全绿；等待主人/运维授权并重启 Jenkins bootstrap 删除 |
+| `AC5.1` | F5 空库全量建表且无破坏性操作 | `TC-S13-F5-001` | 无 | 八阶段；`migrate --noinput`；一次性容器 | `schema_initialization.py:SchemaInitializationService`、`docker-compose.yml:backend-bootstrap` | Job #29 Schema & Initial Data 与完整 Tests 成功 |
+| `AC5.2` | F5 已有库只增量应用 migration | `TC-S13-F5-001` | 无 | 标准 Django 增量 migration；无清库/重建 | `schema_initialization.py:SchemaInitializationService` | Job #29 Schema & Initial Data 成功；无破坏性操作诊断 |
+| `AC5.3` | F5 首次环境目录投影幂等 | `TC-S13-F5-002` | 无 | `seed_environment`；镜像环境 YAML | `metrics/environment_catalog.py:initialize_environment_catalog_from_image` | Job #29 `seed_environment` 成功 |
+| `AC5.4` | F5 仅空账号表初始化管理员 | `TC-S13-F5-002` | 无 | `init_admin --bootstrap-only`；私有变量 | `accounts/management/commands/init_admin.py:Command` | Job #29 bootstrap-only 初始化成功 |
 | `AC5.5` | F5 初始化配置失败阻断部署 | `TC-S13-F5-003` | 无 | schema 阶段失败、后续阶段门禁 | `schema_initialization.py`、`deploy.py:DeployService` | Jenkins 定向 pytest 通过 |
 | `AC5.6` | F5 失败诊断脱敏且基础服务不受管 | `TC-S13-F5-003` | 无 | EvidenceStore 脱敏；基础服务 ID 边界 | `schema_initialization.py`、`test_platform_bootstrap_schema_initialization.py` | Jenkins 定向 pytest 与独立审查通过 |
 | `AC5.7` | F5 readiness 始终只读 | `TC-S13-F5-004` | 无 | `/health/ready/` 只读 schema 计划 | `common/health.py`、`test_stage13_health_api.py` | Job #27 Health 成功；只读回归通过 |
@@ -44,7 +44,7 @@
 | UI 范围 | 已覆盖 | C01、R1-R4 映射已落实；member 不渲染 R2-R4，禁止 DOM 已写入 Playwright 用例。 |
 | API / Pipeline 契约 | 已覆盖 | 写接口、读接口、Jenkins 父/Worker/同步 Job、聚合产物协议均已定位。 |
 | 实施位置 | 已填写 | AC1-AC5 均已回填；AC5 路径经过独立审查。 |
-| 验收状态 | 进行中 | Job #27 已消除 schema 阻塞并通过 Health；完整 Tests 的既有基线失败处置后需重跑同一 Job。 |
+| 验收状态 | 进行中 | Task8 的 Platform Bootstrap #29 已全绿，AC4.2 仍待主人/运维受控删除；Daily 与环境同步端到端验收项继续以各 AC 行的既有状态为准。 |
 
 ## 漂移检查清单（一致性自动门禁）
 
@@ -55,7 +55,7 @@
 - [x] **无契约漂移**：后端 API、Jenkins 静态、api-test 和前端 API 契约已核对；member 目录审计字段已从浏览器响应删除。
 - [x] **无未实现需求**：AC5.1-AC5.8 已完成 TDD 实现并经独立审查批准。
 - [x] **无孤儿代码**：后端/Jenkins 最终复审整改与前端独立代码审读未发现阻断问题。
-- [ ] **全部达成**：Job #27 已通过 schema、Deploy、Health；完整 Tests 的既有基线失败修复后，需重建同一 Job 取得全绿回归证据。
+- [ ] **全部达成**：Task8 的 Job #29 已全绿；仍待主人/运维按 AC4.2 授权、重启 Jenkins bootstrap 并复核两条精确旧 Job 删除结果，其他运行态 AC 保持各行记录的待验收状态。
 
 ## 漂移处置记录
 
