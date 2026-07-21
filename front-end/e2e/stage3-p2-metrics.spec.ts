@@ -154,26 +154,28 @@ async function selectModuleFilterOption(page: Page, testId: string, optionName: 
   await page.getByRole('option', { name: optionName }).click()
 }
 
-test.describe('Stage3 P2 环境与模块通过率只读页面 RED', () => {
-  test('环境页展示环境下拉、汇总、后端返回地址和模块通过率入口', async ({ page }) => {
+test.describe('Stage3 P2 环境与模块通过率页面', () => {
+  test('环境页按 C01 R1 展示环境选择、地址、通过率统计和模块快照入口', async ({ page }) => {
     await mockStage3P2Api(page)
 
     await page.goto('/environments')
 
     await expect(page.getByRole('heading', { name: '环境通过率' })).toBeVisible()
-    const environmentSelect = page.locator('#environment-select')
+    const environmentSelect = page.getByLabel('当前查看环境')
     await expect(environmentSelect).toBeVisible()
     await expect(environmentSelect).toHaveValue('1')
     await expect(environmentSelect.locator('option:checked')).toHaveText('模拟测试环境')
-    await expect(page.getByLabel('通过率汇总').getByText('模拟测试环境')).toBeVisible()
-    await expect(page.getByText(TEST_ENV_BASE_URL)).toBeVisible()
+    await expect(page.getByText(TEST_ENV_BASE_URL, { exact: true })).toBeVisible()
     await expect(page.getByText('https://api.gbif.org')).toHaveCount(0)
-    await expect(page.getByText('开始时间')).toBeVisible()
-    await expect(page.getByText('结束时间')).toBeVisible()
-    await expect(page.getByText('运行时间')).toBeVisible()
-    await expect(page.getByText('96.00%')).toBeVisible()
+    await expect(page.getByText('96.00%', { exact: true })).toBeVisible()
+    await expect(page.getByText('已通过 / 总用例', { exact: true })).toBeVisible()
+    await expect(page.getByText('94 / 100', { exact: true })).toBeVisible()
+    const runWindow = page.getByLabel('最近执行窗口')
+    await expect(runWindow.getByText('最近开始', { exact: true })).toBeVisible()
+    await expect(runWindow.getByText('最近结束', { exact: true })).toBeVisible()
+    await expect(runWindow.getByText('执行时长', { exact: true })).toBeVisible()
 
-    await page.getByRole('main').getByRole('link', { name: /模块通过率/ }).click()
+    await page.getByRole('main').getByRole('link', { name: '模块通过率', exact: true }).click()
     await expect(page).toHaveURL(/\/modules\?environment_id=1/)
   })
 
@@ -185,17 +187,6 @@ test.describe('Stage3 P2 环境与模块通过率只读页面 RED', () => {
     await expect(page.getByRole('heading', { name: '环境通过率' })).toBeVisible()
     await expect(page.getByText('暂无执行结果')).toBeVisible()
     await expect(page.getByText(/TypeError|ReferenceError|Cannot read/i)).toHaveCount(0)
-  })
-
-  test('生成环境报告按钮只提示后续实现且不触发 Jenkins、重试或报告创建请求', async ({ page }) => {
-    const api = await mockStage3P2Api(page)
-
-    await page.goto('/environments')
-    await page.getByRole('button', { name: '生成环境报告' }).click()
-
-    await expect(page.getByText('AI 分析报告功能后续实现')).toBeVisible()
-    await page.waitForTimeout(100)
-    expect(api.sideEffectRequests).toEqual([])
   })
 
   test('模块页展示核心字段并把 total=100 failed=4 渲染为 96.00%', async ({ page }) => {

@@ -137,7 +137,9 @@ test('TC-S13-F3-014：admin 按 C01 全宽台账维护环境并查看异步同�
   await page.getByLabel('环境描述').fill('预发布回归环境')
   await page.getByRole('button', { name: '保存环境' }).click()
 
-  await expect(page.getByText('已进入队列')).toBeVisible()
+  const syncDialog = page.getByRole('dialog', { name: '环境目录同步' })
+  await expect(syncDialog).toBeVisible()
+  await expect(syncDialog.getByText('已进入队列', { exact: true })).toBeVisible()
   await expect(page.getByText(/模块子任务/)).toHaveCount(0)
   await expect(page.getByText(/模块级 Allure/)).toHaveCount(0)
 })

@@ -352,8 +352,8 @@ def test_local_mounted_job_config_creates_one_daily_parent_and_one_worker():
     assert "test_case/test_gbif_case_module2" not in script
 
 
-def test_local_mounted_job_config_sets_daily_parent_cron_and_preserves_legacy_jobs():
-    """仅 Daily 父 Job 定时；旧分模块 Job 和其历史保持不变。"""
+def test_local_mounted_job_config_sets_daily_parent_cron_and_guards_legacy_job_deletion():
+    """仅 Daily 父 Job 定时；旧 Job 删除必须受批准开关和精确白名单共同约束。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
     assert "TimerTrigger" in script
@@ -362,17 +362,25 @@ def test_local_mounted_job_config_sets_daily_parent_cron_and_preserves_legacy_jo
     assert "instanceof TimerTrigger" in script
     assert "removeTrigger" not in script
     assert "Preserving legacy per-module Daily Jobs" in script
-    assert ".delete()" not in script
+    assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" in script
+    assert "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES" in script
+    assert "if (legacyDailyRemovalApproved == 'true' && legacyDailyDeletionAllowlistIsValid)" in script
+    assert "legacyDailyJob.delete()" in script
 
 
-def test_local_mounted_job_config_does_not_reparse_module_yaml_or_mutate_legacy_jobs():
-    """模块发现移交 Task 1；init 不能创建或调整旧的分模块定时 Job。"""
+def test_local_mounted_job_config_does_not_reparse_module_yaml_and_validates_legacy_allowlist():
+    """模块发现移交 Task 1；init 不解析模块 YAML，并且删除白名单必须是精确旧 Daily Job 名。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
     assert "package_module.yaml" not in script
     assert "org.yaml.snakeyaml.Yaml" not in script
     assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" in script
-    assert "Legacy Daily removal approval is recorded" in script
+    assert "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES" in script
+    assert "split(',', -1)" in script
+    assert "legacyDailyDeletionAllowlistIsValid" in script
+    assert "it.startsWith(\"${dailyFullJobPrefix}-\")" in script
+    assert "it != dailyFullParentJobName" in script
+    assert "it != dailyFullWorkerJobName" in script
 
 
 def test_local_mounted_job_config_auto_creates_platform_bootstrap_from_jenkinsfile():

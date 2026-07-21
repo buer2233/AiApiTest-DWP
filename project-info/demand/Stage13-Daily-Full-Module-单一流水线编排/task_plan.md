@@ -116,7 +116,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 ### Task 8 验收阻断整改
 
-**状态**：进行中。主人于 2026-07-21 报告两个遗留 Daily Job 未删除及 Platform Bootstrap #27 启动错误；正在只读根因调查，未执行删除、migration 或旁路环境操作。
+**状态**：进行中。主人于 2026-07-21 报告两个遗留 Daily Job 未删除及 Platform Bootstrap #27 启动错误；根因、TDD 修复和独立审查已完成，等待固定 Job 全绿环境验收，未执行删除、migration 或旁路环境操作。
 
 **调查边界**：分别核实版本化删除守卫和 Jenkins 实际 Job 状态，以及 #27 的失败阶段、结构化诊断与调用链。任何修复必须先补 RED 测试，并在新的固定环境 Job 验收成功后，才可由主人授权执行旧 Job 及构建历史的受控删除。
 
@@ -124,10 +124,10 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 | 子任务 | 状态 | 所有权与边界 |
 | --- | --- | --- |
-| 8A 后端时间窗口回归 | 待开始 | 仅 `back-end/tests/`；冻结测试时钟或相对日期，不改生产 API。 |
-| 8B 前端 E2E 契约校准 | 待开始 | 仅 `front-end/e2e/`；收紧 locator，并按 C01 R1 取代已废弃 Stage3 UI 断言。 |
-| 8C Jenkins 运行器与删除守卫 | 待开始 | 仅 `jenkins/`、根配置模板及 Jenkins 测试；E2E backend proxy 与默认关闭的精确 allowlist 删除。 |
-| 8D 资料、独立审查与环境验收 | 待开始 | 更新 Stage3/Stage13 追溯资料，独立审查后仅触发固定 Job；Jenkins bootstrap 由主人/运维执行删除。 |
+| 8A 后端时间窗口回归 | 已完成 | 仅 `back-end/tests/`；目标 RED 后冻结 `metrics.views.timezone.localdate`，不改生产 API；全后端 pytest 退出码 0。 |
+| 8B 前端 E2E 契约校准 | 已完成 | 仅 `front-end/e2e/`；同步弹窗 locator 收紧，Stage3 旧 UI 断言按 C01 R1 取代；`vue-tsc --noEmit` 通过，运行态留给固定 Job。 |
+| 8C Jenkins 运行器与删除守卫 | 已完成 | 仅 `jenkins/`、根配置模板及 Jenkins 测试；E2E backend proxy 与默认关闭的精确 allowlist 删除；Jenkins pytest `274 passed, 1 skipped`。 |
+| 8D 资料、独立审查与环境验收 | 进行中 | Stage3/Stage13 追溯资料及任务级独立审查已完成；仅待固定 Job 全绿，之后由主人/运维执行 Jenkins bootstrap 删除。 |
 
 ## 约束
 
@@ -156,3 +156,6 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | C01 资料回写补丁引用了已变更的 `findings.md` 文本 | 1 | 补丁未产生部分修改；读取精确尾部上下文后按文件分段回写。 |
 | 前端资料组合读取脚本末尾多余右括号 | 1 | 未执行读取或修改；移除多余括号后重试成功。 |
 | Stage13 前端 RED 命令携带冗余 `--run` | 1 | 已观察到预期的缺模块失败；后续 Vitest 使用脚本加测试文件路径，避免 npm 警告。 |
+| Task8 Stage3 UI 原型聚合回写上下文不匹配 | 1 | 补丁未产生任何文件修改；读取实际原型末尾后拆分为精确小补丁，并经独立复审批准。 |
+| Task8 首次并行 Jenkins 全量回归出现生命周期断言失败 | 1 | 精确参数化复现 `3 passed`，串行 Jenkins 全量为 `274 passed, 1 skipped`；未修改未触及的生命周期源码，后续固定 Job 继续观察。 |
+| Task8 最终全分支审查代理并发流断开 | 2 | 两次只读审查代理未返回有效结论后中断；后端、前端、Jenkins、资料四项独立审查与 Jenkins/后端全量门禁均已完成。 |

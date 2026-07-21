@@ -452,16 +452,16 @@
 - **关联 AC**：AC4.1
 - **测试目标**：验证新流水线尚未签字时所有初始化、同步和日常运行均不删除旧 Job。
 - **优先级**：P1
-- **前置条件**：Jenkins 有旧分模块 Daily Job 和至少一份历史构建；迁移开关/验收记录为未最终签字。
+- **前置条件**：Jenkins 有旧分模块 Daily Job 和至少一份历史构建；`JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED` 不为严格 `true`，或精确白名单缺失、为空、重复、非法。
 - **脱敏测试数据**：旧 Job 名 `<legacy-daily-prefix>-module-alpha`；历史构建号 `<legacy-build-number>`。
 - **操作步骤**：
   1. 执行版本化 Jenkins init 修复和一次环境目录同步。
   2. 查询旧 Job 配置、构建历史及新唯一父 Job。
-  3. 审核迁移脚本/Job DSL 的删除守卫。
+  3. 审核 init 脚本对批准开关、精确白名单、唯一父 Job 与 Worker 的删除守卫。
 - **可观察预期**：
   - 新父 Job 可被创建/修复，但旧分模块 Daily Job 和全部已有构建历史保持存在、可访问。
   - 未签字状态下不存在删除 Job、清空历史或隐式替换旧 Job 的副作用。
-  - 删除守卫使用受控、可审计的最终验收条件，不能仅以新 Job 存在作为条件。
+  - 删除守卫要求严格 `true`、非空无重复的精确旧 Daily Job 白名单、旧前缀及父/Worker 排除；不能仅以新 Job 存在作为条件。
 - **备注**：该测试只在隔离 Jenkins fixture 验证删除守卫，不删除主人环境中的任何 Job 或历史。
 
 ### TC-S13-F4-002：最终签字后的版本化受控删除
@@ -469,17 +469,17 @@
 - **关联 AC**：AC4.2
 - **测试目标**：验证最终签字后仅删除旧分模块 Daily Job 和其 Jenkins 历史，保留新父 Job 与平台历史。
 - **优先级**：P1
-- **前置条件**：隔离 Jenkins 中有旧 Job、构建历史和唯一父 Job；验收包具有主人最终签字的可验证受控标记；平台数据库有历史任务与快照。
-- **脱敏测试数据**：旧 Job 列表 `<legacy-daily-jobs>`；父 Job `AiApiTest-DWP-Daily-Full-Module`；签字标记 `<approved-acceptance-record>`。
+- **前置条件**：同一固定 Platform Bootstrap Job 已全绿；隔离 Jenkins 中有旧 Job、构建历史和唯一父 Job；主人/运维在私有配置同时设置严格 `JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED=true` 与精确 `JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES`；平台数据库有历史任务与快照。
+- **脱敏测试数据**：精确旧 Job 白名单 `<legacy-daily-job-a>,<legacy-daily-job-b>`；父 Job `AiApiTest-DWP-Daily-Full-Module`；批准值 `true`。
 - **操作步骤**：
-  1. 在隔离环境执行版本化迁移并记录计划删除列表。
+  1. 在全绿验收后，由主人/运维重启 Jenkins bootstrap，使版本化 init Groovy 读取私有批准值和精确白名单。
   2. 检查迁移后的 Jenkins Job 清单、父 Job 定时器和旧 Job 历史。
   3. 查询平台数据库的既有任务、环境、快照与趋势。
 - **可观察预期**：
   - 仅计划中的旧分模块 Daily Job 及其 Jenkins 构建历史被删除；唯一父 Job、Daily Worker、重试 Job 和其限流分类仍存在。
   - 平台数据库的历史任务、快照、趋势和审计不被物理删除。
-  - 迁移输出包含脱敏删除清单、签字依据和可追溯结果；缺签字时必须拒绝执行并回到 TC-S13-F4-001 行为。
-- **备注**：生产删除必须在主人最终验收后按受控发布流程执行；本阶段不执行实际删除。
+  - init 输出包含脱敏删除清单与批准结果；批准值或白名单缺失/非法时必须保留所有 Job 并回到 TC-S13-F4-001 行为。
+- **备注**：生产删除必须在同一固定 Job 全绿验收后由主人/运维执行 Jenkins bootstrap；AI 不直接删除 Job 或构建历史。
 
 ## F5 Platform Bootstrap schema 与首次数据初始化（P0）
 

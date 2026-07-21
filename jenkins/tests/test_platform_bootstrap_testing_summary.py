@@ -110,6 +110,10 @@ def test_full_test_plan_uses_three_verified_images_without_runtime_install(tmp_p
     assert serialized.count("/tmp/platform-bootstrap-evidence") >= len(plan.commands)
     assert serialized.count("--network aiapitest-platform") == len(plan.commands)
 
+    frontend_playwright = next(command for command in plan.commands if command.name == "frontend-playwright")
+    assert "--env" in frontend_playwright.argv
+    assert "FRONTEND_DEV_API_PROXY_TARGET=http://backend:8000" in frontend_playwright.argv
+
 
 def test_test_service_executes_smoke_with_fake_http_and_full_with_fake_runner(tmp_path):
     smoke_context = make_context(tmp_path / "smoke")

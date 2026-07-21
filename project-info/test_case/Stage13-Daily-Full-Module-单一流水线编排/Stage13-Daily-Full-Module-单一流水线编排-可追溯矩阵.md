@@ -24,8 +24,8 @@
 | `AC3.6` | F3 blob SHA 冲突拒绝覆盖 | `TC-S13-F3-009`、`TC-S13-F3-010`、`TC-S13-F3-014` | R4 冲突操作 | `expected_yaml_blob_sha` 与 `observed_yaml_blob_sha`；`conflict`；`409 sync_not_retryable` | `back-end/metrics/environment_catalog.py`、`EnvironmentCatalogSyncDialog.vue` | pytest / Vitest 通过；环境 Job 待运行 |
 | `AC3.7` | F3 member 无环境管理权限 | `TC-S13-F3-011`、`TC-S13-F3-013`、`TC-S13-F3-014` | `/environments` R2-R4 对 member 不渲染 | 写接口/同步审计 `403 admin_required`；Cookie JWT | `metrics/views.py:TestEnvironmentListView`、`EnvironmentsView.vue` | pytest / Playwright 用例已写；运行待环境 Job |
 | `AC3.8` | F3 环境初始化不再硬编码默认环境 | `TC-S13-F3-012` | 无；初始化不可作为页面直接操作 | 镜像内环境 YAML 初始投影；运行时仅 Jenkins 页面导入 | `back-end/Dockerfile`、`metrics/management/commands/seed_environment.py` | 待验收阶段填写 |
-| `AC4.1` | F4 验收前不删除旧 Daily Job | `TC-S13-F4-001`、`TC-S13-F1-001` | 无；Jenkins Job 页面 | 版本化迁移删除守卫；未签字不删除 | `jenkins/init.groovy` 的旧 Job 删除守卫 | 静态回归通过；环境 Job 待运行 |
-| `AC4.2` | F4 验收后受控删除旧 Job 与构建历史 | `TC-S13-F4-002` | 无；Jenkins Job 页面 | 主人最终签字守卫；受控旧 Job/历史删除 | 待实施阶段填写 | 待验收阶段填写 |
+| `AC4.1` | F4 验收前不删除旧 Daily Job | `TC-S13-F4-001`、`TC-S13-F1-001` | 无；Jenkins Job 页面 | 默认保留；批准值或精确白名单缺失/非法时不删除 | `jenkins/scripts/configure-local-mounted-jobs.groovy` 的 allowlist 守卫 | Jenkins 静态回归通过；全绿环境验收待运行 |
+| `AC4.2` | F4 验收后受控删除旧 Job 与构建历史 | `TC-S13-F4-002` | 无；Jenkins Job 页面 | 全绿后严格 `true` + 精确白名单；仅 Jenkins bootstrap 执行 | `jenkins/scripts/configure-local-mounted-jobs.groovy` 的 `WorkflowJob.delete()` 分支 | 静态回归通过；全绿后等待主人/运维执行 bootstrap 删除 |
 | `AC5.1` | F5 空库全量建表且无破坏性操作 | `TC-S13-F5-001` | 无 | 八阶段；`migrate --noinput`；一次性容器 | `schema_initialization.py:SchemaInitializationService`、`docker-compose.yml:backend-bootstrap` | Job #27 schema 成功；完整 Tests 待基线修复 |
 | `AC5.2` | F5 已有库只增量应用 migration | `TC-S13-F5-001` | 无 | 标准 Django 增量 migration；无清库/重建 | `schema_initialization.py:SchemaInitializationService` | 单元/静态通过；增量环境回归待基线修复后重跑 |
 | `AC5.3` | F5 首次环境目录投影幂等 | `TC-S13-F5-002` | 无 | `seed_environment`；镜像环境 YAML | `metrics/environment_catalog.py:initialize_environment_catalog_from_image` | 定向 pytest 通过；Job #27 schema 成功 |

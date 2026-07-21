@@ -2,7 +2,7 @@
 
 ## 当前结论
 
-v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；固定 Jenkins Platform Bootstrap Job #27 已成功完成 schema、部署和 Health。全量 Tests 仍由三项既有失败阻断，故本需求的全绿环境验收尚未完成。旧分模块 Daily Job 与历史没有删除。
+v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；Task8 已修复 #27 的 Tests 阻断并完成本地全量门禁。固定 Jenkins Platform Bootstrap Job 的全绿运行态验收待触发；旧分模块 Daily Job 与历史按主人 A 裁决保留至全绿后由主人/运维受控删除。
 
 ## 需求与视觉
 
@@ -17,6 +17,7 @@ v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；固�
 - `/environments` 已按 C01 实现 R1 环境快照和仅 admin 的 R2-R4 管理区；未加入模块子任务、模块级 Allure 或 Daily 触发入口。
 - 最终后端复审整改已关闭：member 不再获得目录审计；Daily Jenkins 基础设施失败不会被写成成功；queue 状态持久化失败具备补偿和受控 503。
 - Platform Bootstrap 现通过一次性 `backend-bootstrap` 容器依次执行 `migrate --noinput`、`seed_environment` 与 `init_admin --bootstrap-only`；已有库增量迁移，已有环境或账号不被覆盖，readiness 保持只读。
+- Task8 将 E2E 测试容器的前端代理固定指向 Compose backend 服务；旧 Daily Job 仅在严格批准值和精确白名单均合法时删除，默认保留并移除 TimerTrigger。
 
 ## 已验证证据
 
@@ -31,6 +32,10 @@ v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；固�
 | Task 7 Jenkins 定向回归 | schema 初始化、阶段、Deploy/Summary、静态门禁 | `23 passed` |
 | Task 7 后端定向回归 | 管理员 bootstrap-only、环境投影、readiness | `23 passed` |
 | Task 7 独立审查 | F5 规格与代码质量 | 批准，无 Critical/Important/Minor |
+| Task8 Jenkins 全量 | `python -m pytest jenkins/tests -q` | `274 passed, 1 skipped` |
+| Task8 后端全量 | `python -m pytest tests -q` | 退出码 `0`，coverage `90%` |
+| Task8 前端类型 | `npm run typecheck` | 通过 |
+| Task8 独立审查 | 后端、前端、Jenkins、资料及整改复审 | 批准；最终全分支审查代理两次并发断开，未产生文件修改 |
 
 ## 固定 Jenkins 环境验收
 
@@ -45,5 +50,5 @@ v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；固�
 ## 待执行的固定环境验收
 
 - 入口：Windows 使用 `scripts/trigger-platform-bootstrap.ps1`，仅触发固定 Platform Bootstrap Job。
-- 待获取的 Jenkins artifact：基线失败修复后的全绿 Stage13 Playwright 结果与关键页面截图、平台构建摘要、后端/前端全量回归摘要。
-- 残余风险：真实 Jenkins Allure 插件失败、Git push 回调与远端时序仍只能在该固定 Job 中验证；当前全量 Tests 的既有基线失败需单独治理。
+- 待获取的 Jenkins artifact：Task8 修复后的全绿 Stage13 Playwright 结果与关键页面截图、平台构建摘要、后端/前端全量回归摘要。
+- 残余风险：真实 Jenkins Allure 插件失败、Git push 回调与远端时序仍只能在该固定 Job 中验证；全绿后还需由主人/运维在私有配置批准精确白名单并重启 Jenkins bootstrap，方可永久删除旧 Job 及其构建历史。

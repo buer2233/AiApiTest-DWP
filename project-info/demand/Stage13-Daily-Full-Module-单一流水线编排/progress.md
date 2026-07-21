@@ -12,7 +12,7 @@
 - Task 4 整改完成：member 响应不再含目录审计；Daily `summary.status=passed` 但 Jenkins `FAILURE/UNSTABLE` 时父任务和运行收敛为 `failed` 且无 Allure 入口；queue 状态持久化失败优先补偿为 `failed`，补偿也失败时返回脱敏 503，并允许受控内部回调从遗留 `pending` 继续为 `running`，不重复触发远端 Job。整改代理报告 pytest `97 passed`、Jenkins 静态 `57 passed`。
 - 主协调代理复跑 Task 4 重点后端回归：`50 passed`；Jenkins 静态 `15 passed`；未运行真实 Jenkins/Allure 插件集成。
 - Task 5 实现完成：C01 拆分 R1 `EnvironmentSnapshotPanel` 和仅 admin 的目录容器、表格、编辑与同步弹窗；member 不挂载 R2-R4。复跑 `npm run test:unit` 为 `9 files / 22 passed`，`npm run typecheck` 通过。Stage13 Playwright 用例只写入，按唯一入口约束待固定 Jenkins 环境 Job 运行。
-- 已清理 pytest 产生的 `back-end/tests/evidence/htmlcov/` 覆盖率 HTML，仅保留目录 `.gitignore`；不提交运行产物。
+- 已清理 pytest 产生的后端覆盖率 HTML，仅保留忽略规则；不提交运行产物。
 - 固定 Jenkins Platform Bootstrap Job #26（`build_all=false`、`run_full_tests=true`）已终态 `FAILURE`。Preflight、依赖构建和 Deploy 成功；Health 阶段 backend live 成功但 backend ready 返回 `503 schema_not_ready`，前端与 worker 探针随全局健康期限结束而失败，Tests 阶段未执行。artifact 仅登记 `platform-bootstrap-summary.json`、`health.json` 和各 health probe 日志；不保存原始日志。根据平台规则，AI 不运行 migration 或直接启动服务，等待主人/平台运维处理 schema 后重新构建同一固定 Job。
 
 ## 2026-07-20
@@ -25,6 +25,7 @@
 - 私有认证诊断已确认 #27 的 Schema、Deploy、Health 已完成；最终 `FAILURE` 来自 Tests 阶段的固定日期后端断言、3 条 Playwright 失败（含 Vite 代理拒绝连接）及 Stage13 历史资料中的退休证据路径静态门禁。正在按根因拆分最小 TDD 整改，未执行任何环境旁路操作。
 - 已定位 Playwright 失败：一条为 C01 同名文本的 locator strict-mode 问题，两条为 Stage3 旧 UI 契约与当前实现不一致；同时 E2E 容器缺少 backend service 的前端代理变量。正在对照冻结需求判定恢复还是退役旧 UI 契约，避免把测试绿化误当作产品决策。
 - 规格对照完成：Stage3 的“生成环境报告”占位和“通过率汇总”可访问区已不属于 Stage13 C01 R1；将以当前 R1 卡片、统计和模块入口更新旧 E2E/资料。旧 Job 永久删除因全绿验收未完成且缺精确授权，等待主人确认受控删除时机与范围。
+- 主人选择 A 后，Task8 已完成 RED -> GREEN：后端冻结测试时钟、前端收紧同步弹窗 locator 并校准为 C01 R1、E2E 容器注入 `FRONTEND_DEV_API_PROXY_TARGET=http://backend:8000`、历史资料退休路径清理、旧 Daily Job 的严格批准值加精确 allowlist 守卫。后端、前端、Jenkins、资料均经独立审查；Jenkins 串行全量 `274 passed, 1 skipped`，后端全量退出码 0，前端 typecheck 通过。下一步仅触发固定 Job 获取运行态全绿证据。
 - Task 4 最终审查整改完成：回调语义失败回归直接验证现有服务层已正确落为 `failed`；Jenkins 调度异常与空 queue id 现在释放同步键；Daily 已有父任务在正常命中和并发回退均验证 task/run 形态；MySQL 首次 global Daily binding 创建使用 advisory lock，SQLite 保持兼容。
 - TDD 证据：回调语义参数化 `2 passed`；调度失败参数化 `2 passed`；Daily 任务形态与回退 `9 passed`；绑定锁与既有命令回归 `5 passed`。
 - 扩大回归：`tests/test_stage13_environment_catalog_api.py`、`tests/test_metrics_jenkins_execution_api.py`、`tests/test_metrics_commands.py` 全部通过；`py_compile`、Ruff 和 `git diff --check` 通过。未运行 migration、Docker、应用服务或 Jenkins。
