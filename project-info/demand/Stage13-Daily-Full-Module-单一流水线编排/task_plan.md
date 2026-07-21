@@ -112,11 +112,11 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 
 每项实现由独立 review agent 审查。后端、Jenkins 与前端均通过后，使用固定 Jenkins 环境 Job 进行环境验收，验收包只登记 Job/build、摘要和 artifact 名称；主人最终签字前绝不删除旧 Daily Job 或 Jenkins 构建历史。
 
-**当前验证结论**：固定 `AiApiTest-DWP-Platform-Bootstrap` Job #27 已成功执行新的 `Schema & Initial Data`、Deploy 和 Health，backend ready 不再返回 `schema_not_ready`。全量 Tests 仍被三项既有失败阻断：后端趋势固定日期、前端 Playwright 历史断言、退休证据路径静态断言；它们与 F5 实现无关，修复后必须重新构建同一 Job 取得全绿回归与 Stage13 Playwright 证据。
+**当前验证结论**：固定 `AiApiTest-DWP-Platform-Bootstrap` Job #29 已以 `build_all=true`、`run_full_tests=true` 全绿完成。Schema & Initial Data、Deploy、Health 和 Tests 均成功；#27 的三项基线失败与 #28 的单条 Stage3 strict locator 均已关闭。
 
 ### Task 8 验收阻断整改
 
-**状态**：进行中。主人于 2026-07-21 报告两个遗留 Daily Job 未删除及 Platform Bootstrap #27 启动错误；根因、TDD 修复和独立审查已完成，等待固定 Job 全绿环境验收，未执行删除、migration 或旁路环境操作。
+**状态**：进行中。主人于 2026-07-21 报告两个遗留 Daily Job 未删除及 Platform Bootstrap #27 启动错误；根因、TDD 修复、独立审查和固定 Job #29 全绿验收均已完成。依据主人 A 裁决，等待主人/运维在私有配置授权并重启 Jenkins bootstrap 删除两条精确旧 Job。
 
 **调查边界**：分别核实版本化删除守卫和 Jenkins 实际 Job 状态，以及 #27 的失败阶段、结构化诊断与调用链。任何修复必须先补 RED 测试，并在新的固定环境 Job 验收成功后，才可由主人授权执行旧 Job 及构建历史的受控删除。
 
@@ -127,7 +127,7 @@ M/L：涉及 Jenkins Job 创建策略、执行编排、并发协议、报告归�
 | 8A 后端时间窗口回归 | 已完成 | 仅 `back-end/tests/`；目标 RED 后冻结 `metrics.views.timezone.localdate`，不改生产 API；全后端 pytest 退出码 0。 |
 | 8B 前端 E2E 契约校准 | 已完成 | 仅 `front-end/e2e/`；同步弹窗 locator 收紧，Stage3 旧 UI 断言按 C01 R1 取代；`vue-tsc --noEmit` 通过，运行态留给固定 Job。 |
 | 8C Jenkins 运行器与删除守卫 | 已完成 | 仅 `jenkins/`、根配置模板及 Jenkins 测试；E2E backend proxy 与默认关闭的精确 allowlist 删除；Jenkins pytest `274 passed, 1 skipped`。 |
-| 8D 资料、独立审查与环境验收 | 进行中 | Stage3/Stage13 追溯资料及任务级独立审查已完成；仅待固定 Job 全绿，之后由主人/运维执行 Jenkins bootstrap 删除。 |
+| 8D 资料、独立审查与环境验收 | 等待主人/运维 | Stage3/Stage13 追溯资料、任务级独立审查和固定 Job #29 全绿已完成；仅待私有 allowlist 授权与 Jenkins bootstrap 删除复核。 |
 
 ## 约束
 

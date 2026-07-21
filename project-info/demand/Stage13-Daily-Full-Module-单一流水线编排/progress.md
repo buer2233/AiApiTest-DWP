@@ -29,6 +29,7 @@
 - Task 4 最终审查整改完成：回调语义失败回归直接验证现有服务层已正确落为 `failed`；Jenkins 调度异常与空 queue id 现在释放同步键；Daily 已有父任务在正常命中和并发回退均验证 task/run 形态；MySQL 首次 global Daily binding 创建使用 advisory lock，SQLite 保持兼容。
 - TDD 证据：回调语义参数化 `2 passed`；调度失败参数化 `2 passed`；Daily 任务形态与回退 `9 passed`；绑定锁与既有命令回归 `5 passed`。
 - 扩大回归：`tests/test_stage13_environment_catalog_api.py`、`tests/test_metrics_jenkins_execution_api.py`、`tests/test_metrics_commands.py` 全部通过；`py_compile`、Ruff 和 `git diff --check` 通过。未运行 migration、Docker、应用服务或 Jenkins。
+- Task8 固定 Job 验收闭环：#28 精确暴露 Stage3 C01 R1 摘要地址 locator 跨区域 strict-mode，最小修复 `93b4cbd` 经独立前端复审后推送；`AiApiTest-DWP-Platform-Bootstrap #29` 以 `build_all=true`、`run_full_tests=true` 全绿，Schema、Deploy、Health、Tests 全部成功。两条旧 Daily Job 及构建历史仍保留，等待主人/运维在私有 `.env` 设置严格批准值和精确白名单并重启 Jenkins bootstrap 删除。
 
 ## 2026-07-19
 

@@ -2,7 +2,7 @@
 
 ## 当前结论
 
-v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；Task8 已修复 #27 的 Tests 阻断并完成本地全量门禁。固定 Jenkins Platform Bootstrap Job 的全绿运行态验收待触发；旧分模块 Daily Job 与历史按主人 A 裁决保留至全绿后由主人/运维受控删除。
+v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；Task8 已消除 #27 的 Tests 阻断，并由固定 Jenkins Platform Bootstrap Job #29 完成全绿运行态验收。旧分模块 Daily Job 与历史仍按主人 A 裁决保留，等待主人/运维在私有配置完成精确授权后执行受控删除。
 
 ## 需求与视觉
 
@@ -36,19 +36,20 @@ v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；Task8
 | Task8 后端全量 | `python -m pytest tests -q` | 退出码 `0`，coverage `90%` |
 | Task8 前端类型 | `npm run typecheck` | 通过 |
 | Task8 独立审查 | 后端、前端、Jenkins、资料及整改复审 | 批准；最终全分支审查代理两次并发断开，未产生文件修改 |
+| Task8 固定环境验收 | `AiApiTest-DWP-Platform-Bootstrap #29`；`build_all=true`、`run_full_tests=true` | `SUCCESS`；Preflight、Dependency Assurance、Schema & Initial Data、Deploy、Health、Tests 全部成功 |
 
 ## 固定 Jenkins 环境验收
 
-- Job：`AiApiTest-DWP-Platform-Bootstrap #27`，参数 `build_all=true`、`run_full_tests=true`，终态 `FAILURE`。
-- 成功阶段：Preflight、Dependency Assurance、Schema & Initial Data、Deploy、Health。backend ready 已通过，证明空库 schema 初始化不再阻断服务就绪；基础 MySQL/Jenkins 容器保持受管边界。
-- Tests 失败诊断：后端 `test_trend_window_uses_local_date_for_snapshot_completion` 固定日期落出当前 7 天窗口；前端 Playwright 的 3 个既有用例失败；api-runner 静态测试命中 Stage13 `progress.md` 中既有退休证据路径。三项均未由 F5 代码触及。
-- Jenkins artifact 名称：`platform-bootstrap-summary.json`、`schema-initialization.json`、`health.json`、相关 `test-*.log` 和 Playwright 结果。原始内容只留 Jenkins artifact，未提交 Git。
+- Job #27（历史失败）：Schema & Initial Data、Deploy、Health 成功；Tests 被趋势固定日期、旧 Stage3 UI 断言与退休证据路径阻断。
+- Job #28（Task8 首次复验失败）：53 passed、5 skipped、1 failed；唯一失败为 Stage3 C01 R1 摘要地址 locator 跨区域匹配两个合法 URL。`93b4cbd` 已将断言限定到“环境通过率”区域。
+- Job #29：参数 `build_all=true`、`run_full_tests=true`，终态 `SUCCESS`。Preflight、Dependency Assurance、Schema & Initial Data（`migrate`、`seed_environment`、bootstrap-only 管理员初始化）、Deploy、Health、Tests 均无诊断失败；backend/前端健康与前端 API 代理均为 HTTP 200。
+- Jenkins artifact 名称：`platform-bootstrap-summary.json`、`platform-bootstrap-summary.md`、`schema-initialization.json`、`health.json`、`tests.json`、`test-frontend-playwright-run.log`、Junit、Allure 归档和 Playwright 报告。原始内容只留 Jenkins artifact，未提交 Git。
 - 处理边界：仅固定 Job 的一次性 `backend-bootstrap` 服务获准执行标准迁移和首次数据初始化；AI、宿主机、常驻服务与 ready endpoint 仍禁止 migration。不得以直接启动服务替代验收。
 
 实际原始 pytest coverage HTML 已清理，未作为 Git 产物保留。
 
-## 待执行的固定环境验收
+## 待执行的受控删除
 
-- 入口：Windows 使用 `scripts/trigger-platform-bootstrap.ps1`，仅触发固定 Platform Bootstrap Job。
-- 待获取的 Jenkins artifact：Task8 修复后的全绿 Stage13 Playwright 结果与关键页面截图、平台构建摘要、后端/前端全量回归摘要。
-- 残余风险：真实 Jenkins Allure 插件失败、Git push 回调与远端时序仍只能在该固定 Job 中验证；全绿后还需由主人/运维在私有配置批准精确白名单并重启 Jenkins bootstrap，方可永久删除旧 Job 及其构建历史。
+- 全绿前置条件已由 Job #29 满足。主人/运维需在私有根 `.env` 同时设置 `JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED=true` 与 `JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES=AiApiTest-DWP-Daily-Full-Module-test_gbif_case,AiApiTest-DWP-Daily-Full-Module-test_gbif_case_module2`。
+- 由主人/运维重启 Jenkins bootstrap，使版本化 init Groovy 执行删除；AI 不直接重启 Jenkins、删除 Job 或构建历史。
+- 完成后复核仅两条精确旧 Job 与其 Jenkins 构建历史消失，唯一 Daily 父 Job、Daily Worker、重试 Job、平台数据库历史与其他 Jenkins Job 均保留。
