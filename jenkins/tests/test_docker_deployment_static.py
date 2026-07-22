@@ -167,6 +167,37 @@ def test_compose_bootstraps_stage13_jobs_via_versioned_init_script():
     ) in compose
 
 
+def test_compose_retires_only_the_exact_legacy_local_jobs_init_file():
+    """版本化迁移只能删除指定历史 init 文件，且不得跟随符号链接或广泛删除。"""
+    compose = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+    script_path = ROOT_DIR / "jenkins" / "scripts" / "25-aiapitest-retire-legacy-local-jobs.groovy"
+
+    assert (
+        "./jenkins/scripts/25-aiapitest-retire-legacy-local-jobs.groovy:"
+        "/var/jenkins_home/init.groovy.d/25-aiapitest-retire-legacy-local-jobs.groovy:ro"
+    ) in compose
+    assert script_path.exists()
+
+    script = script_path.read_text(encoding="utf-8")
+    assert "/var/jenkins_home/init.groovy.d/configure-local-mounted-jobs.groovy" in script
+    assert "Files.deleteIfExists" in script
+    assert "Files.isRegularFile" in script
+    assert "LinkOption.NOFOLLOW_LINKS" in script
+    assert "Files.isSymbolicLink" in script
+
+    for forbidden_api in [
+        "Files.delete(",
+        "Files.walk(",
+        "Files.find(",
+        "Files.list(",
+        "FileUtils.delete",
+        "deleteDir(",
+        "deleteRecursively(",
+        "eachFileRecurse",
+    ]:
+        assert forbidden_api not in script
+
+
 def test_compose_injects_platform_bootstrap_job_name_into_jenkins_init_script():
     """私有 .env 覆盖的环境 Job 名必须进入 Jenkins init Groovy，而非只使用代码默认值。"""
     compose = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
