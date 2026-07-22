@@ -184,7 +184,7 @@ jobConfigs.each { config ->
     job.removeProperty(DisableConcurrentBuildsJobProperty)
     job.removeProperty(ThrottleJobProperty)
     if (config.throttleCategory) {
-        job.addProperty(new ThrottleJobProperty(0, 0, [config.throttleCategory], true, 'category', false))
+        job.addProperty(new ThrottleJobProperty(0, 0, [config.throttleCategory], true, 'category', false, '', null))
     } else if (!config.allowConcurrent) {
         job.addProperty(new DisableConcurrentBuildsJobProperty())
     }
