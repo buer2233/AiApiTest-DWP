@@ -2,7 +2,7 @@
 
 ## 当前结论
 
-v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；Task8 已消除 #27 的 Tests 阻断，并由固定 Jenkins Platform Bootstrap Job #29 完成全绿运行态验收。旧分模块 Daily Job 与历史仍按主人 A 裁决保留，等待主人/运维在私有配置完成精确授权后执行受控删除。
+v2.3 自动 schema 与首次数据初始化已完成 TDD 和独立审查；Task8 已消除 #27 的 Tests 阻断，并由固定 Jenkins Platform Bootstrap Job #29 完成全绿运行态验收。主人已完成私有精确授权；Jenkins Init 已删除两条旧分模块 Daily Job 及其构建历史，认证 API 与启动日志均已复核。
 
 ## 需求与视觉
 
@@ -17,7 +17,8 @@ v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；Task8
 - `/environments` 已按 C01 实现 R1 环境快照和仅 admin 的 R2-R4 管理区；未加入模块子任务、模块级 Allure 或 Daily 触发入口。
 - 最终后端复审整改已关闭：member 不再获得目录审计；Daily Jenkins 基础设施失败不会被写成成功；queue 状态持久化失败具备补偿和受控 503。
 - Platform Bootstrap 现通过一次性 `backend-bootstrap` 容器依次执行 `migrate --noinput`、`seed_environment` 与 `init_admin --bootstrap-only`；已有库增量迁移，已有环境或账号不被覆盖，readiness 保持只读。
-- Task8 将 E2E 测试容器的前端代理固定指向 Compose backend 服务；旧 Daily Job 仅在严格批准值和精确白名单均合法时删除，默认保留并移除 TimerTrigger。
+- Task8 将 E2E 测试容器的前端代理固定指向 Compose backend 服务；旧 Daily Job 仅在严格批准值和精确白名单均合法时删除，未授权时默认保留并移除 TimerTrigger。
+- Jenkins 镜像实际使用的 `throttle-concurrents` 插件要求八参数 `ThrottleJobProperty` 构造器；已以最小兼容修复保证 Init 不会在三类独立十并发分类配置阶段中断，从而能继续执行受控删除分支。
 
 ## 已验证证据
 
@@ -37,6 +38,10 @@ v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；Task8
 | Task8 前端类型 | `npm run typecheck` | 通过 |
 | Task8 独立审查 | 后端、前端、Jenkins、资料及整改复审 | 批准；最终全分支审查代理两次并发断开，未产生文件修改 |
 | Task8 固定环境验收 | `AiApiTest-DWP-Platform-Bootstrap #29`；`build_all=true`、`run_full_tests=true` | `SUCCESS`；Preflight、Dependency Assurance、Schema & Initial Data、Deploy、Health、Tests 全部成功 |
+| Jenkins 插件兼容 RED / GREEN | `test_init_uses_jenkins_plugin_constructor_signatures_for_throttle_and_scm` | RED：旧六参数调用不匹配；GREEN：八参数调用通过 |
+| Jenkins 静态全量回归 | `python -m pytest jenkins/tests -q` | `275 passed, 1 skipped` |
+| Jenkins 插件兼容独立审查 | 八参数 API、三类独立十并发和测试覆盖 | 批准；Critical/Important/Minor 均为 `0` |
+| Jenkins Init 与受控删除运行态验收 | 重建后 Jenkins 启动日志与认证 Job API 条件轮询 | Init 无 Groovy 失败；两条精确旧 Job 为 `404`，Daily 父/Worker、两条重试和 Bootstrap 均为 `200` |
 
 ## 固定 Jenkins 环境验收
 
@@ -48,8 +53,9 @@ v2.2 自动 schema 与首次数据初始化已完成 TDD 和独立审查；Task8
 
 实际原始 pytest coverage HTML 已清理，未作为 Git 产物保留。
 
-## 待执行的受控删除
+## 受控删除已完成
 
-- 全绿前置条件已由 Job #29 满足。主人/运维需在私有根 `.env` 同时设置 `JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED=true` 与 `JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES=AiApiTest-DWP-Daily-Full-Module-test_gbif_case,AiApiTest-DWP-Daily-Full-Module-test_gbif_case_module2`。
-- 由主人/运维重启 Jenkins bootstrap，使版本化 init Groovy 执行删除；AI 不直接重启 Jenkins、删除 Job 或构建历史。
-- 完成后复核仅两条精确旧 Job 与其 Jenkins 构建历史消失，唯一 Daily 父 Job、Daily Worker、重试 Job、平台数据库历史与其他 Jenkins Job 均保留。
+- 主人在私有根 `.env` 设置严格批准值与两条精确白名单后，已授权仅 Jenkins 服务的镜像构建和保留 `aiapitest-jenkins-home` 数据卷的重建；未删除数据卷，未管理 MySQL 或应用服务。
+- 初次重建揭示运行镜像缺少插件与历史 Init 覆盖问题；迁移历史 Init 后，又通过运行镜像 `javap` 定位并修复新版插件的八参数构造器兼容问题。修复提交为 `582e3e3`、`edb7dc2`。
+- 最终启动日志明确记录删除 `AiApiTest-DWP-Daily-Full-Module-test_gbif_case` 与 `AiApiTest-DWP-Daily-Full-Module-test_gbif_case_module2` 及其构建历史；认证 API 复核两条均为 HTTP `404`。
+- 唯一 Daily 父 Job、Daily Worker、模块重试、失败重试和 Platform Bootstrap 均为 HTTP `200`；未对其他 Jenkins Job、平台数据库历史或应用服务作删除操作。
