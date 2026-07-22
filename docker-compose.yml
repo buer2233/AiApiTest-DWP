@@ -74,6 +74,7 @@ services:
       - aiapitest-jenkins-home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
       - ./jenkins/scripts/configure-executors.groovy:/var/jenkins_home/init.groovy.d/20-aiapitest-executors.groovy:ro
+      - ./jenkins/scripts/25-aiapitest-retire-legacy-local-jobs.groovy:/var/jenkins_home/init.groovy.d/25-aiapitest-retire-legacy-local-jobs.groovy:ro
       - ./jenkins/scripts/configure-local-mounted-jobs.groovy:/var/jenkins_home/init.groovy.d/30-aiapitest-local-jobs.groovy:ro
       - ./jenkins/scripts/99-aiapitest-local-api-token.groovy:/var/jenkins_home/init.groovy.d/99-aiapitest-local-api-token.groovy:ro
       - ${PROJECT_WORKSPACE:-.}:/workspace/AiApiTest-DWP
