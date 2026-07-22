@@ -113,6 +113,10 @@ def test_init_uses_jenkins_plugin_constructor_signatures_for_throttle_and_scm():
             in init_script
         )
     assert (
+        "new ThrottleJobProperty(0, 0, [config.throttleCategory], true, 'category', false, '', null)"
+        in init_script
+    )
+    assert (
         "new UserRemoteConfig(catalogScmUrl, null, null, catalogScmCredentialsId)"
         in init_script
     )
