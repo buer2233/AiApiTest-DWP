@@ -11,7 +11,7 @@
 ## 固定 loop 中的位置
 
 - 当需求涉及测试执行协议、pytest 参数、失败重试、模块重试、Allure 产物、summary 输出或用例组织方式时，必须先确认对应需求文档、功能测试用例和必要的 UI/API 契约已经存在。
-- 修改执行器或工具代码时，必须先在 `tests/` 编写 pytest 测试，再实现，再回归。
+- 修改执行器或工具代码时，必须先在 `tests/` 编写并运行 pytest 测试，确认失败由目标行为缺失导致，再做最小实现、目标测试 GREEN、重构和相关回归，遵循 `RED -> GREEN -> REFACTOR`。
 - 新增业务自动化用例前，应能追溯到 `project-info/demand/` 的需求和 `project-info/test_case/` 的测试设计，不允许脱离 loop 直接堆用例。
 
 ## 目录约定
@@ -61,6 +61,7 @@ python -m tools.ci_runner --retry-mode all-failed --run-id retry-all
 ## 测试要求
 
 - 新增或修改执行能力必须先写 `tests/` 下的 pytest 测试。
+- 不得通过弱化断言、跳过用例或只运行避开失败的测试子集获得 GREEN；首次失败若来自路径、依赖或测试自身，应先修复测试环境并重新取得有效 RED。
 - 修改失败重试、summary、Allure 归档或 node id 逻辑时，必须覆盖正常执行、失败执行、重试成功、重试仍失败、空失败列表和路径不存在等场景。
 - `api-test` 自身回归命令：
 
