@@ -2,6 +2,8 @@ import { expect, request as playwrightRequest, test, type Page } from '@playwrig
 import { mkdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
+import { resolveFrontendServiceUrl } from '../config/env'
+
 type EnvMap = Record<string, string>
 type Snapshot = {
   id: number
@@ -77,7 +79,7 @@ test('Stage10 真实验收：Jenkins 并发、实时日志、报告入口、禁�
   test.skip(process.env.STAGE10_REAL_ACCEPTANCE !== '1', '设置 STAGE10_REAL_ACCEPTANCE=1 后执行真实验收。')
   test.setTimeout(12 * 60 * 1000)
   const env = readLocalEnv()
-  const baseUrl = process.env.STAGE10_REAL_BASE_URL || 'http://127.0.0.1:5173'
+  const baseUrl = process.env.STAGE10_REAL_BASE_URL || resolveFrontendServiceUrl(env)
   const username = process.env.STAGE10_REAL_USERNAME || env.INITIAL_ADMIN_USERNAME
   const password = process.env.STAGE10_REAL_PASSWORD || env.INITIAL_ADMIN_PASSWORD
   const jenkinsUsername = process.env.STAGE10_JENKINS_USERNAME || process.env.JENKINS_USERNAME || env.JENKINS_USERNAME

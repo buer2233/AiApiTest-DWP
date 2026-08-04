@@ -4,23 +4,36 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .addressing import validate_deployment_config
 from .configuration import ConfigError, DotEnvConfig
+from .env_contract import validate_contract
 from .evidence import EvidenceStore
 from .models import CommandSpec, Diagnostic, RunContext, StageResult
 
 
 REQUIRED_ENV_KEYS = (
     "MYSQL_ROOT_PASSWORD",
+    "DB_USER",
+    "DB_PASSWORD",
     "DJANGO_SECRET_KEY",
     "AUTH_TOKEN_SECRET",
-    "JENKINS_PUBLIC_BASE_URL",
-    "JENKINS_API_BASE_URL",
-    "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME",
-    "MYSQL_HOST",
+    "PLATFORM_BIND_HOST",
+    "PLATFORM_PUBLIC_HOST",
+    "PLATFORM_PUBLIC_SCHEME",
     "MYSQL_HOST_PORT",
-    "FRONTEND_SERVICE_URL",
-    "BACKEND_SERVICE_URL",
-    "BACKEND_API_BASE_URL",
+    "JENKINS_HTTP_PORT",
+    "JENKINS_AGENT_PORT",
+    "BACKEND_HOST_PORT",
+    "FRONTEND_HOST_PORT",
+    "PROJECT_WORKSPACE",
+    "DOCKER_GID",
+    "CI_RUN_RETENTION_DAYS",
+    "FRONTEND_PLAYWRIGHT_BASE_IMAGE",
+    "JENKINS_USERNAME",
+    "JENKINS_API_TOKEN",
+    "INITIAL_ADMIN_USERNAME",
+    "INITIAL_ADMIN_DISPLAY_NAME",
+    "INITIAL_ADMIN_PASSWORD",
 )
 LIMITED_CONTAINER_FORMAT = "{{.Id}}|{{.State.Running}}|unknown"
 LIMITED_HEALTH_LOG_FORMAT = "{{range .State.Health.Log}}{{.ExitCode}}|{{.Output}}{{println}}{{end}}"
@@ -29,7 +42,9 @@ LIMITED_HEALTH_LOG_FORMAT = "{{range .State.Health.Log}}{{.ExitCode}}|{{.Output}
 def _diagnostic(code: str, target: str, reason: str, observed: str, evidence: Path) -> Diagnostic:
     suggestions = {
         "CONFIG_ENV_MISSING": "Create the private root .env from .env.example, then rebuild the Jenkins job.",
+        "CONFIG_ENV_CONTRACT_DRIFT": "Align the private .env public section with .env.example, then rebuild the Jenkins job.",
         "CONFIG_REQUIRED_ENV_MISSING": "Add the listed configuration keys to the private root .env, then rebuild.",
+        "CONFIG_ENV_VALUE_INVALID": "Correct the listed configuration key format in the private root .env, then rebuild.",
         "DOCKER_SOCKET_PERMISSION_DENIED": (
             "Set DOCKER_GID to the Docker socket group, let the user rebuild Jenkins, then rebuild this job."
         ),
@@ -109,10 +124,51 @@ class PreflightService:
                 )
             )
 
+        contract_errors = validate_contract(context.env_file, context.workspace / ".env.example")
+        if contract_errors:
+            evidence = self.evidence.write_text(
+                "preflight-env-contract.log",
+                "config_file=.env\nstatus=drift\nissues=" + ",".join(contract_errors),
+            )
+            return self._finish(
+                StageResult(
+                    stage="preflight",
+                    success=False,
+                    details={"contract_issues": list(contract_errors)},
+                    diagnostics=(
+                        _diagnostic(
+                            "CONFIG_ENV_CONTRACT_DRIFT",
+                            ".env",
+                            "root environment files do not satisfy the frozen Stage15 contract",
+                            "configuration key/structure drift detected",
+                            evidence,
+                        ),
+                    ),
+                )
+            )
+
         try:
             config = DotEnvConfig.load(context.env_file)
             config.require(REQUIRED_ENV_KEYS)
+            validate_deployment_config(config.values)
+            if config.get("JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL"):
+                config.require(
+                    (
+                        "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH",
+                        "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID",
+                        "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID",
+                        "JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID",
+                        "ENVIRONMENT_CATALOG_SERVICE_TOKEN",
+                    )
+                )
         except ConfigError as exc:
+            missing = str(exc).startswith("required configuration")
+            code = "CONFIG_REQUIRED_ENV_MISSING" if missing else "CONFIG_ENV_VALUE_INVALID"
+            reason = (
+                "required configuration keys are missing"
+                if missing
+                else "configuration key value is invalid"
+            )
             evidence = self.evidence.path("preflight-env.log")
             evidence.write_text(str(exc) + "\n", encoding="utf-8")
             return self._finish(
@@ -122,9 +178,9 @@ class PreflightService:
                     details={"environment_keys": config.key_status(REQUIRED_ENV_KEYS) if "config" in locals() else {}},
                     diagnostics=(
                         _diagnostic(
-                            "CONFIG_REQUIRED_ENV_MISSING",
+                            code,
                             ".env",
-                            "required configuration keys are missing",
+                            reason,
                             str(exc),
                             evidence,
                         ),
@@ -168,27 +224,27 @@ class PreflightService:
             "-f",
             str(context.compose_file),
         )
-        for name, suffix in (
-            ("compose-config", ("config", "--quiet")),
-            ("compose-config-source", ("config", "--no-interpolate")),
-        ):
-            command_result = self._command(context, name, compose_prefix + suffix)
-            if not command_result.success:
-                return self._finish(
-                    StageResult(
-                        stage="preflight",
-                        success=False,
-                        diagnostics=(
-                            _diagnostic(
-                                "BOOTSTRAP_COMPOSE_CONFIG_INVALID",
-                                "docker-compose.yml",
-                                "Compose configuration validation failed",
-                                f"exit={command_result.returncode}; {command_result.redacted_output_tail}",
-                                Path(command_result.evidence_path),
-                            ),
+        command_result = self._command(
+            context,
+            "compose-config",
+            compose_prefix + ("config", "--quiet"),
+        )
+        if not command_result.success:
+            return self._finish(
+                StageResult(
+                    stage="preflight",
+                    success=False,
+                    diagnostics=(
+                        _diagnostic(
+                            "BOOTSTRAP_COMPOSE_CONFIG_INVALID",
+                            "docker-compose.yml",
+                            "Compose configuration validation failed",
+                            f"exit={command_result.returncode}; {command_result.redacted_output_tail}",
+                            Path(command_result.evidence_path),
                         ),
-                    )
+                    ),
                 )
+            )
 
         baselines: dict[str, str] = {}
         for name, container in (("jenkins", "aiapitest-jenkins"), ("mysql", "aiapitest-mysql")):

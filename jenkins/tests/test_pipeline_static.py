@@ -91,7 +91,8 @@ def test_pipeline_defines_required_parameters():
     ]:
         assert parameter in combined
 
-    assert "JENKINS_DEFAULT_CASE_PATH" in combined
+    assert "JENKINS_DEFAULT_CASE_PATH" not in combined
+    assert "def casePathDefault = config.get('casePathDefault', 'test_case/test_gbif_case')" in combined
     assert "test_case/test_gbif_case" in combined
     assert "none" in combined
     assert "selected" in combined
@@ -158,33 +159,35 @@ def test_jenkinsfile_loads_pipeline_script_inside_node_context():
     assert jenkinsfile.index("node") < jenkinsfile.index("load 'jenkins/scripts/api-test-pipeline.groovy'")
 
 
-def test_jenkinsfile_can_skip_checkout_for_local_workspace():
-    """通用 Jenkinsfile 在本地挂载仓库模式下也不能无条件 checkout scm。"""
+def test_jenkinsfile_uses_the_fixed_local_workspace_contract():
+    """通用 Jenkinsfile 固定从 Compose 挂载仓库加载，不保留 checkout 模式开关。"""
     jenkinsfile = read_pipeline_files()["Jenkinsfile"]
 
-    assert "LOCAL_WORKSPACE_REPO" in jenkinsfile
-    assert "checkout scm" in jenkinsfile
-    assert jenkinsfile.index("LOCAL_WORKSPACE_REPO") < jenkinsfile.index("checkout scm")
+    assert "Using fixed local mounted repository" in jenkinsfile
+    assert "LOCAL_WORKSPACE_REPO" not in jenkinsfile
+    assert "checkout scm" not in jenkinsfile
 
 
-def test_pipeline_can_skip_checkout_for_local_mounted_repository_jobs():
-    """本地挂载仓库的 Jenkins 容器应支持跳过 scm checkout。"""
+def test_pipeline_checkout_stage_is_fixed_to_local_mounted_repository():
+    """业务 Pipeline 的 Checkout stage 只声明固定挂载仓库，不访问 SCM。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
 
-    assert "LOCAL_WORKSPACE_REPO" in pipeline
-    assert "checkout scm" in pipeline
+    assert "Using fixed local mounted repository" in pipeline
+    assert "LOCAL_WORKSPACE_REPO" not in pipeline
+    assert "checkout scm" not in pipeline
 
 
 def test_pipeline_uses_sandbox_safe_environment_default_access():
-    """Jenkins sandbox 不允许 env[...] 动态下标，参数默认值必须显式读取环境变量。"""
+    """参数默认值使用代码常量，不进行 sandbox 动态环境访问。"""
     pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
     parameter_block = pipeline[
         pipeline.index("def buildParameterDefinitions") : pipeline.index("// Jenkins job 参数必须")
     ]
 
     assert "env[" not in parameter_block
-    assert "env.JENKINS_MODULE_CASE_PATH" in parameter_block
-    assert "env.JENKINS_DEFAULT_CASE_PATH" in parameter_block
+    assert "env.JENKINS_MODULE_CASE_PATH" not in parameter_block
+    assert "env.JENKINS_DEFAULT_CASE_PATH" not in parameter_block
+    assert "test_case/test_gbif_case" in parameter_block
 
 
 def test_pipeline_uses_only_shared_api_runner_cli_without_controller_dependencies():
@@ -294,20 +297,21 @@ def test_business_pipeline_files_exist_and_jenkinsfiles_load_expected_scripts():
         script = read_required_text(JENKINS_ROOT / "scripts" / config["script"])
 
         assert "node" in jenkinsfile
-        assert "checkout scm" in jenkinsfile
+        assert "Using fixed local mounted repository" in jenkinsfile
+        assert "checkout scm" not in jenkinsfile
         assert f"load 'jenkins/scripts/{config['script']}'" in jenkinsfile
         assert ".call()" in jenkinsfile
         assert "return this" in script
 
 
-def test_business_jenkinsfiles_can_skip_initial_checkout_for_local_workspace():
-    """本地挂载仓库时，业务 Jenkinsfile 加载脚本前不能无条件 checkout scm。"""
+def test_business_jenkinsfiles_have_no_retired_workspace_mode_switch():
+    """业务 Jenkinsfile 固定使用挂载仓库，不再接受 workspace 模式覆盖。"""
     for name, config in BUSINESS_PIPELINES.items():
         jenkinsfile = read_required_text(JENKINS_ROOT / config["jenkinsfile"])
 
-        assert "LOCAL_WORKSPACE_REPO" in jenkinsfile
-        assert "checkout scm" in jenkinsfile
-        assert jenkinsfile.index("LOCAL_WORKSPACE_REPO") < jenkinsfile.index("checkout scm")
+        assert "LOCAL_WORKSPACE_REPO" not in jenkinsfile
+        assert "checkout scm" not in jenkinsfile
+        assert "Using fixed local mounted repository" in jenkinsfile
 
 
 def test_local_mounted_job_config_script_uses_workspace_without_git_checkout():
@@ -315,13 +319,10 @@ def test_local_mounted_job_config_script_uses_workspace_without_git_checkout():
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
     assert "/workspace/AiApiTest-DWP" in script
-    assert "AIAPITEST_LOCAL_WORKSPACE" in script
-    assert "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS" in script
-    assert "?: 'false'" in script
-    assert "shouldReplaceExistingJob" in script
+    assert "AIAPITEST_LOCAL_WORKSPACE" not in script
+    assert "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS" not in script
+    assert "shouldReplaceExistingJob" not in script
     assert "managedMarker" in script
-    assert "skip existing non-local Jenkins Job" in script
-    assert "LOCAL_WORKSPACE_REPO=true" in script
     assert "AiApiTest-DWP-Daily-Full-Module" in script
     assert "AiApiTest-DWP-Failed-Rerun" in script
     assert "AiApiTest-DWP-Module-Rerun" in script
@@ -331,7 +332,7 @@ def test_local_mounted_job_config_script_uses_workspace_without_git_checkout():
     assert "CpsFlowDefinition" in script
     assert "dir('${mountedWorkspace}')" in script
     assert "ws('${mountedWorkspace}')" not in script
-    assert "def invocation = \"\"\"def pipelineScript" in script
+    assert "def invocation = \"\"\"dir('${mountedWorkspace}')" in script
     assert "pipelineScript = load '${config.scriptPath}'" in script
     assert "pipelineScript.call()" in script
     assert "git branch:" not in script
@@ -342,8 +343,10 @@ def test_local_mounted_job_config_creates_one_daily_parent_and_one_worker():
     """Stage13 只创建一个定时 Daily 父 Job 和一个无定时 Worker。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
-    assert "JENKINS_DAILY_FULL_JOB_NAME" in script
-    assert "JENKINS_DAILY_FULL_WORKER_JOB_NAME" in script
+    assert "def dailyFullParentJobName = 'AiApiTest-DWP-Daily-Full-Module'" in script
+    assert "def dailyFullWorkerJobName = 'AiApiTest-DWP-Daily-Full-Module-Worker'" in script
+    assert "JENKINS_DAILY_FULL_JOB_NAME" not in script
+    assert "JENKINS_DAILY_FULL_WORKER_JOB_NAME" not in script
     assert "name: dailyFullParentJobName" in script
     assert "name: dailyFullWorkerJobName" in script
     assert "dailyCron: true" in script
@@ -352,8 +355,8 @@ def test_local_mounted_job_config_creates_one_daily_parent_and_one_worker():
     assert "test_case/test_gbif_case_module2" not in script
 
 
-def test_local_mounted_job_config_sets_daily_parent_cron_and_guards_legacy_job_deletion():
-    """仅 Daily 父 Job 定时；旧 Job 删除必须受批准开关和精确白名单共同约束。"""
+def test_local_mounted_job_config_sets_daily_parent_cron_without_legacy_deletion():
+    """仅 Daily 父 Job 定时；旧 Job 只移除重复定时器，不允许删除。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
     assert "TimerTrigger" in script
@@ -361,49 +364,44 @@ def test_local_mounted_job_config_sets_daily_parent_cron_and_guards_legacy_job_d
     assert "setTriggers" in script
     assert "instanceof TimerTrigger" in script
     assert "removeTrigger" not in script
-    assert "Preserving legacy per-module Daily Jobs" in script
-    assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" in script
-    assert "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES" in script
-    assert "if (legacyDailyRemovalApproved == 'true' && legacyDailyDeletionAllowlistIsValid)" in script
-    assert "legacyDailyJob.delete()" in script
+    assert "preserving Job and build history" in script
+    assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" not in script
+    assert "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES" not in script
+    assert "legacyDailyJob.delete()" not in script
 
 
-def test_local_mounted_job_config_does_not_reparse_module_yaml_and_validates_legacy_allowlist():
-    """模块发现移交 Task 1；init 不解析模块 YAML，并且删除白名单必须是精确旧 Daily Job 名。"""
+def test_local_mounted_job_config_does_not_reparse_module_yaml_or_deletion_allowlist():
+    """模块发现移交 Task 1；init 不解析模块 YAML 或已退役删除白名单。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
     assert "package_module.yaml" not in script
     assert "org.yaml.snakeyaml.Yaml" not in script
-    assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" in script
-    assert "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES" in script
-    assert "split(',', -1)" in script
-    assert "legacyDailyDeletionAllowlistIsValid" in script
-    assert "it.startsWith(\"${dailyFullJobPrefix}-\")" in script
-    assert "it != dailyFullParentJobName" in script
-    assert "it != dailyFullWorkerJobName" in script
+    assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" not in script
+    assert "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES" not in script
+    assert "legacyDailyDeletionAllowlist" not in script
 
 
 def test_local_mounted_job_config_auto_creates_platform_bootstrap_from_jenkinsfile():
     """环境 Job 与既有本地 Job 一样由 Jenkins init 幂等创建，不依赖手工配置。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
-    assert "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME" in script
-    assert "AiApiTest-DWP-Platform-Bootstrap" in script
+    assert "def platformBootstrapJobName = 'AiApiTest-DWP-Platform-Bootstrap'" in script
+    assert "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME" not in script
     assert "name: platformBootstrapJobName" in script
     assert "scriptPath: 'jenkins/Jenkinsfile.platform-bootstrap'" in script
     assert "entrypoint: true" in script
-    assert "envVars: ['LOCAL_WORKSPACE_REPO=true']" in script
     assert "dailyCron: false" in script
     assert "load '${config.scriptPath}'" in script
 
 
-def test_local_init_forcibly_repairs_only_declared_platform_bootstrap_job():
-    """历史手工验收 Job 也必须被固定环境入口接管，业务 Job 仍保留非本地保护。"""
+def test_local_init_idempotently_repairs_all_declared_managed_jobs():
+    """所有受管 Job 都按固定配置幂等修复，不保留可配置替换开关。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
     assert "forceReplace: true" in script
-    assert "config.forceReplace || shouldReplaceExistingJob(job)" in script
-    assert "if (!(config.forceReplace || shouldReplaceExistingJob(job)))" in script
+    assert "job.setDefinition" in script
+    assert "shouldReplaceExistingJob" not in script
+    assert "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS" not in script
 
 
 def test_local_init_configures_category_throttles_and_global_sync_serialization():
@@ -447,8 +445,8 @@ def test_business_local_jobs_allow_concurrent_builds():
     """业务本地 Pipeline Job 必须移除禁止并发属性；环境 Job 例外由 Jenkinsfile 管理。"""
     script = read_required_text(JENKINS_ROOT / "scripts" / "configure-local-mounted-jobs.groovy")
 
-    assert "JENKINS_GENERIC_PIPELINE_JOB_NAME" in script
-    assert "AiApiTest-DWP-Pipeline" in script
+    assert "def genericPipelineJobName = 'AiApiTest-DWP-Pipeline'" in script
+    assert "JENKINS_GENERIC_PIPELINE_JOB_NAME" not in script
     assert "DisableConcurrentBuildsJobProperty" in script
     assert "removeProperty" in script
 
@@ -505,13 +503,12 @@ def test_daily_full_module_parent_and_worker_keep_their_separate_contracts():
     assert "PYTEST_NODE_IDS" not in worker
     assert "cron('0 2 * * *')" not in worker
     shared = read_pipeline_files()["api-test-pipeline.groovy"]
-    assert "casePathDefaultEnv" in shared
     assert "error(emptyCasePathMessage)" in shared
     case_path_default_block = shared[
-        shared.index("def casePathDefaultEnv") : shared.index("// Jenkins job 参数必须")
+        shared.index("def casePathDefault") : shared.index("// Jenkins job 参数必须")
     ]
-    assert "casePathDefaultEnv ? ''" in case_path_default_block
-    assert "JENKINS_DEFAULT_CASE_PATH" in case_path_default_block
+    assert "config.get('casePathDefault', 'test_case/test_gbif_case')" in case_path_default_block
+    assert "JENKINS_DEFAULT_CASE_PATH" not in case_path_default_block
     assert "test_case/test_gbif_case" in case_path_default_block
     for parameter in BUSINESS_PIPELINES["daily-full-module-worker"]["must_have"]:
         assert parameter in shared
@@ -523,7 +520,8 @@ def test_daily_parent_registers_its_timer_only_for_the_configured_parent_job_nam
     """保留旧 Job 手工构建时，加载共享脚本也不能重新注册 Daily 定时器。"""
     parent = read_required_text(JENKINS_ROOT / "scripts" / "daily-full-module-pipeline.groovy")
 
-    assert "def configuredDailyParentJobName = env.JENKINS_DAILY_FULL_JOB_NAME" in parent
+    assert "def configuredDailyParentJobName = 'AiApiTest-DWP-Daily-Full-Module'" in parent
+    assert "JENKINS_DAILY_FULL_JOB_NAME" not in parent
     assert "if (env.JOB_NAME == configuredDailyParentJobName)" in parent
     assert "pipelineTriggers([cron('0 2 * * *')])" in parent
 
@@ -590,7 +588,7 @@ def test_business_pipelines_reuse_cross_platform_artifact_and_allure_contract():
         "isUnix()",
         "sh ",
         "bat ",
-        "LOCAL_WORKSPACE_REPO",
+        "Using fixed local mounted repository",
         "api_runner_cli.py execute",
         "runner-lifecycle",
         "archiveArtifacts",

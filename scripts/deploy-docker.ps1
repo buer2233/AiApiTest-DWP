@@ -18,7 +18,8 @@ docker compose version | Out-Null
 # .env is local and private; create it from the template on first run.
 if (-not (Test-Path -LiteralPath ".env")) {
     Copy-Item -LiteralPath ".env.example" -Destination ".env"
-    Write-Host "Created .env from .env.example. Fill private secrets in .env before starting shared services."
+    Write-Warning "Created .env from .env.example. Add the private configuration documented in docker/DEPLOYMENT.md, then rerun this script."
+    exit 2
 }
 
 function Set-PrivateEnvValue {
@@ -51,6 +52,42 @@ function Set-PrivateEnvValue {
     [System.IO.File]::WriteAllLines($Path, [string[]]$newLines, $utf8WithoutBom)
 }
 
+function ConvertFrom-DotEnvValue {
+    param([Parameter(Mandatory = $true)][string]$RawValue)
+
+    $value = $RawValue.Trim()
+    $quote = [char]0
+    for ($index = 0; $index -lt $value.Length; $index++) {
+        $character = $value[$index]
+        if ($character -eq [char]34 -or $character -eq [char]39) {
+            if ($quote -eq [char]0) {
+                $quote = $character
+            } elseif ($quote -eq $character) {
+                $quote = [char]0
+            }
+            continue
+        }
+        if ($character -eq '#' -and $quote -eq [char]0 -and ($index -eq 0 -or [char]::IsWhiteSpace($value[$index - 1]))) {
+            $value = $value.Substring(0, $index).TrimEnd()
+            break
+        }
+    }
+    if ($value.Length -ge 2 -and (($value[0] -eq [char]34 -and $value[-1] -eq [char]34) -or ($value[0] -eq [char]39 -and $value[-1] -eq [char]39))) {
+        return $value.Substring(1, $value.Length - 2)
+    }
+    return $value
+}
+
+function Format-HostPortHost {
+    param([Parameter(Mandatory = $true)][string]$HostName)
+
+    $normalized = $HostName.Trim()
+    if ($normalized.StartsWith('[') -and $normalized.EndsWith(']')) {
+        $normalized = $normalized.Substring(1, $normalized.Length - 2)
+    }
+    return $(if ($normalized.Contains(':')) { "[$normalized]" } else { $normalized })
+}
+
 # Start only shared MySQL and Jenkins services, preserving existing volumes.
 docker compose up -d mysql jenkins
 docker compose ps
@@ -73,13 +110,21 @@ if ($jenkinsApiCredential -match "^[^:]+:.+") {
     Write-Warning "Local Jenkins API token was not ready. Re-run this script after Jenkins finishes startup."
 }
 
-# Read ports from .env and fall back to Compose defaults when missing.
-$envLines = Get-Content .env
-$jenkinsPublicBaseUrl = ($envLines | Select-String '^JENKINS_PUBLIC_BASE_URL=' | ForEach-Object { $_.ToString().Split('=', 2)[1] }) -replace '^$','http://localhost:8080'
-$mysqlBindHost = ($envLines | Select-String '^MYSQL_BIND_HOST=' | ForEach-Object { $_.ToString().Split('=', 2)[1] }) -replace '^$','127.0.0.1'
-$mysqlHostPort = ($envLines | Select-String '^MYSQL_HOST_PORT=' | ForEach-Object { $_.ToString().Split('=', 2)[1] }) -replace '^$','3307'
+# 地址提示与应用相同，都从平台公开主机、协议和服务端口派生。
+$envValues = @{}
+$addressKeys = @('PLATFORM_PUBLIC_HOST', 'PLATFORM_PUBLIC_SCHEME', 'JENKINS_HTTP_PORT', 'MYSQL_HOST_PORT')
+Get-Content -LiteralPath ".env" | ForEach-Object {
+    if ($_ -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$' -and $Matches[1] -in $addressKeys) {
+        $envValues[$Matches[1]] = ConvertFrom-DotEnvValue -RawValue $Matches[2]
+    }
+}
+$platformPublicHost = if ($envValues['PLATFORM_PUBLIC_HOST']) { $envValues['PLATFORM_PUBLIC_HOST'] } else { '127.0.0.1' }
+$platformPublicScheme = if ($envValues['PLATFORM_PUBLIC_SCHEME']) { $envValues['PLATFORM_PUBLIC_SCHEME'] } else { 'http' }
+$jenkinsHttpPort = if ($envValues['JENKINS_HTTP_PORT']) { $envValues['JENKINS_HTTP_PORT'] } else { '8080' }
+$mysqlHostPort = if ($envValues['MYSQL_HOST_PORT']) { $envValues['MYSQL_HOST_PORT'] } else { '3307' }
+$publicDisplayHost = Format-HostPortHost -HostName $platformPublicHost
 Write-Host ""
-Write-Host "Jenkins: $jenkinsPublicBaseUrl"
-Write-Host "MySQL: ${mysqlBindHost}:${mysqlHostPort}"
+Write-Host "Jenkins: ${platformPublicScheme}://${publicDisplayHost}:${jenkinsHttpPort}"
+Write-Host "MySQL: ${publicDisplayHost}:${mysqlHostPort}"
 Write-Host "Initial Jenkins password:"
 Write-Host "  docker exec aiapitest-jenkins cat /var/jenkins_home/secrets/initialAdminPassword"

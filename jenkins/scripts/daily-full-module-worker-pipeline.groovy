@@ -1,7 +1,7 @@
 // Daily Worker 只执行父任务分派的一个模块；YAML 发现、预检和聚合由父任务委托 Task 1 工具。
 
 def requireDailyParentUpstreamCause() {
-    def expectedDailyParentJobName = env.JENKINS_DAILY_FULL_JOB_NAME ?: 'AiApiTest-DWP-Daily-Full-Module'
+    def expectedDailyParentJobName = 'AiApiTest-DWP-Daily-Full-Module'
     def upstreamCauses = currentBuild.getBuildCauses('hudson.model.Cause$UpstreamCause')
     def isExpectedParent = upstreamCauses.any { cause ->
         cause.upstreamProject == expectedDailyParentJobName

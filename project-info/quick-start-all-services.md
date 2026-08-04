@@ -1,74 +1,62 @@
 # 当前项目所有服务快速启动说明
 
-## 目标
+## 目标与边界
 
-本文档用于在本机快速启动当前 CICD AI 自动化测试平台的全部开发服务，并完成一次浏览器登录验收。
+本文档用于在本机准备 AiApiTest-DWP 的 MySQL、Jenkins、DRF backend、Vue frontend 和 Jenkins 同步 worker，并通过固定 Jenkins 环境 Job 完成冒烟或全量验收。
 
-启动范围：
+- MySQL 与 Jenkins 只由主人/平台运维 bootstrap。
+- backend、frontend、`jenkins-sync-worker` 的依赖、镜像、schema、部署、健康检查和测试只由 `AiApiTest-DWP-Platform-Bootstrap` 管理。
+- AI 只能使用固定 Job helper，不能直接启动 Compose 应用服务、Django `runserver`、Vite、worker，也不能在宿主机或容器内安装依赖。
+- `.env`、运行日志、报告和真实凭据不提交 Git。
 
-- Docker MySQL：后端 DRF 正式运行数据库。
-- Docker Jenkins：本地 Jenkins 服务，用于后续 Pipeline 配置和任务触发。
-- DRF 后端：提供登录、用户权限、Jenkins 查询和 Allure 报告入口 API。
-- Vue 3 前端：测试平台界面。
-- Playwright 浏览器验证：登录进入测试平台首页。
+## 1. 准备本地 `.env`
 
-本文档只引用根目录 `.env` / `.env.example` 的变量名，不记录真实密码、token、Jenkins API Token、Cookie 或生产地址。真实 `.env` 属于本地私有配置，不提交 git。
-
-## 前置条件
-
-在项目根目录执行命令，以下示例用 `$PROJECT_ROOT` 表示仓库根目录：
-
-```powershell
-cd $PROJECT_ROOT
-```
-
-确认以下工具可用：
-
-```powershell
-docker compose version
-python --version
-node --version
-npm --version
-```
-
-首次运行前复制通用网络配置模板：
+在仓库根目录首次复制公共模板：
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-`.env.example` 只保留 IP、端口和服务入口等通用配置。然后按本机情况修改 `.env`，并补齐仅存在于私有 `.env` 的账号、密码和密钥。必须重点确认：
+Linux、macOS 或 Git Bash：
 
-- `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD`
-- `MYSQL_BIND_HOST` / `MYSQL_HOST_PORT`
-- `JENKINS_PUBLIC_BASE_URL`
-- `BACKEND_SERVICE_URL`
-- `FRONTEND_SERVICE_URL`
-- `FRONTEND_DEV_HOST` / `FRONTEND_DEV_PORT`
-- `FRONTEND_DEV_API_PROXY_TARGET`
-- `VITE_API_BASE_URL`
-- `INITIAL_ADMIN_USERNAME`
-- `INITIAL_ADMIN_DISPLAY_NAME`
-- `INITIAL_ADMIN_PASSWORD`
+```bash
+cp .env.example .env
+```
 
-`MYSQL_DATABASE`、`DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET`、`AUTH_COOKIE_*`、`INITIAL_ADMIN_*`、`JENKINS_USERNAME`、`JENKINS_API_TOKEN` 等属于固定默认项或私有配置，不写入 `.env.example`，但本地验收 `.env` 必须包含实际值。
+复制后先停止启动流程，人工补齐私有区，再运行基础服务脚本。模板不是可直接启动的完整配置。
 
-## 启动后不建议修改的配置
+### 公共配置
 
-以下配置一旦产生数据或被前后端/Jenkins 引用，修改前必须先评估迁移和回归成本：
+`.env.example` 只保留 12 项部署差异：
 
-| 配置 | 原因 |
+| 类别 | 配置项 |
 | --- | --- |
-| `MYSQL_DATABASE` | 改名会切换数据库，需要重新迁移或导入数据 |
-| `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` | 旧 MySQL 数据卷不会因为 `.env` 改密自动更新 |
-| `MYSQL_HOST_PORT` | 后端连接、文档和本地客户端都依赖该端口 |
-| `JENKINS_PUBLIC_BASE_URL` | Jenkins 初始化、任务链接和后端记录可能依赖该地址 |
-| `JENKINS_AGENT_PORT` | Jenkins agent 连接依赖该端口 |
-| `PROJECT_WORKSPACE` | Jenkins 挂载路径和归档路径依赖该位置 |
-| `AUTH_TOKEN_SECRET` | 轮换会使已有登录态失效 |
-| `AUTH_COOKIE_*` | 会影响浏览器 Cookie 行为，需要和前端地址、HTTPS 策略一起验证 |
+| 平台网络 | `PLATFORM_BIND_HOST`、`PLATFORM_PUBLIC_HOST`、`PLATFORM_PUBLIC_SCHEME` |
+| 宿主机端口 | `MYSQL_HOST_PORT`、`JENKINS_HTTP_PORT`、`JENKINS_AGENT_PORT`、`BACKEND_HOST_PORT`、`FRONTEND_HOST_PORT` |
+| 必要运维选项 | `PROJECT_WORKSPACE`、`DOCKER_GID`、`CI_RUN_RETENTION_DAYS`、`FRONTEND_PLAYWRIGHT_BASE_IMAGE` |
 
-## 1. 启动 Docker MySQL 和 Jenkins
+本地 `.env` 的公共区必须与模板保持相同键名、顺序、分组和注释，值可以按部署环境修改。所有服务公开 URL 由统一协议、公开主机和对应端口派生，不再逐项配置 URL。
+
+### 私有配置
+
+下列 16 项只存在于本地 `.env`，不得添加到 `.env.example`：
+
+| 类别 | 配置项 |
+| --- | --- |
+| 数据库 | `MYSQL_ROOT_PASSWORD`、`DB_USER`、`DB_PASSWORD` |
+| 应用密钥 | `DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET` |
+| Jenkins API | `JENKINS_USERNAME`、`JENKINS_API_TOKEN` |
+| 初始化管理员 | `INITIAL_ADMIN_USERNAME`、`INITIAL_ADMIN_DISPLAY_NAME`、`INITIAL_ADMIN_PASSWORD` |
+| 环境目录 SCM | `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL`、`JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH`、`JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID`、`JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID` |
+| 环境目录服务认证 | `JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID`、`ENVIRONMENT_CATALOG_SERVICE_TOKEN` |
+
+`MYSQL_ROOT_PASSWORD` 只用于 MySQL 管理、初始化和健康检查；backend、worker 与一次性 bootstrap 只使用 `DB_USER`、`DB_PASSWORD`。启用环境目录同步时，`JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID` 指向的 Jenkins Secret Text 内容必须与注入 backend 的 `ENVIRONMENT_CATALOG_SERVICE_TOKEN` 相同；Preflight 只报告缺失键或状态，不输出值。
+
+以下内容已经代码化，不能通过 `.env` 修改：Job 名、Jenkins 40 executors、内部 service name/端口、容器内 workspace、API 路径 `/api/v1`、请求和轮询超时、数据库名、时区及 Cookie 固定策略。旧 Daily Job 删除开关已退役，遗留 Job 由主人/平台运维人工迁移。
+
+## 2. 启动 MySQL 与 Jenkins
+
+以下入口仅供主人/平台运维使用。
 
 Windows PowerShell：
 
@@ -76,178 +64,74 @@ Windows PowerShell：
 .\scripts\deploy-docker.ps1
 ```
 
-脚本会在 `.env` 不存在时从 `.env.example` 创建本地配置，然后执行：
+Linux、macOS 或 Git Bash：
+
+```bash
+bash scripts/deploy-docker.sh
+```
+
+脚本只管理 `mysql` 与 `jenkins`，不会启动三项应用服务。它会等待本地 Jenkins Init Groovy 生成运行时 API 凭据，并在不打印令牌的前提下更新私有 `.env`。若脚本因 `.env` 缺失而复制模板，应先补齐私有区，再重新运行。
+
+Jenkins 启动时会幂等创建或修复代码固定的 `AiApiTest-DWP-Platform-Bootstrap`。不要在 Jenkins 页面手工创建同名或旁路环境 Job。
+
+## 3. 构建应用环境
+
+可以在 Jenkins 页面构建 `AiApiTest-DWP-Platform-Bootstrap`，也可以使用唯一 helper 触发同一 Job。
+
+Windows PowerShell：
 
 ```powershell
-docker compose up -d mysql jenkins
+# 默认：全量构建应用镜像并执行冒烟
+.\scripts\trigger-platform-bootstrap.ps1
+
+# 增量检查并执行全量回归
+.\scripts\trigger-platform-bootstrap.ps1 -BuildAll false -RunFullTests true
 ```
 
-默认 Compose 会把版本化的 `jenkins/scripts/99-aiapitest-local-api-token.groovy` 挂载到 Jenkins 初始化目录。干净 Jenkins 数据卷首次启动时，该脚本会在容器内生成仅用于本机验收的 API token。`deploy-docker` 脚本会读取该运行时 token，并把 `JENKINS_USERNAME`、`JENKINS_API_TOKEN` 写入被 git 忽略的私有 `.env`，不会打印 token 内容。若脚本提示 token 尚未就绪，等待 Jenkins 完成启动后重新运行一次脚本。
+Linux、macOS 或 Git Bash：
 
-查看服务状态：
+```bash
+# 默认：全量构建应用镜像并执行冒烟
+bash scripts/trigger-platform-bootstrap.sh
 
-```powershell
-docker compose ps
-docker compose logs --tail=80 mysql
-docker compose logs --tail=80 jenkins
+# 增量检查并执行全量回归
+bash scripts/trigger-platform-bootstrap.sh --build-all false --run-full-tests true
 ```
 
-查看 Jenkins 首次初始化密码：
+固定 Job 依次执行八个阶段：`Checkout/Workspace`、`Bootstrap Preflight`、`Dependency Assurance`、`Schema & Initial Data`、`Deploy`、`Health`、`Tests`、`Archive & Summary`。仅 `Schema & Initial Data` 可通过一次性 `backend-bootstrap` 服务执行 migration、环境种子和 bootstrap 管理员初始化。
 
-```powershell
-docker exec aiapitest-jenkins cat /var/jenkins_home/secrets/initialAdminPassword
-```
+## 4. 访问与验收
 
-该密码只用于本地 Jenkins 首次初始化，不要写入项目文档或提交。
+平台公开入口按以下规则派生：
 
-## 2. 启动 DRF 后端
+| 入口 | 地址规则 |
+| --- | --- |
+| Jenkins | `${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${JENKINS_HTTP_PORT}` |
+| 前端 | `${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${FRONTEND_HOST_PORT}/platform` |
+| 后端接口文档 | `${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${BACKEND_HOST_PORT}/api/docs/` |
+| 后端业务 API | `${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${BACKEND_HOST_PORT}/api/v1` |
 
-后端默认读取仓库根目录 `.env`，正式运行使用 Docker MySQL。测试配置 `config.settings.test` 仍使用内存 SQLite，不依赖本机 MySQL。
+登录使用本地 `.env` 的初始化管理员账号。通过标准包括：
 
-安装依赖：
+- MySQL 为 `healthy`，Jenkins 可访问。
+- 固定环境 Job 八阶段成功。
+- backend、frontend、worker 健康检查通过。
+- Jenkins Build Summary、artifact 和可用 Allure 结果已归档。
+- 前端能登录并访问已授权平台页面。
 
-```powershell
-cd $PROJECT_ROOT\back-end
-python -m pip install -r requirements.txt
-```
+Playwright 的本地 Vite webServer 固定使用 HTTP 和 4173 端口，并从 `PLATFORM_BIND_HOST` 派生可连接回环地址；外部公开主机或 `PLATFORM_PUBLIC_SCHEME=https` 不会错误地套用到本地明文测试服务。
 
-执行数据库迁移：
+## 5. 故障排查
 
-```powershell
-python manage.py migrate
-```
+| 现象 | 处理方式 |
+| --- | --- |
+| `CONFIG_ENV_CONTRACT_DRIFT` | 按错误中的键名、行号和类型修正 `.env` 公共区/私有区；不要把值贴入日志或文档。 |
+| MySQL 未运行或不健康 | 由主人/平台运维修复基础服务和已有数据卷凭据，再重新构建固定 Job。 |
+| Jenkins 认证失败 | 核对私有 `JENKINS_USERNAME`、`JENKINS_API_TOKEN`，必要时由主人/平台运维重新执行基础服务 bootstrap。 |
+| 环境目录同步预检失败 | 核对 SCM 四项配置、Jenkins service credential ID 与 backend 服务令牌闭环，不输出令牌。 |
+| Job 不存在或代码未更新 | 核对 `PROJECT_WORKSPACE` 是否指向当前仓库，并由主人/平台运维修复 Jenkins bootstrap/Init Groovy。 |
+| 应用依赖、Deploy、Health 或 Tests 失败 | 阅读同一次 Jenkins 构建的结构化诊断和 artifact，修复根因后重建同一 Job；禁止旁路启动应用。 |
 
-初始化本地验收管理员账号：
+已有 MySQL 数据卷初始化后，修改 `.env` 不会自动更新 root 或应用用户密码。凭据变更必须由主人/平台运维按数据策略同步处理；禁止用 `down -v`、删除 volume、清库或自动 rollback 作为普通修复手段。
 
-```powershell
-python manage.py init_admin
-```
-
-启动后端：
-
-```powershell
-python manage.py runserver
-```
-
-如果后端在执行 `deploy-docker` 之前已经启动，需要停止并重新执行 `python manage.py runserver`，让后端重新读取 `.env` 中的 `JENKINS_USERNAME`、`JENKINS_API_TOKEN`。否则平台触发 Jenkins Job 时会以匿名请求访问 Jenkins，可能返回 403 并被后端表现为 `503 jenkins_unavailable`。
-
-后端接口文档地址由 `.env` 中 `BACKEND_SERVICE_URL` 派生：
-
-```text
-${BACKEND_SERVICE_URL}/api/docs/
-```
-
-## 3. 启动 Vue 3 前端
-
-另开一个 PowerShell 窗口：
-
-```powershell
-cd $PROJECT_ROOT\front-end
-npm install
-npm run dev
-```
-
-前端开发服务会从根 `.env` 读取 `FRONTEND_DEV_HOST`、`FRONTEND_DEV_PORT` 和 `FRONTEND_DEV_API_PROXY_TARGET`。访问入口由 `FRONTEND_SERVICE_URL` 决定，默认路径为：
-
-```text
-${FRONTEND_SERVICE_URL}/platform
-```
-
-## 4. 登录验收
-
-浏览器打开：
-
-```text
-${FRONTEND_SERVICE_URL}/platform
-```
-
-未登录时应自动跳转到登录页。输入本地 `.env` 中的：
-
-```text
-INITIAL_ADMIN_USERNAME
-INITIAL_ADMIN_PASSWORD
-```
-
-登录成功后应进入测试平台，并看到模块通过率、失败用例、Jenkins 入口和 Allure 报告入口相关界面。
-
-## 5. Playwright 验证步骤
-
-Playwright webServer、baseURL 和权限 origin 由根 `.env` 中 `PLAYWRIGHT_WEB_SERVER_HOST`、`PLAYWRIGHT_WEB_SERVER_PORT`、`PLAYWRIGHT_BASE_URL` 派生。
-
-```powershell
-cd $PROJECT_ROOT\front-end
-npm run test:e2e
-```
-
-验收通过标准：
-
-- Jenkins 容器处于 running 或 healthy 状态。
-- MySQL 容器处于 healthy 状态。
-- 后端 `${BACKEND_SERVICE_URL}/api/docs/` 可访问。
-- 前端 `${FRONTEND_SERVICE_URL}/platform` 可访问。
-- Playwright 能完成登录和核心页面回归。
-
-## 6. SQLite 迁移验收说明
-
-本轮会把 `back-end/db.sqlite3` 中当前已验收数据迁移到 MySQL，但保留 `back-end/db.sqlite3` 文件作为验收备份。只有主人确认 MySQL 迁移后功能无问题，后续才可单独决定是否删除 SQLite 文件。
-
-## 7. 常用排查命令
-
-查看 Docker 服务：
-
-```powershell
-docker compose ps
-```
-
-查看 MySQL 日志：
-
-```powershell
-docker compose logs --tail=80 mysql
-```
-
-查看 Jenkins 日志：
-
-```powershell
-docker compose logs --tail=80 jenkins
-```
-
-验证后端登录接口：
-
-```powershell
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "$env:BACKEND_SERVICE_URL/api/v1/auth/login" `
-  -ContentType "application/json" `
-  -Body (@{
-    username = $env:INITIAL_ADMIN_USERNAME
-    password = $env:INITIAL_ADMIN_PASSWORD
-  } | ConvertTo-Json)
-```
-
-如果登录返回 400/401：
-
-- 确认后端连接的是 Docker MySQL。
-- 重新执行 `python manage.py init_admin`。
-- 确认前端代理目标 `FRONTEND_DEV_API_PROXY_TARGET` 指向后端服务。
-
-如果后端连接 MySQL 返回 `Access denied for user 'root'`：
-
-- 当前 `.env` 密码可能和旧数据卷的真实 root 密码不一致。
-- `.env` 只影响首次初始化或后续启动环境，不会修改已有数据卷内的 MySQL root 密码。
-- 默认 root 连接需要使用旧数据卷真实密码设置 `MYSQL_ROOT_PASSWORD`；只有使用非 root 用户时才设置 `MYSQL_PASSWORD`，或在确认可丢弃数据后重建数据卷。
-
-## 8. 停止服务
-
-停止前后端开发进程：
-
-```powershell
-Ctrl+C
-```
-
-停止 Docker 服务但保留数据：
-
-```powershell
-docker compose down
-```
-
-不要执行 `docker compose down -v`，除非已经确认可以删除本地 MySQL 和 Jenkins 数据卷。
+更完整的服务边界、参数和安全说明见 `docker/DEPLOYMENT.md` 与 `jenkins/README.md`。

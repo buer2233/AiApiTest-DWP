@@ -1,4 +1,4 @@
-// 本地 Compose Jenkins Job 修复脚本。受管 Job 可重复创建/修复；旧 Daily Job 删除必须经过显式双重守卫。
+// 本地 Compose Jenkins Job 修复脚本。受管 Job 使用固定名称和内部挂载路径幂等创建/修复。
 
 import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.GitSCM
@@ -13,42 +13,26 @@ import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobP
 
 
 def jenkins = Jenkins.get()
-def localWorkspaceMode = System.getenv('LOCAL_WORKSPACE_REPO') ?: 'false'
-def mountedWorkspace = System.getenv('AIAPITEST_LOCAL_WORKSPACE') ?: '/workspace/AiApiTest-DWP'
-def replaceExistingLocalJobs = System.getenv('AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS') ?: 'false'
-def genericPipelineJobName = System.getenv('JENKINS_GENERIC_PIPELINE_JOB_NAME') ?: 'AiApiTest-DWP-Pipeline'
-def failedRerunJobName = System.getenv('JENKINS_FAILED_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Failed-Rerun'
-def moduleRerunJobName = System.getenv('JENKINS_MODULE_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Module-Rerun'
-def dailyFullJobPrefix = System.getenv('JENKINS_DAILY_FULL_JOB_PREFIX') ?: 'AiApiTest-DWP-Daily-Full-Module'
-def dailyFullParentJobName = System.getenv('JENKINS_DAILY_FULL_JOB_NAME') ?: dailyFullJobPrefix
-def dailyFullWorkerJobName = System.getenv('JENKINS_DAILY_FULL_WORKER_JOB_NAME') ?: "${dailyFullParentJobName}-Worker"
-def environmentCatalogSyncJobName = System.getenv('JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME') ?: 'AiApiTest-DWP-Environment-Catalog-Sync'
-def platformBootstrapJobName = System.getenv('JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME') ?: 'AiApiTest-DWP-Platform-Bootstrap'
+def mountedWorkspace = '/workspace/AiApiTest-DWP'
+def genericPipelineJobName = 'AiApiTest-DWP-Pipeline'
+def failedRerunJobName = 'AiApiTest-DWP-Failed-Rerun'
+def moduleRerunJobName = 'AiApiTest-DWP-Module-Rerun'
+def dailyFullJobPrefix = 'AiApiTest-DWP-Daily-Full-Module'
+def dailyFullParentJobName = 'AiApiTest-DWP-Daily-Full-Module'
+def dailyFullWorkerJobName = 'AiApiTest-DWP-Daily-Full-Module-Worker'
+def environmentCatalogSyncJobName = 'AiApiTest-DWP-Environment-Catalog-Sync'
+def platformBootstrapJobName = 'AiApiTest-DWP-Platform-Bootstrap'
 def catalogScmUrl = System.getenv('JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL') ?: ''
 def catalogScmBranch = System.getenv('JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH') ?: 'main'
 def catalogScmCredentialsId = System.getenv('JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID') ?: ''
-def legacyDailyRemovalApproved = System.getenv('JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED') ?: 'false'
-def legacyDailyRemovalJobNames = System.getenv('JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES') ?: ''
 def dailyWorkerThrottleCategory = 'aiapitest-daily-worker'
 def moduleRerunThrottleCategory = 'aiapitest-module-rerun'
 def failedRerunThrottleCategory = 'aiapitest-failed-rerun'
 def managedMarker = '[AiApiTest-DWP local-mounted]'
 
-if (localWorkspaceMode != 'true') {
-    println '[AiApiTest-DWP] LOCAL_WORKSPACE_REPO is not true; skip local mounted Job configuration.'
-    return
-}
-
 if (!new File(mountedWorkspace).isDirectory()) {
     println "[AiApiTest-DWP] Mounted workspace not found: ${mountedWorkspace}; skip local mounted Job configuration."
     return
-}
-
-def shouldReplaceExistingJob = { job ->
-    if (job == null || replaceExistingLocalJobs == 'true') {
-        return true
-    }
-    return (job.getDescription() ?: '').contains(managedMarker)
 }
 
 def throttleDescriptor = jenkins.getDescriptorByType(ThrottleJobProperty.DescriptorImpl)
@@ -65,12 +49,9 @@ throttleDescriptor.setCategories(preservedThrottleCategories + managedThrottleCa
 throttleDescriptor.save()
 
 def localDefinition = { config ->
-    def envList = config.envVars.collect { "'${it}'" }.join(', ')
-    def invocation = """def pipelineScript
-    dir('${mountedWorkspace}') {
+    def invocation = """dir('${mountedWorkspace}') {
+        def pipelineScript
         pipelineScript = load '${config.scriptPath}'
-    }
-    withEnv([${envList}]) {
         pipelineScript.call()
     }"""
     return new CpsFlowDefinition("""node {
@@ -104,7 +85,6 @@ def jobConfigs = [
         name: dailyFullParentJobName,
         description: "${managedMarker} Stage13 唯一 Daily 父 Job。负责全量模块编排、父级聚合与唯一 Allure。",
         scriptPath: 'jenkins/Jenkinsfile.daily-full-module',
-        envVars: ['LOCAL_WORKSPACE_REPO=true'],
         dailyCron: true,
         allowConcurrent: true,
         forceReplace: true,
@@ -114,7 +94,6 @@ def jobConfigs = [
         name: dailyFullWorkerJobName,
         description: "${managedMarker} Stage13 Daily Worker。仅由唯一 Daily 父 Job 触发，无定时器。",
         scriptPath: 'jenkins/Jenkinsfile.daily-full-module-worker',
-        envVars: ['LOCAL_WORKSPACE_REPO=true'],
         dailyCron: false,
         allowConcurrent: true,
         forceReplace: true,
@@ -124,7 +103,6 @@ def jobConfigs = [
         name: genericPipelineJobName,
         description: "${managedMarker} 本地通用执行 Job。直接使用 Docker 挂载仓库，不访问远端源码仓库。",
         scriptPath: 'jenkins/scripts/api-test-pipeline.groovy',
-        envVars: ['LOCAL_WORKSPACE_REPO=true'],
         dailyCron: false,
         allowConcurrent: true,
         throttleCategory: null
@@ -133,7 +111,6 @@ def jobConfigs = [
         name: failedRerunJobName,
         description: "${managedMarker} 失败用例重试 Job。",
         scriptPath: 'jenkins/scripts/failed-rerun-pipeline.groovy',
-        envVars: ['LOCAL_WORKSPACE_REPO=true'],
         dailyCron: false,
         allowConcurrent: true,
         throttleCategory: failedRerunThrottleCategory
@@ -142,7 +119,6 @@ def jobConfigs = [
         name: moduleRerunJobName,
         description: "${managedMarker} 模块重试 Job。",
         scriptPath: 'jenkins/scripts/module-rerun-pipeline.groovy',
-        envVars: ['LOCAL_WORKSPACE_REPO=true'],
         dailyCron: false,
         allowConcurrent: true,
         throttleCategory: moduleRerunThrottleCategory
@@ -160,7 +136,6 @@ def jobConfigs = [
         name: platformBootstrapJobName,
         description: "${managedMarker} Stage13 统一平台环境启动 Job。",
         scriptPath: 'jenkins/Jenkinsfile.platform-bootstrap',
-        envVars: ['LOCAL_WORKSPACE_REPO=true'],
         dailyCron: false,
         allowConcurrent: false,
         entrypoint: true,
@@ -171,10 +146,6 @@ def jobConfigs = [
 
 jobConfigs.each { config ->
     def job = jenkins.getItemByFullName(config.name, WorkflowJob)
-    if (!(config.forceReplace || shouldReplaceExistingJob(job))) {
-        println "[AiApiTest-DWP] skip existing non-local Jenkins Job: ${config.name}"
-        return
-    }
     if (job == null) {
         job = jenkins.createProject(WorkflowJob, config.name)
     }
@@ -208,32 +179,6 @@ legacyDailyJobs.each { legacyDailyJob ->
     legacyDailyJob.setTriggers(legacyTriggers)
     legacyDailyJob.save()
     println "[AiApiTest-DWP] Removed legacy Daily timer while preserving Job and build history: ${legacyDailyJob.fullName}"
-}
-
-// 仅删除明确列出、属于旧 Daily 前缀且不是唯一父/Worker Job 的 WorkflowJob；Job.delete() 同时清理其构建历史。
-def legacyDailyDeletionAllowlist = legacyDailyRemovalJobNames
-    .split(',', -1)
-    .collect { it.trim() }
-def legacyDailyDeletionAllowlistIsValid = legacyDailyDeletionAllowlist &&
-    legacyDailyDeletionAllowlist.toSet().size() == legacyDailyDeletionAllowlist.size() &&
-    legacyDailyDeletionAllowlist.every { it ->
-        it.startsWith("${dailyFullJobPrefix}-") &&
-            it != dailyFullParentJobName &&
-            it != dailyFullWorkerJobName
-    }
-
-if (legacyDailyRemovalApproved == 'true' && legacyDailyDeletionAllowlistIsValid) {
-    legacyDailyDeletionAllowlist.each { legacyDailyJobName ->
-        def legacyDailyJob = jenkins.getItemByFullName(legacyDailyJobName, WorkflowJob)
-        if (legacyDailyJob != null) {
-            legacyDailyJob.delete()
-            println "[AiApiTest-DWP] Deleted approved legacy Daily Job and build history: ${legacyDailyJob.fullName}"
-        }
-    }
-} else if (legacyDailyRemovalApproved == 'true') {
-    println '[AiApiTest-DWP] Legacy Daily deletion approval is enabled but its allowlist is missing or invalid; preserving all Jobs.'
-} else {
-    println '[AiApiTest-DWP] Preserving legacy per-module Daily Jobs and their build history until final acceptance.'
 }
 
 jenkins.save()

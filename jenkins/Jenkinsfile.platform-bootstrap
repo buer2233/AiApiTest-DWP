@@ -13,31 +13,25 @@ node {
 
     def pipelineLoaded = false
     def pipelineScript = null
-    def localWorkspace = env.AIAPITEST_LOCAL_WORKSPACE ?: '/workspace/AiApiTest-DWP'
+    def localWorkspace = '/workspace/AiApiTest-DWP'
     def fallbackEvidenceDir = "runtime/platform-bootstrap/${env.BUILD_TAG ?: "jenkins-${env.BUILD_NUMBER}"}"
     try {
         stage('Checkout/Workspace') {
-            if (env.LOCAL_WORKSPACE_REPO == 'true') {
-                if (!fileExists("${localWorkspace}/jenkins/scripts/platform-bootstrap-pipeline.groovy")) {
-                    error("Configured AIAPITEST_LOCAL_WORKSPACE does not contain the platform bootstrap Pipeline script")
-                }
-                dir(localWorkspace) {
-                    echo "Using local mounted repository at ${pwd()}"
-                    pipelineScript = load 'jenkins/scripts/platform-bootstrap-pipeline.groovy'
-                }
-            } else {
-                checkout scm
+            if (!fileExists("${localWorkspace}/jenkins/scripts/platform-bootstrap-pipeline.groovy")) {
+                error("Fixed local workspace does not contain the platform bootstrap Pipeline script")
+            }
+            dir(localWorkspace) {
+                echo "Using fixed local mounted repository at ${pwd()}"
                 pipelineScript = load 'jenkins/scripts/platform-bootstrap-pipeline.groovy'
             }
         }
         pipelineLoaded = true
-        if (env.LOCAL_WORKSPACE_REPO == 'true') {
-            // durable-task、源码副本和证据必须在 Jenkins 可写 workspace 内，避免挂载目录旁创建 @tmp。
-            deleteDir()
-            if (isUnix()) {
-                sh "tar -C \"${localWorkspace}\" --exclude=.git --exclude='.pytest_tmp*' --exclude=.tmp --exclude=runtime --exclude=report --exclude=node_modules --exclude=.idea --no-same-owner -cf - . | tar -xf -"
-            } else {
-                bat """
+        // durable-task、源码副本和证据必须在 Jenkins 可写 workspace 内，避免挂载目录旁创建 @tmp。
+        deleteDir()
+        if (isUnix()) {
+            sh "tar -C \"${localWorkspace}\" --exclude=.git --exclude='.pytest_tmp*' --exclude=.tmp --exclude=runtime --exclude=report --exclude=node_modules --exclude=.idea --no-same-owner -cf - . | tar -xf -"
+        } else {
+            bat """
 @echo off
 setlocal EnableDelayedExpansion
 robocopy "${localWorkspace}" . /E /XD .git .pytest_tmp* .tmp runtime report node_modules .idea
@@ -45,11 +39,8 @@ set "ROBOCOPY_EXIT=!ERRORLEVEL!"
 if !ROBOCOPY_EXIT! GEQ 8 exit /B !ROBOCOPY_EXIT!
 exit /B 0
 """
-            }
-            withEnv(["PLATFORM_BOOTSTRAP_SOURCE_WORKSPACE=${pwd()}"]) {
-                pipelineScript.call()
-            }
-        } else {
+        }
+        withEnv(["PLATFORM_BOOTSTRAP_SOURCE_WORKSPACE=${pwd()}"]) {
             pipelineScript.call()
         }
     } catch (Throwable failure) {

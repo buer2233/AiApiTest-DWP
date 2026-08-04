@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -10,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from typing import Any
 
+from django.conf import settings
 from django.utils import timezone as django_timezone
 
 
@@ -43,17 +43,16 @@ class JenkinsConfig:
 
 
 def _read_config() -> JenkinsConfig:
-    public_base_url = os.environ.get("JENKINS_PUBLIC_BASE_URL", "").rstrip("/")
-    api_base_url = os.environ.get("JENKINS_API_BASE_URL", public_base_url).rstrip("/")
+    public_base_url = settings.JENKINS_PUBLIC_BASE_URL.rstrip("/")
+    api_base_url = settings.JENKINS_API_BASE_URL.rstrip("/")
     if not public_base_url:
         public_base_url = api_base_url
-    timeout = int(os.environ.get("JENKINS_REQUEST_TIMEOUT_SECONDS", "15") or "15")
     return JenkinsConfig(
         api_base_url=api_base_url,
         public_base_url=public_base_url,
-        username=os.environ.get("JENKINS_USERNAME", ""),
-        api_token=os.environ.get("JENKINS_API_TOKEN", ""),
-        timeout_seconds=timeout,
+        username=settings.JENKINS_USERNAME,
+        api_token=settings.JENKINS_API_TOKEN,
+        timeout_seconds=settings.JENKINS_REQUEST_TIMEOUT_SECONDS,
     )
 
 

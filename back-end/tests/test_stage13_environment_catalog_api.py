@@ -327,14 +327,17 @@ def test_environment_catalog_queue_persistence_and_compensation_errors_return_a_
 
 
 @pytest.mark.django_db
-def test_empty_environment_catalog_sync_job_name_fails_attempt_and_allows_retry(
+def test_environment_catalog_sync_ignores_retired_empty_job_name_override(
     admin_client,
     catalog_state,
     monkeypatch,
 ):
     monkeypatch.setenv("JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME", "   ")
 
-    with patch("metrics.views.trigger_jenkins_build") as trigger_build:
+    with patch(
+        "metrics.views.trigger_jenkins_build",
+        return_value={"queue_id": "fixed-job-queue", "queue_url": "https://ci.example.invalid/queue/item/1/"},
+    ) as trigger_build:
         created = admin_client.post(
             "/api/v1/test-environments",
             {
@@ -348,24 +351,12 @@ def test_empty_environment_catalog_sync_job_name_fails_attempt_and_allows_retry(
 
         assert created.status_code == 202
         attempt = EnvironmentCatalogSyncAttempt.objects.get(id=created.data["data"]["sync_attempt"]["id"])
-        assert attempt.status == EnvironmentCatalogSyncAttempt.Status.FAILED
-        assert attempt.error_code == "jenkins_job_name_missing"
-        assert attempt.error_summary == "环境目录同步任务未能排队，请重试。"
-        assert attempt.active_attempt_key is None
-        assert EnvironmentCatalogState.objects.get().status == EnvironmentCatalogState.Status.FAILED
+        assert attempt.status == EnvironmentCatalogSyncAttempt.Status.QUEUED
+        assert attempt.error_code == ""
+        assert attempt.queue_id == "fixed-job-queue"
 
-        retried = admin_client.post(
-            f"/api/v1/environment-catalog-sync-attempts/{attempt.id}/retry",
-            {},
-            format="json",
-        )
-
-    assert retried.status_code == 202
-    retried_attempt = EnvironmentCatalogSyncAttempt.objects.get(id=retried.data["data"]["id"])
-    assert retried_attempt.id != attempt.id
-    assert retried_attempt.status == EnvironmentCatalogSyncAttempt.Status.FAILED
-    assert retried_attempt.active_attempt_key is None
-    trigger_build.assert_not_called()
+    trigger_build.assert_called_once()
+    assert trigger_build.call_args.kwargs["job_full_name"] == "AiApiTest-DWP-Environment-Catalog-Sync"
 
 
 @pytest.mark.django_db

@@ -19,15 +19,15 @@
 
 ### 创建方式与固定契约
 
-Compose Jenkins 会把 `jenkins/scripts/configure-local-mounted-jobs.groovy` 以只读方式挂载到 `init.groovy.d`。当 `LOCAL_WORKSPACE_REPO=true` 且挂载源码目录有效时，Jenkins 启动时幂等创建或修复固定环境 Job，不需要也不应手工创建同名或旁路 Job。
+Compose Jenkins 会把 `jenkins/scripts/configure-local-mounted-jobs.groovy` 以只读方式挂载到 `init.groovy.d`。挂载源码目录有效时，Jenkins 启动会幂等创建或修复固定环境 Job，不需要也不应手工创建同名或旁路 Job。
 
 | 项目 | 约定 |
 | --- | --- |
-| Job 名称 | 私有 `.env` 的 `JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME`，默认约定为 `AiApiTest-DWP-Platform-Bootstrap` |
+| Job 名称 | 代码固定为 `AiApiTest-DWP-Platform-Bootstrap`，不可通过 `.env` 改名 |
 | Job 类型 | Pipeline |
 | 固定入口 | `jenkins/Jenkinsfile.platform-bootstrap` |
-| 本地 Compose 模式 | 注入 `LOCAL_WORKSPACE_REPO=true`，先从 `AIAPITEST_LOCAL_WORKSPACE` 读取版本化 Pipeline，再复制到 Jenkins 可写 workspace 执行 |
-| 远端 Jenkins 模式 | 仅适用于已由远端 Jenkins 外部创建并配置 SCM 的 Job；该 Job 可用 `checkout scm`。本地 Compose Init Groovy 在 `LOCAL_WORKSPACE_REPO=false` 时不会创建本地挂载 Job。 |
+| 本地 Compose 模式 | 源码固定挂载到容器内 `/workspace/AiApiTest-DWP`，再复制到 Jenkins 可写 workspace 执行；宿主机来源只由公共 `PROJECT_WORKSPACE` 控制 |
+| Controller executors | 代码固定为 `40`；Daily Worker、模块重试和失败重试仍分别受每类 `10` 个并发限制 |
 | 并发规则 | Pipeline 使用 `disableConcurrentBuilds`，同一环境 Job 不允许并发构建 |
 | Controller 前提 | Docker CLI/Compose、Docker Socket 挂载、`.env` 可读，以及与 Socket 匹配的 `DOCKER_GID` supplemental group |
 
@@ -55,13 +55,14 @@ MySQL 与 Jenkins 不属于环境 Job 的管理范围；它们只由主人或平
 
 `build_all=false` 是增量路径：仅当镜像、依赖或构建输入缺失或发生变化时才重建，满足条件的镜像会复用。它不是跳过依赖、部署或健康检查的开关。
 
-### 七个执行阶段
+### 八个执行阶段
 
 | 阶段 | 执行内容 | 失败结果 |
 | --- | --- | --- |
 | `Checkout/Workspace` | 获取 Pipeline 源码并准备 Jenkins 可写 workspace。 | 输出最小失败摘要并归档可用证据。 |
 | `Bootstrap Preflight` | 校验 `.env`、Docker CLI/Compose、Socket/GID、Compose 配置和 MySQL/Jenkins bootstrap 前提。 | 给出结构化根因与修复建议，停止后续步骤。 |
 | `Dependency Assurance` | 分别校验 `backend`、`frontend`、`api-runner` 三个依赖域（下称“三域”）的镜像、哈希标签和完整性；需要时在本阶段构建镜像。 | 任一域失败则汇总失败原因，部署前终止。 |
+| `Schema & Initial Data` | 仅通过一次性 `backend-bootstrap` 服务执行 migration、环境种子和 bootstrap 管理员初始化。 | 任一步失败即阻止 Deploy，不回滚、不删库。 |
 | `Deploy` | 通过 `docker compose up -d --no-build` 管理 `backend`、`frontend`、`jenkins-sync-worker`，只部署已在依赖阶段构建或复用的镜像。 | 保留失败服务与日志，不进行自动回滚。 |
 | `Health` | 检查应用服务和依赖可达性，受统一 deadline 约束。 | 记录失败服务和诊断证据。 |
 | `Tests` | 默认执行冒烟；按 `run_full_tests=true` 执行全量回归。 | 写入测试日志、报告结果和摘要。 |
@@ -87,7 +88,7 @@ Allure 是 Jenkins Allure 插件提供的 Build 级报告与 artifact 入口，�
 | `.env` 或 Compose 配置缺失 | 私有配置不完整、变量名已变更或配置不匹配。 | 在本地私有 `.env` 修正后重新构建，不提交敏感配置。 |
 | 依赖域构建失败 | Dockerfile、依赖清单、锁文件、构建上下文、网络或镜像源异常。 | 查看对应依赖域完整构建日志，修复输入后重新构建；每次 Job 只尝试一次安装。 |
 | Health 超时 | 应用配置、容器状态或依赖链路异常。 | 查看 Health 证据和服务日志，修复后重新构建；不要手工重启应用服务。 |
-| helper 触发失败 | Job 名称、Jenkins 认证、排队或等待超时配置异常。 | 修复 helper 所依赖的私有 Jenkins 配置后重试；页面构建与 helper 应指向同一 Job。 |
+| helper 触发失败 | Jenkins 认证失败、固定 Job 尚未创建、排队或代码固定的 30 分钟总等待超时。 | 校验私有 Jenkins 凭据和 Init Groovy 状态后重试；页面构建与 helper 始终指向同一固定 Job。 |
 
 ## 业务自动化测试 Pipeline
 
@@ -110,11 +111,9 @@ Allure 是 Jenkins Allure 插件提供的 Build 级报告与 artifact 入口，�
 
 父 Job 不会因单个模块测试失败而中止其他模块。它等待所有可调度 Worker，回收 Worker 工件，调用 `api-test` 聚合协议生成稳定父级 `summary.json`、模块明细和合并 Allure 原始结果，归档并仅发布父级 Allure。Worker、聚合或归档基础设施异常同样在所有可用结果归档后使父构建失败。
 
-旧分模块 Daily Job 与已有构建历史默认保留；init 脚本只移除其 `TimerTrigger`，避免与唯一 Daily 父 Job 重复调度。只有同时设置 `JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED=true`，并将 `JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES` 配置为合法精确白名单时，才会删除白名单中的旧 Job 及其构建历史。白名单使用英文逗号分隔完整 Job 名，不接受空项、重复项、父 Job、Worker 或非 Daily 前缀项；每一项均以精确 Job 名查询，不执行通配符删除。
+Stage13 的旧分模块 Daily Job 删除开关与一次性删除分支已经退役，不再允许通过环境配置删除 Job。遗留 Jenkins home 如仍保留旧 Job，由主人/平台运维在确认历史与备份后人工迁移；当前 init 只维护唯一 Daily 父 Job 与无定时 Worker 的固定契约。
 
-受控删除只允许在固定 Platform Bootstrap Job 全绿后，由主人/平台运维重启 Jenkins，使版本化 init Groovy 在 Jenkins bootstrap 时执行。未批准、白名单缺失或校验失败时，脚本保留全部旧 Job；白名单中的不存在项安全跳过，可重复执行。
-
-环境目录同步 Job 不读取 MySQL、不写开发挂载工作区，也不运行接口测试。它使用 `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL` 指向的受控仓库建立干净 checkout，在写入前校验目标 YAML 的 Git blob SHA；仅在快进推送成功后回调受限内部 API。`JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL` 仅在私有环境配置中维护，Pipeline 固定拼接内部导出与回调路径，绝不接受 URL 构建参数。`JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID` 是独立最小权限的用户名/密码 Credentials ID，仅通过 askpass helper 包裹 Git fetch/push；checkout、push 和服务令牌凭据彼此独立，凭据、远端地址及令牌均不能写入模板、Pipeline 或日志。
+环境目录同步 Job 不读取 MySQL、不写开发挂载工作区，也不运行接口测试。它使用私有 `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL` 与 branch 建立干净 checkout，在写入前校验目标 YAML 的 Git blob SHA；仅在快进推送成功后回调固定的 backend 内部 API 路径。checkout、push 和服务调用分别使用 `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID`、`JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID`、`JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID`。最后一项在 Jenkins 中保存的令牌必须与 backend 注入的私有 `ENVIRONMENT_CATALOG_SERVICE_TOKEN` 相同；启用同步时 Preflight 会检查该闭环所需配置。凭据、远端地址及令牌均不能写入模板、Pipeline 或日志。
 
 ### 业务参数摘要
 
@@ -132,6 +131,8 @@ Allure 是 Jenkins Allure 插件提供的 Build 级报告与 artifact 入口，�
 - Jenkins controller 因挂载 Docker Socket 而拥有主机级 Docker 控制能力。该设计只适用于受信任的本地开发/验收 controller，绝不允许不受信任 SCM/PR Job 使用。
 - `DOCKER_GID` 仅用于让 Jenkins 访问 Socket；禁止使用 `chmod 666 /var/run/docker.sock` 规避权限问题。
 - 真实账号、密码、token、Cookie、私有地址和密钥只由本地 `.env` 或 Jenkins Credentials 管理，不写入 Jenkinsfile、Groovy、README 或示例配置。
+- Job 名、容器内 `/workspace/AiApiTest-DWP`、`/api/v1`、Jenkins API 请求 15 秒超时、队列 5 秒轮询、构建 10 秒轮询和 helper 总等待 30 分钟均由代码固定，不是部署配置项。
+- 登录 Cookie 固定使用 `authToken`、8 小时有效期、`SameSite=Lax`、路径 `/`；`Secure` 仅由公共 `PLATFORM_PUBLIC_SCHEME=https` 派生。
 - Jenkins 运行时日志、Allure HTML、workspace 临时文件和其他运行产物不提交 Git；需要追溯时以 Jenkins Job/build/artifact 为准。
 - Jenkins 与 MySQL 的启动、重启、停止和数据卷维护只由主人/平台运维按 [Docker 部署说明](../docker/DEPLOYMENT.md) 执行。应用服务环境准备始终回到 Platform Bootstrap Job。
 

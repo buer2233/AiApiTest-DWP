@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 from contextlib import contextmanager
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 
@@ -37,7 +37,7 @@ def global_daily_binding_lock():
 
 
 class Command(BaseCommand):
-    help = "根据环境变量同步测试环境、模块与 Jenkins Job 的绑定关系。"
+    help = "按平台固定 Job 名同步测试环境、模块与 Jenkins Job 的绑定关系。"
 
     def handle(self, *args, **options):
         environments = list(TestEnvironment.objects.filter(is_active=True).order_by("id"))
@@ -47,58 +47,50 @@ class Command(BaseCommand):
         skipped = 0
 
         fixed_jobs = {
-            TestRun.RunType.FAILED_RERUN: os.getenv("JENKINS_FAILED_RERUN_JOB_NAME", "").strip(),
-            TestRun.RunType.MODULE_RERUN: os.getenv("JENKINS_MODULE_RERUN_JOB_NAME", "").strip(),
+            TestRun.RunType.FAILED_RERUN: settings.JENKINS_FAILED_RERUN_JOB_NAME,
+            TestRun.RunType.MODULE_RERUN: settings.JENKINS_MODULE_RERUN_JOB_NAME,
         }
-        daily_job_name = os.getenv("JENKINS_DAILY_FULL_JOB_NAME", "").strip()
+        daily_job_name = settings.JENKINS_DAILY_FULL_JOB_NAME
 
         for task_type, job_full_name in fixed_jobs.items():
-            if not job_full_name:
-                skipped += len(environments) * len(modules)
-                self.stdout.write(f"{task_type} skipped: job name is empty")
-                continue
             type_created, type_updated = self._sync_task_type(environments, modules, task_type, job_full_name)
             created += type_created
             updated += type_updated
 
-        if not daily_job_name:
-            skipped += 1
-            self.stdout.write(f"{TestRun.RunType.DAILY_FULL} skipped: job name is empty")
-        else:
-            with global_daily_binding_lock():
-                with transaction.atomic():
-                    binding = (
-                        JenkinsJobBinding.objects.select_for_update()
-                        .filter(
-                            environment__isnull=True,
-                            module__isnull=True,
-                            task_type=TestRun.RunType.DAILY_FULL,
-                        )
-                        .order_by("id")
-                        .first()
-                    )
-                    if binding is None:
-                        binding = JenkinsJobBinding.objects.create(
-                            environment=None,
-                            module=None,
-                            task_type=TestRun.RunType.DAILY_FULL,
-                            job_full_name=daily_job_name,
-                            default_retry_count=0,
-                            is_active=True,
-                        )
-                        created += 1
-                    else:
-                        binding.job_full_name = daily_job_name
-                        binding.default_retry_count = 0
-                        binding.is_active = True
-                        binding.save(update_fields=["job_full_name", "default_retry_count", "is_active", "updated_at"])
-                        updated += 1
-                    JenkinsJobBinding.objects.filter(
+        with global_daily_binding_lock():
+            with transaction.atomic():
+                binding = (
+                    JenkinsJobBinding.objects.select_for_update()
+                    .filter(
                         environment__isnull=True,
                         module__isnull=True,
                         task_type=TestRun.RunType.DAILY_FULL,
+                    )
+                    .order_by("id")
+                    .first()
+                )
+                if binding is None:
+                    binding = JenkinsJobBinding.objects.create(
+                        environment=None,
+                        module=None,
+                        task_type=TestRun.RunType.DAILY_FULL,
+                        job_full_name=daily_job_name,
+                        default_retry_count=0,
                         is_active=True,
-                    ).exclude(id=binding.id).update(is_active=False)
+                    )
+                    created += 1
+                else:
+                    binding.job_full_name = daily_job_name
+                    binding.default_retry_count = 0
+                    binding.is_active = True
+                    binding.save(update_fields=["job_full_name", "default_retry_count", "is_active", "updated_at"])
+                    updated += 1
+                JenkinsJobBinding.objects.filter(
+                    environment__isnull=True,
+                    module__isnull=True,
+                    task_type=TestRun.RunType.DAILY_FULL,
+                    is_active=True,
+                ).exclude(id=binding.id).update(is_active=False)
 
         self.stdout.write(f"created={created} updated={updated} skipped={skipped}")
 

@@ -31,47 +31,42 @@ def test_docker_compose_defines_mysql_and_jenkins_services():
 
 
 def test_docker_compose_uses_env_driven_ports_and_safe_defaults():
-    """Compose 端口和密码必须由环境变量驱动，且不能允许空 MySQL 密码。"""
+    """Compose 端口统一绑定平台地址，且不能允许空 MySQL 密码。"""
     content = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
 
-    assert "${MYSQL_BIND_HOST:-127.0.0.1}:${MYSQL_HOST_PORT:-3307}:3306" in content
-    assert "${JENKINS_HTTP_PORT:-8080}:8080" in content
-    assert "${JENKINS_AGENT_PORT:-50001}:50000" in content
+    assert content.count("host_ip: ${PLATFORM_BIND_HOST:-127.0.0.1}") == 5
+    assert 'published: "${MYSQL_HOST_PORT:-3307}"' in content
+    assert 'published: "${JENKINS_HTTP_PORT:-8080}"' in content
+    assert 'published: "${JENKINS_AGENT_PORT:-50001}"' in content
     assert "MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}" in content
     assert "MYSQL_ALLOW_EMPTY_PASSWORD" not in content
 
 
-def test_docker_compose_injects_jenkins_runtime_env_from_root_env():
-    """Jenkins 容器必须显式接收根 .env 中声明的 Pipeline 默认变量。"""
+def test_docker_compose_injects_only_necessary_jenkins_runtime_configuration():
+    """Jenkins 只接收私有同步配置和必要调优项，固定协议不得继续插值。"""
     content = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
 
     for variable in [
-        "JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}",
-        "JENKINS_GENERIC_PIPELINE_JOB_NAME: ${JENKINS_GENERIC_PIPELINE_JOB_NAME:-AiApiTest-DWP-Pipeline}",
-        "JENKINS_FAILED_RERUN_JOB_NAME: ${JENKINS_FAILED_RERUN_JOB_NAME:-AiApiTest-DWP-Failed-Rerun}",
-        "JENKINS_MODULE_RERUN_JOB_NAME: ${JENKINS_MODULE_RERUN_JOB_NAME:-AiApiTest-DWP-Module-Rerun}",
-        "JENKINS_DAILY_FULL_JOB_PREFIX: ${JENKINS_DAILY_FULL_JOB_PREFIX:-AiApiTest-DWP-Daily-Full-Module}",
-        "JENKINS_DAILY_FULL_JOB_NAME: ${JENKINS_DAILY_FULL_JOB_NAME:-AiApiTest-DWP-Daily-Full-Module}",
-        "JENKINS_DAILY_FULL_WORKER_JOB_NAME: ${JENKINS_DAILY_FULL_WORKER_JOB_NAME:-AiApiTest-DWP-Daily-Full-Module-Worker}",
-        "JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME:-AiApiTest-DWP-Environment-Catalog-Sync}",
         "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL:-}",
         "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH:-main}",
         "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID:-}",
         "JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID: ${JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID:-}",
-        "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL: ${JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL:-}",
         "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID:-}",
-        "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED: ${JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED:-false}",
-        "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES: ${JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES:-}",
-        "JENKINS_DEFAULT_CASE_PATH: ${JENKINS_DEFAULT_CASE_PATH:-test_case/test_gbif_case}",
-        "JENKINS_API_TEST_DIR: ${JENKINS_API_TEST_DIR:-api-test}",
-        "JENKINS_EXECUTORS: ${JENKINS_EXECUTORS:-40}",
-        "LOCAL_WORKSPACE_REPO: ${LOCAL_WORKSPACE_REPO:-true}",
-        "AIAPITEST_LOCAL_WORKSPACE: ${AIAPITEST_LOCAL_WORKSPACE:-/workspace/AiApiTest-DWP}",
-        "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS: ${AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS:-false}",
+        "FRONTEND_PLAYWRIGHT_BASE_IMAGE: ${FRONTEND_PLAYWRIGHT_BASE_IMAGE:-mcr.m.daocloud.io/playwright:v1.61.1-noble}",
         "CI_RUN_RETENTION_DAYS: ${CI_RUN_RETENTION_DAYS:-30}",
     ]:
         assert variable in content
-    assert "JENKINS_PYTHON_VENV_DIR" not in content
+    for retired in [
+        "JENKINS_PUBLIC_BASE_URL:",
+        "JENKINS_GENERIC_PIPELINE_JOB_NAME:",
+        "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME:",
+        "JENKINS_EXECUTORS:",
+        "LOCAL_WORKSPACE_REPO:",
+        "AIAPITEST_LOCAL_WORKSPACE:",
+        "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED:",
+        "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES:",
+    ]:
+        assert retired not in content
 
 
 def test_env_example_documents_required_values_without_real_secrets():
@@ -82,30 +77,18 @@ def test_env_example_documents_required_values_without_real_secrets():
 
     content = env_file.read_text(encoding="utf-8")
     for variable in [
-        "MYSQL_BIND_HOST=127.0.0.1",
+        "PLATFORM_BIND_HOST=127.0.0.1",
+        "PLATFORM_PUBLIC_HOST=127.0.0.1",
+        "PLATFORM_PUBLIC_SCHEME=http",
         "MYSQL_HOST_PORT=3307",
-        "MYSQL_HOST=127.0.0.1",
         "JENKINS_HTTP_PORT=8080",
         "JENKINS_AGENT_PORT=50001",
-        "JENKINS_EXECUTORS=40",
-        "JENKINS_PUBLIC_BASE_URL=http://localhost:8080",
-        "JENKINS_GENERIC_PIPELINE_JOB_NAME=AiApiTest-DWP-Pipeline",
-        "LOCAL_WORKSPACE_REPO=true",
-        "AIAPITEST_LOCAL_WORKSPACE=/workspace/AiApiTest-DWP",
-        "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS=false",
+        "BACKEND_HOST_PORT=8000",
+        "FRONTEND_HOST_PORT=5173",
         "PROJECT_WORKSPACE=.",
+        "DOCKER_GID=0",
         "CI_RUN_RETENTION_DAYS=30",
-        "BACKEND_SERVICE_URL=http://127.0.0.1:8000",
-        "BACKEND_API_BASE_URL=http://127.0.0.1:8000/api/v1",
-        "FRONTEND_SERVICE_URL=http://127.0.0.1:5173",
-        "FRONTEND_DEV_HOST=127.0.0.1",
-        "FRONTEND_DEV_PORT=5173",
-        "FRONTEND_DEV_API_PROXY_TARGET=http://127.0.0.1:8000",
-        "VITE_API_BASE_URL=/api/v1",
-        "VITE_API_TIMEOUT_MS=10000",
-        "PLAYWRIGHT_WEB_SERVER_HOST=127.0.0.1",
-        "PLAYWRIGHT_WEB_SERVER_PORT=4173",
-        "PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173",
+        "FRONTEND_PLAYWRIGHT_BASE_IMAGE=mcr.m.daocloud.io/playwright:v1.61.1-noble",
     ]:
         assert variable in content
     for forbidden_variable in [
@@ -144,15 +127,16 @@ def test_env_example_documents_required_values_without_real_secrets():
 
 
 def test_compose_configures_forty_jenkins_executors_via_init_script():
-    """Compose Jenkins 应通过可配置 init Groovy 将 controller executors 设置为 40。"""
+    """Compose Jenkins 应通过 init Groovy 将 controller executors 固定为 40。"""
     compose = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
     init_script_path = ROOT_DIR / "jenkins" / "scripts" / "configure-executors.groovy"
 
-    assert "JENKINS_EXECUTORS: ${JENKINS_EXECUTORS:-40}" in compose
+    assert "JENKINS_EXECUTORS:" not in compose
     assert "configure-executors.groovy:/var/jenkins_home/init.groovy.d/20-aiapitest-executors.groovy:ro" in compose
     assert init_script_path.exists()
     script = init_script_path.read_text(encoding="utf-8")
-    assert "JENKINS_EXECUTORS" in script
+    assert "def executorCount = 40" in script
+    assert "System.getenv" not in script
     assert "setNumExecutors" in script
     assert "jenkins.save()" in script
 
@@ -198,14 +182,15 @@ def test_compose_retires_only_the_exact_legacy_local_jobs_init_file():
         assert forbidden_api not in script
 
 
-def test_compose_injects_platform_bootstrap_job_name_into_jenkins_init_script():
-    """私有 .env 覆盖的环境 Job 名必须进入 Jenkins init Groovy，而非只使用代码默认值。"""
+def test_platform_bootstrap_job_name_is_fixed_in_jenkins_init_script():
+    """环境 Job 使用冻结名称，Compose 不得再提供改名旁路。"""
     compose = (ROOT_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+    init_script = (ROOT_DIR / "jenkins" / "scripts" / "configure-local-mounted-jobs.groovy").read_text(
+        encoding="utf-8"
+    )
 
-    assert (
-        "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME: "
-        "${JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME:-AiApiTest-DWP-Platform-Bootstrap}"
-    ) in compose
+    assert "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME:" not in compose
+    assert "def platformBootstrapJobName = 'AiApiTest-DWP-Platform-Bootstrap'" in init_script
 
 
 def test_local_env_file_is_git_ignored():
@@ -237,10 +222,9 @@ def test_one_click_scripts_start_compose_services():
     assert "docker compose up -d mysql jenkins" in ps_content
     assert "cp .env.example .env" in sh_content
     assert "docker compose up -d mysql jenkins" in sh_content
-    assert "JENKINS_PUBLIC_BASE_URL" in ps_content
-    assert "JENKINS_PUBLIC_BASE_URL" in sh_content
-    assert "MYSQL_BIND_HOST" in ps_content
-    assert "MYSQL_BIND_HOST" in sh_content
+    for public_key in ["PLATFORM_PUBLIC_HOST", "PLATFORM_PUBLIC_SCHEME", "JENKINS_HTTP_PORT", "MYSQL_HOST_PORT"]:
+        assert public_key in ps_content
+        assert public_key in sh_content
 
 
 def test_one_click_scripts_inject_local_jenkins_api_credentials_to_private_env():

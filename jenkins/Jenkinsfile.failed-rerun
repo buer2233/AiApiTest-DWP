@@ -1,12 +1,7 @@
 // 失败重试 Jenkins Pipeline 入口。
 // 勾选失败用例和一键失败重试都通过 PYTEST_NODE_IDS 传入同一条执行链路。
 node {
-    if (env.LOCAL_WORKSPACE_REPO == 'true') {
-        echo "Using local mounted repository at ${pwd()}"
-    } else {
-        checkout scm
-    }
-
+    echo "Using fixed local mounted repository at ${pwd()}"
     def pipelineScript = load 'jenkins/scripts/failed-rerun-pipeline.groovy'
     pipelineScript.call()
 }

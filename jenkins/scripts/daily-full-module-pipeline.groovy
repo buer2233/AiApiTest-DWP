@@ -13,7 +13,7 @@ def runTask1Tool(String arguments) {
 
 def call() {
     def retentionDays = env.CI_RUN_RETENTION_DAYS ?: '30'
-    def configuredDailyParentJobName = env.JENKINS_DAILY_FULL_JOB_NAME ?: 'AiApiTest-DWP-Daily-Full-Module'
+    def configuredDailyParentJobName = 'AiApiTest-DWP-Daily-Full-Module'
     def dailyProperties = [
         buildDiscarder(logRotator(daysToKeepStr: retentionDays, artifactDaysToKeepStr: retentionDays)),
         parameters([
@@ -35,7 +35,7 @@ def call() {
     def preflightPath = "${controlDir}/preflight.json"
     def workerArtifactRoot = "daily-workers/${parentRunId}"
     def parentRunDir = "api-test/runtime/ci-runs/${parentRunId}"
-    def dailyWorkerJobName = env.JENKINS_DAILY_FULL_WORKER_JOB_NAME ?: 'AiApiTest-DWP-Daily-Full-Module-Worker'
+    def dailyWorkerJobName = 'AiApiTest-DWP-Daily-Full-Module-Worker'
 
     stage('Daily Preflight') {
         if (isUnix()) {

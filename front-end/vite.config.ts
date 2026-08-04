@@ -7,7 +7,10 @@ import { defineConfig } from 'vitest/config'
 import { resolveFrontendEnv, repoRoot } from './config/env'
 
 export default defineConfig(({ mode }) => {
-  const env = resolveFrontendEnv(loadEnv(mode, repoRoot, ''))
+  const env = resolveFrontendEnv({
+    ...loadEnv(mode, repoRoot, ''),
+    CI: process.env.CI,
+  })
 
   return {
     envDir: repoRoot,
@@ -21,7 +24,7 @@ export default defineConfig(({ mode }) => {
       host: env.devHost,
       port: env.devPort,
       proxy: {
-        // 本地开发代理到 DRF，容器化或网关部署仍可通过 VITE_API_BASE_URL 使用统一入口。
+        // 开发代理复用固定 /api 前缀，目标地址由平台公开主机和 backend 端口派生。
         '/api': {
           target: env.apiProxyTarget,
           changeOrigin: true,

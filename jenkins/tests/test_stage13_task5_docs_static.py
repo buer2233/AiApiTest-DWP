@@ -15,57 +15,18 @@ AGENT_RULES = [
 ]
 
 EXPECTED_ENV = {
-    "MYSQL_BIND_HOST": "127.0.0.1",
+    "PLATFORM_BIND_HOST": "127.0.0.1",
+    "PLATFORM_PUBLIC_HOST": "127.0.0.1",
+    "PLATFORM_PUBLIC_SCHEME": "http",
     "MYSQL_HOST_PORT": "3307",
-    "MYSQL_HOST": "127.0.0.1",
     "JENKINS_HTTP_PORT": "8080",
     "JENKINS_AGENT_PORT": "50001",
-    "JENKINS_EXECUTORS": "40",
-    "JENKINS_PUBLIC_BASE_URL": "http://localhost:8080",
-    "JENKINS_GENERIC_PIPELINE_JOB_NAME": "AiApiTest-DWP-Pipeline",
-    "JENKINS_API_BASE_URL": "http://127.0.0.1:8080",
-    "JENKINS_FAILED_RERUN_JOB_NAME": "AiApiTest-DWP-Failed-Rerun",
-    "JENKINS_MODULE_RERUN_JOB_NAME": "AiApiTest-DWP-Module-Rerun",
-    "JENKINS_DAILY_FULL_JOB_PREFIX": "AiApiTest-DWP-Daily-Full-Module",
-    "JENKINS_DAILY_FULL_JOB_NAME": "AiApiTest-DWP-Daily-Full-Module",
-    "JENKINS_DAILY_FULL_WORKER_JOB_NAME": "AiApiTest-DWP-Daily-Full-Module-Worker",
-    "JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME": "AiApiTest-DWP-Environment-Catalog-Sync",
-    "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL": "",
-    "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH": "main",
-    "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID": "",
-    "JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID": "",
-    "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL": "",
-    "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID": "",
-    "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED": "false",
-    "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES": "",
-    "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME": "AiApiTest-DWP-Platform-Bootstrap",
-    "JENKINS_REQUEST_TIMEOUT_SECONDS": "15",
-    "JENKINS_QUEUE_POLL_INTERVAL_SECONDS": "5",
-    "JENKINS_BUILD_POLL_INTERVAL_SECONDS": "10",
-    "JENKINS_BUILD_POLL_TIMEOUT_SECONDS": "1800",
-    "JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS": "60",
-    "LOCAL_WORKSPACE_REPO": "true",
-    "AIAPITEST_LOCAL_WORKSPACE": "/workspace/AiApiTest-DWP",
-    "AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS": "false",
-    "PROJECT_WORKSPACE": ".",
-    "CI_RUN_RETENTION_DAYS": "30",
-    "DOCKER_GID": "0",
-    "BACKEND_BIND_HOST": "127.0.0.1",
     "BACKEND_HOST_PORT": "8000",
-    "BACKEND_SERVICE_URL": "http://127.0.0.1:8000",
-    "BACKEND_API_BASE_URL": "http://127.0.0.1:8000/api/v1",
-    "FRONTEND_BIND_HOST": "127.0.0.1",
     "FRONTEND_HOST_PORT": "5173",
-    "FRONTEND_SERVICE_URL": "http://127.0.0.1:5173",
-    "FRONTEND_DEV_HOST": "127.0.0.1",
-    "FRONTEND_DEV_PORT": "5173",
-    "FRONTEND_DEV_API_PROXY_TARGET": "http://127.0.0.1:8000",
+    "PROJECT_WORKSPACE": ".",
+    "DOCKER_GID": "0",
+    "CI_RUN_RETENTION_DAYS": "30",
     "FRONTEND_PLAYWRIGHT_BASE_IMAGE": "mcr.m.daocloud.io/playwright:v1.61.1-noble",
-    "VITE_API_BASE_URL": "/api/v1",
-    "VITE_API_TIMEOUT_MS": "10000",
-    "PLAYWRIGHT_WEB_SERVER_HOST": "127.0.0.1",
-    "PLAYWRIGHT_WEB_SERVER_PORT": "4173",
-    "PLAYWRIGHT_BASE_URL": "http://127.0.0.1:4173",
 }
 
 
@@ -89,11 +50,11 @@ def parse_env_template(content: str) -> dict[str, str]:
 
 
 def test_env_example_has_exactly_the_public_task5_variable_contract():
-    """模板必须恰有 51 项可配置项，新增项与真实消费者保持一致。"""
+    """Stage15 模板必须恰有 12 项最小公共配置。"""
     variables = parse_env_template(read_text(".env.example"))
 
     assert variables == EXPECTED_ENV
-    assert len(variables) == 51
+    assert len(variables) == 12
 
 
 def test_env_example_does_not_publish_private_or_build_metadata_values():
@@ -160,8 +121,8 @@ def test_jenkins_readme_documents_auto_created_environment_job_and_safe_contract
         "build_all=true",
         "run_full_tests=false",
         "disableConcurrentBuilds",
-        "LOCAL_WORKSPACE_REPO",
-        "checkout scm",
+        "/workspace/AiApiTest-DWP",
+        "PROJECT_WORKSPACE",
         "DOCKER_GID",
         "受信任",
         "不受信任 SCM/PR Job",
@@ -175,11 +136,12 @@ def test_jenkins_readme_documents_auto_created_environment_job_and_safe_contract
         "不执行 rollback",
         "不删除 volume",
         "Jenkins Allure 插件",
-        "Jenkins 启动时幂等创建或修复",
+        "幂等创建或修复",
         "重新构建",
     ]:
         assert marker in content
     assert "手工创建该 Job" not in content
+    assert "LOCAL_WORKSPACE_REPO" not in content
 
 
 def test_root_readme_and_deployment_document_automatic_environment_job_creation():
@@ -306,7 +268,9 @@ def test_deployment_documents_required_private_application_database_user():
         "只写入本地 `.env`",
     ]:
         assert marker in deployment
-        assert marker in env_example
+    assert "私有凭据不在可提交模板中列出" in env_example
+    assert "DB_USER=" not in env_example
+    assert "DB_PASSWORD=" not in env_example
     for obsolete in [
         "默认 root 连接优先",
         "默认 root 连接时",
@@ -332,10 +296,19 @@ def test_deployment_documents_required_private_application_database_user():
         assert marker in password_troubleshooting
 
 
-def test_heartbeat_template_describes_worker_container_health_only():
-    """心跳阈值只影响 worker 容器健康，不直接改变 backend readiness。"""
+def test_worker_heartbeat_threshold_is_fixed_outside_public_template():
+    """心跳阈值代码化为 worker 容器常量，不占用公共配置入口。"""
     env_example = read_text(".env.example")
+    compose = read_text("docker-compose.yml")
 
-    assert "`jenkins-sync-worker` 容器 healthcheck 返回 unhealthy" in env_example
-    assert "不直接改变 backend readiness" in env_example
-    assert "超过该值 ready 检查返回未就绪" not in env_example
+    assert "JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS=" not in env_example
+    assert "JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS" not in compose
+    assert "worker_heartbeat_healthcheck.py" in compose
+
+
+def test_bootstrap_workspace_documentation_matches_fixed_local_mount() -> None:
+    deployment = read_text("docker/DEPLOYMENT.md")
+
+    assert "当前挂载仓库或受管 SCM" not in deployment
+    assert "`/workspace/AiApiTest-DWP` 挂载仓库" in deployment
+    assert "环境目录同步 Job 才使用独立受管 SCM" in deployment

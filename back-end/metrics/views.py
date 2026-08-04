@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 import secrets
 from datetime import timedelta
@@ -1040,15 +1039,9 @@ def dispatch_environment_catalog_sync_attempt(attempt: EnvironmentCatalogSyncAtt
             logger.warning("Environment catalog dispatch state rejected: error_type=%s", type(exc).__name__)
             return EnvironmentCatalogSyncAttempt.objects.get(pk=attempt.pk)
 
-    job_full_name = os.environ.get(
-        "JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME",
-        "AiApiTest-DWP-Environment-Catalog-Sync",
-    ).strip()
-    if not job_full_name:
-        return fail_dispatch("jenkins_job_name_missing")
     try:
         queue = trigger_jenkins_build(
-            job_full_name=job_full_name,
+            job_full_name=settings.JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME,
             parameters={
                 "SYNC_DIRECTION": attempt.direction,
                 "SYNC_REQUEST_ID": attempt.request_id,

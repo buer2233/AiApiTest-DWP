@@ -298,7 +298,7 @@ def test_global_daily_binding_lock_keeps_sqlite_pytest_compatible():
 
 
 @pytest.mark.django_db
-def test_sync_jenkins_job_bindings_skips_empty_job_names(monkeypatch):
+def test_sync_jenkins_job_bindings_ignores_retired_empty_job_name_overrides(monkeypatch):
     MetricEnvironment.objects.create(
         env_key="mock-gbif",
         env_name="模拟测试环境",
@@ -320,11 +320,16 @@ def test_sync_jenkins_job_bindings_skips_empty_job_names(monkeypatch):
     stdout = StringIO()
     call_command("sync_jenkins_job_bindings", stdout=stdout)
 
-    assert not JenkinsJobBinding.objects.filter(task_type=MetricRun.RunType.FAILED_RERUN).exists()
+    assert JenkinsJobBinding.objects.filter(
+        task_type=MetricRun.RunType.FAILED_RERUN,
+        job_full_name="AiApiTest-DWP-Failed-Rerun",
+    ).exists()
     assert JenkinsJobBinding.objects.filter(task_type=MetricRun.RunType.MODULE_RERUN).exists()
-    assert not JenkinsJobBinding.objects.filter(task_type=MetricRun.RunType.DAILY_FULL).exists()
-    assert "failed_rerun skipped" in stdout.getvalue()
-    assert "daily_full skipped" in stdout.getvalue()
+    assert JenkinsJobBinding.objects.filter(
+        task_type=MetricRun.RunType.DAILY_FULL,
+        job_full_name="AiApiTest-DWP-Daily-Full-Module",
+    ).exists()
+    assert "skipped=0" in stdout.getvalue()
 
 
 def test_sync_jenkins_results_once_runs_one_cycle_and_reports_counts():
@@ -357,7 +362,7 @@ def test_sync_jenkins_results_rejects_interval_without_watch():
         call_command("sync_jenkins_results", interval=5)
 
 
-def test_sync_jenkins_results_invalid_environment_interval_warns_and_uses_default(monkeypatch):
+def test_sync_jenkins_results_ignores_retired_environment_interval(monkeypatch):
     monkeypatch.setenv("JENKINS_BUILD_POLL_INTERVAL_SECONDS", "invalid")
     stdout = StringIO()
     stderr = StringIO()
@@ -376,8 +381,7 @@ def test_sync_jenkins_results_invalid_environment_interval_warns_and_uses_defaul
         call_command("sync_jenkins_results", watch=True, stdout=stdout, stderr=stderr)
 
     sleep.assert_called_once_with(10)
-    assert "JENKINS_BUILD_POLL_INTERVAL_SECONDS" in stderr.getvalue()
-    assert "10" in stderr.getvalue()
+    assert stderr.getvalue() == ""
 
 
 def test_sync_jenkins_results_sigterm_stops_watch_cleanly():

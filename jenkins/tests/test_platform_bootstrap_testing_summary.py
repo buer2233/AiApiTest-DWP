@@ -112,7 +112,8 @@ def test_full_test_plan_uses_three_verified_images_without_runtime_install(tmp_p
 
     frontend_playwright = next(command for command in plan.commands if command.name == "frontend-playwright")
     assert "--env" in frontend_playwright.argv
-    assert "FRONTEND_DEV_API_PROXY_TARGET=http://backend:8000" in frontend_playwright.argv
+    assert "CI=true" in frontend_playwright.argv
+    assert all("FRONTEND_DEV_API_PROXY_TARGET" not in item for item in frontend_playwright.argv)
 
 
 def test_test_service_executes_smoke_with_fake_http_and_full_with_fake_runner(tmp_path):
@@ -250,12 +251,12 @@ def test_success_summary_contains_public_addresses_and_build_artifact_links(tmp_
     ]:
         store.write_stage_result(stage, {"stage": stage, "success": True})
     config = {
-        "JENKINS_PUBLIC_BASE_URL": "https://jenkins.example.invalid",
-        "MYSQL_HOST": "db.example.invalid",
+        "PLATFORM_PUBLIC_HOST": "platform.example.invalid",
+        "PLATFORM_PUBLIC_SCHEME": "https",
         "MYSQL_HOST_PORT": "3307",
-        "FRONTEND_SERVICE_URL": "https://platform.example.invalid",
-        "BACKEND_SERVICE_URL": "https://api.example.invalid",
-        "BACKEND_API_BASE_URL": "https://api.example.invalid/api/v1",
+        "JENKINS_HTTP_PORT": "8443",
+        "BACKEND_HOST_PORT": "8000",
+        "FRONTEND_HOST_PORT": "5173",
     }
 
     result = SummaryService(store).run(context, config)
@@ -272,6 +273,9 @@ def test_success_summary_contains_public_addresses_and_build_artifact_links(tmp_
         "allure_or_artifacts",
     }
     assert result.addresses["allure_or_artifacts"].startswith(context.build_url)
+    assert result.addresses["jenkins"] == "https://platform.example.invalid:8443"
+    assert result.addresses["backend"] == "https://platform.example.invalid:8000"
+    assert result.addresses["frontend"] == "https://platform.example.invalid:5173"
     assert (context.evidence_dir / "platform-bootstrap-summary.json").exists()
     assert (context.evidence_dir / "platform-bootstrap-summary.md").exists()
     assert (context.evidence_dir / "platform-bootstrap-addresses.json").exists()
@@ -313,6 +317,32 @@ def test_summary_reports_missing_address_without_localhost_fallback(tmp_path):
     assert "CONFIG_REQUIRED_ENV_MISSING" in codes
     serialized = json.dumps(result.to_dict())
     assert "localhost" not in serialized
+
+
+def test_summary_preserves_artifacts_when_public_address_value_is_invalid(tmp_path):
+    context = make_context(tmp_path)
+    store = EvidenceStore(context.evidence_dir)
+    store.write_stage_result(
+        "preflight",
+        {"stage": "preflight", "success": False, "diagnostics": []},
+    )
+    config = {
+        "PLATFORM_PUBLIC_HOST": "platform.example.invalid",
+        "PLATFORM_PUBLIC_SCHEME": "invalid-scheme",
+        "MYSQL_HOST_PORT": "3307",
+        "JENKINS_HTTP_PORT": "8080",
+        "BACKEND_HOST_PORT": "8000",
+        "FRONTEND_HOST_PORT": "5173",
+    }
+
+    result = SummaryService(store).run(context, config)
+
+    assert result.success is False
+    assert any(item.code == "CONFIG_ENV_VALUE_INVALID" for item in result.diagnostics)
+    assert result.addresses == {}
+    assert (context.evidence_dir / "platform-bootstrap-summary.json").is_file()
+    assert (context.evidence_dir / "platform-bootstrap-summary.md").is_file()
+    assert (context.evidence_dir / "platform-bootstrap-addresses.json").is_file()
 
 
 def test_summary_fails_when_any_fixed_stage_result_is_missing(tmp_path):

@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Mapping
 from urllib.parse import quote, urlencode, urlsplit
 
-from .configuration import ConfigError, DotEnvConfig, parse_bounded_int
+from .addressing import derive_public_addresses
+from .configuration import ConfigError, DotEnvConfig
 from .models import Diagnostic, HttpRequest
 from .security import Redactor
 
@@ -30,41 +31,26 @@ class JenkinsTriggerConfig:
         config = DotEnvConfig.load(path)
         required = config.require(
             (
-                "JENKINS_API_BASE_URL",
-                "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME",
+                "PLATFORM_PUBLIC_HOST",
+                "PLATFORM_PUBLIC_SCHEME",
+                "MYSQL_HOST_PORT",
+                "JENKINS_HTTP_PORT",
+                "BACKEND_HOST_PORT",
+                "FRONTEND_HOST_PORT",
                 "JENKINS_USERNAME",
                 "JENKINS_API_TOKEN",
             )
         )
+        addresses = derive_public_addresses(required)
         return cls(
-            base_url=required["JENKINS_API_BASE_URL"].rstrip("/"),
-            job_name=required["JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME"],
+            base_url=addresses.jenkins,
+            job_name="AiApiTest-DWP-Platform-Bootstrap",
             username=required["JENKINS_USERNAME"],
             api_token=required["JENKINS_API_TOKEN"],
-            request_timeout_seconds=parse_bounded_int(
-                config.get("JENKINS_REQUEST_TIMEOUT_SECONDS"),
-                default=15,
-                minimum=1,
-                maximum=120,
-            ),
-            queue_poll_interval_seconds=parse_bounded_int(
-                config.get("JENKINS_QUEUE_POLL_INTERVAL_SECONDS"),
-                default=5,
-                minimum=1,
-                maximum=60,
-            ),
-            build_poll_interval_seconds=parse_bounded_int(
-                config.get("JENKINS_BUILD_POLL_INTERVAL_SECONDS"),
-                default=10,
-                minimum=1,
-                maximum=300,
-            ),
-            total_timeout_seconds=parse_bounded_int(
-                config.get("JENKINS_BUILD_POLL_TIMEOUT_SECONDS"),
-                default=1800,
-                minimum=1,
-                maximum=86_400,
-            ),
+            request_timeout_seconds=15,
+            queue_poll_interval_seconds=5,
+            build_poll_interval_seconds=10,
+            total_timeout_seconds=1800,
         )
 
 
@@ -100,12 +86,12 @@ class _RequestFailure(RuntimeError):
 def encode_job_url(base_url: str, job_name: str) -> str:
     parsed = urlsplit(base_url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ConfigError("JENKINS_API_BASE_URL must be an absolute HTTP(S) URL")
+        raise ConfigError("Jenkins base URL must be an absolute HTTP(S) URL")
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise ConfigError("JENKINS_API_BASE_URL must not contain credentials, query, or fragment")
+        raise ConfigError("Jenkins base URL must not contain credentials, query, or fragment")
     segments = job_name.split("/")
     if not segments or any(not segment.strip() for segment in segments):
-        raise ConfigError("JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME contains an empty folder segment")
+        raise ConfigError("Jenkins Job name contains an empty folder segment")
     suffix = "".join(f"/job/{quote(segment, safe='')}" for segment in segments)
     return base_url.rstrip("/") + suffix
 

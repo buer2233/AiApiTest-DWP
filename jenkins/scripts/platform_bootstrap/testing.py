@@ -41,12 +41,12 @@ class TestPlan:
 
 
 SMOKE_PROBES = (
-    TestProbe("backend-live", "BACKEND_SERVICE_URL:/api/v1/health/live/"),
-    TestProbe("backend-ready", "BACKEND_SERVICE_URL:/api/v1/health/ready/"),
-    TestProbe("frontend-health", "FRONTEND_SERVICE_URL:/health"),
-    TestProbe("frontend-spa", "FRONTEND_SERVICE_URL:/login"),
-    TestProbe("frontend-api-proxy", "FRONTEND_SERVICE_URL:/api/v1/health/ready/"),
-    TestProbe("api-docs", "BACKEND_SERVICE_URL:/api/docs/"),
+    TestProbe("backend-live", "http://backend:8000/api/v1/health/live/"),
+    TestProbe("backend-ready", "http://backend:8000/api/v1/health/ready/"),
+    TestProbe("frontend-health", "http://frontend/health"),
+    TestProbe("frontend-spa", "http://frontend/login"),
+    TestProbe("frontend-api-proxy", "http://frontend/api/v1/health/ready/"),
+    TestProbe("api-docs", "http://backend:8000/api/docs/"),
 )
 
 
@@ -126,7 +126,7 @@ class TestService:
                     "--network",
                     "aiapitest-platform",
                     "--env",
-                    "FRONTEND_DEV_API_PROXY_TARGET=http://backend:8000",
+                    "CI=true",
                     "aiapitest-frontend-test:local",
                     "sh",
                     "-c",

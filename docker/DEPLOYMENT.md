@@ -31,11 +31,11 @@
 
 | 服务或镜像 | 实现方式 | 关键连接 | 对外入口 |
 | --- | --- | --- | --- |
-| `mysql` | MySQL 8.4，持久化卷 `aiapitest-mysql-data` | Compose 内为 `mysql:3306` | 由 `MYSQL_BIND_HOST`、`MYSQL_HOST_PORT` 决定。 |
-| `jenkins` | 由 `docker/jenkins/Dockerfile` 构建工具链镜像 | 挂载 Docker Socket、项目源码和 Init Groovy | `JENKINS_PUBLIC_BASE_URL`。 |
-| `backend` | `back-end/Dockerfile` 构建，Gunicorn 提供 DRF | 使用应用专用 `DB_USER` / `DB_PASSWORD` 访问 `mysql:3306` | `BACKEND_SERVICE_URL`、`BACKEND_API_BASE_URL`。 |
+| `mysql` | MySQL 8.4，持久化卷 `aiapitest-mysql-data` | Compose 内为 `mysql:3306` | `${PLATFORM_BIND_HOST}:${MYSQL_HOST_PORT}`。 |
+| `jenkins` | 由 `docker/jenkins/Dockerfile` 构建工具链镜像 | 挂载 Docker Socket、项目源码和 Init Groovy | `${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${JENKINS_HTTP_PORT}`。 |
+| `backend` | `back-end/Dockerfile` 构建，Gunicorn 提供 DRF | 使用应用专用 `DB_USER` / `DB_PASSWORD` 访问 `mysql:3306` | `${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${BACKEND_HOST_PORT}`，API 固定追加 `/api/v1`。 |
 | `backend-bootstrap` | 复用 backend 镜像，profile `bootstrap` 的一次性管理命令服务 | 仅固定 Job 的 schema 阶段访问 `mysql:3306` | 无常驻容器、无公开端口、无卷。 |
-| `frontend` | `front-end/Dockerfile` 构建，Nginx 运行时镜像 | 通过 API 代理访问 backend | `FRONTEND_SERVICE_URL`。 |
+| `frontend` | `front-end/Dockerfile` 构建，Nginx 运行时镜像 | 通过 API 代理访问 backend | `${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${FRONTEND_HOST_PORT}`。 |
 | `jenkins-sync-worker` | 复用 backend 镜像，执行 `sync_jenkins_results --watch` | 访问 `mysql:3306` 和 `jenkins:8080` | 无宿主机端口；以心跳 healthcheck 验证。 |
 | `api-runner` | `api-test/Dockerfile` 构建 | 仅 Jenkins 以隔离容器方式运行 | 无常驻容器、无公开端口。 |
 
@@ -57,25 +57,35 @@ Jenkins controller 使用 Docker Socket 控制**应用服务**镜像和容器。
 
 ### 1. 准备私有 `.env`
 
-根目录 `.env` 是本地私有配置入口，不能提交 Git。**首次启动前先手工从 `.env.example` 创建并补齐 `.env`，再运行 bootstrap helper。** helper 在发现 `.env` 缺失时会自动复制模板，但不会暂停等待填写私有项，而是继续执行 `docker compose up`；不能把该自动复制路径当作首次配置步骤。
+根目录 `.env` 是本地私有配置入口，不能提交 Git。**首次启动前先手工从 `.env.example` 创建并补齐 `.env`，再运行基础服务 bootstrap helper。** helper 即使能够在 `.env` 缺失时复制模板，也不会猜测或生成全部私有配置；复制后必须停止本次流程、人工补齐私有区，再重新运行。
 
-必须在本地 `.env` 维护的私有项包括：
+仅在本地 `.env` 维护的 16 项私有配置如下；`.env.example` 不列出这些键，也不提供可用凭据占位：
 
-- `MYSQL_ROOT_PASSWORD`、`DB_USER`、`DB_PASSWORD`
-- `DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET`
-- 初始化管理员信息
-- Jenkins 的用户名与 API Token（本地 Init Groovy 可由 bootstrap helper 写入私有 `.env`）
+| 私有配置 | 用途 |
+| --- | --- |
+| `MYSQL_ROOT_PASSWORD` | 仅用于 MySQL 管理、首次初始化和 healthcheck。 |
+| `DB_USER`、`DB_PASSWORD` | backend、worker 和一次性 bootstrap 使用的应用专用非 root 数据库账号。 |
+| `DJANGO_SECRET_KEY`、`AUTH_TOKEN_SECRET` | Django 与登录令牌签名密钥。 |
+| `JENKINS_USERNAME`、`JENKINS_API_TOKEN` | backend/helper 调用本地 Jenkins API 的凭据；本地 Init Groovy 可由基础服务 helper 安全回填。 |
+| `INITIAL_ADMIN_USERNAME`、`INITIAL_ADMIN_DISPLAY_NAME`、`INITIAL_ADMIN_PASSWORD` | 首次 bootstrap 管理员资料。 |
+| `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL`、`JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH` | 环境目录受控 SCM 来源。 |
+| `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID`、`JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID` | 环境目录 checkout 与 push 的独立 Jenkins Credentials ID。 |
+| `JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID` | Jenkins 调用 backend 内部 API 时使用的 Secret Text Credentials ID。 |
+| `ENVIRONMENT_CATALOG_SERVICE_TOKEN` | 注入 backend 的服务令牌；启用同步时必须与上一项所指 Jenkins Secret Text 的内容一致。 |
 
 `DB_USER` 与 `DB_PASSWORD` 是 Compose **必填**的应用专用非 root 数据库用户和密码，**只写入本地 `.env`**。`MYSQL_ROOT_PASSWORD` 只用于 MySQL 管理和初始化，不作为 backend 或 worker 的应用连接账号。
 
-可提交的 `.env.example` 仅定义通用网络、端口和地址模板。常用公开配置包括：
+可提交的 `.env.example` 只有以下 12 项公共配置，顺序、分组和注释必须与本地 `.env` 公共区一致，值可按部署环境不同：
 
 | 配置类别 | 代表变量 | 用途 |
 | --- | --- | --- |
-| Jenkins | `JENKINS_PUBLIC_BASE_URL`、`JENKINS_HTTP_PORT`、`JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME` | Jenkins 页面入口和固定 Job 名。 |
-| 挂载与 Socket | `PROJECT_WORKSPACE`、`AIAPITEST_LOCAL_WORKSPACE`、`DOCKER_GID` | 让 Jenkins 使用当前仓库并访问 Docker Socket。 |
-| 应用地址 | `BACKEND_SERVICE_URL`、`BACKEND_API_BASE_URL`、`FRONTEND_SERVICE_URL` | 供 Summary、验收和使用者访问。 |
-| 前端测试 | `FRONTEND_PLAYWRIGHT_BASE_IMAGE`、`PLAYWRIGHT_BASE_URL` | 构建和 Playwright 环境。 |
+| 平台网络 | `PLATFORM_BIND_HOST`、`PLATFORM_PUBLIC_HOST`、`PLATFORM_PUBLIC_SCHEME` | 控制宿主机监听和使用者看到的统一公开主机/协议。 |
+| 宿主机端口 | `MYSQL_HOST_PORT`、`JENKINS_HTTP_PORT`、`JENKINS_AGENT_PORT`、`BACKEND_HOST_PORT`、`FRONTEND_HOST_PORT` | 控制五个对外端口；容器内部端口固定。 |
+| 运维选项 | `PROJECT_WORKSPACE`、`DOCKER_GID`、`CI_RUN_RETENTION_DAYS`、`FRONTEND_PLAYWRIGHT_BASE_IMAGE` | 控制宿主机源码挂载、Socket 组、报告保留和前端测试镜像。 |
+
+Jenkins、backend、frontend 的公开 URL 由 `PLATFORM_PUBLIC_SCHEME`、`PLATFORM_PUBLIC_HOST` 和对应端口统一派生，不再逐服务配置 URL。Vite 本地代理直连宿主机 backend 明文端口；Playwright 启动的本地 Vite webServer 固定使用 HTTP 与 4173 端口。两者从 `PLATFORM_BIND_HOST` 派生可连接地址（`0.0.0.0` 映射为 `127.0.0.1`，`::` 映射为 `::1`），不复用外部主机或 HTTPS 协议。
+
+以下固定项不属于环境配置：Compose service name 与内部端口、固定 Job 名、Jenkins 40 executors、Pipeline/HTTP/轮询/心跳超时、容器内 `/workspace/AiApiTest-DWP`、API 路径 `/api/v1`、数据库名、时区和 Cookie 策略。登录 Cookie 固定为 `authToken`、8 小时、`SameSite=Lax`、路径 `/`；仅 `Secure` 根据 `PLATFORM_PUBLIC_SCHEME=https` 自动启用。
 
 `PROJECT_WORKSPACE` 必须指向当前正在开发或验收的仓库根目录。它指向旧工作区时，Jenkins 会加载旧代码，即使当前分支已提交也不会生效。
 
@@ -93,7 +103,7 @@ Linux、macOS 或 Git Bash：
 bash scripts/deploy-docker.sh
 ```
 
-上述脚本会校验 Docker Compose、启动 `mysql` 与 `jenkins`，并等待本地 Jenkins Init Groovy 生成运行时 API 凭据。它们不启动 backend、frontend 或 worker。若 `.env` 意外缺失，脚本会复制模板后立即继续执行，因此应停止该次启动、补齐私有项后重新运行脚本。
+上述脚本会校验 Docker Compose、启动 `mysql` 与 `jenkins`，并等待本地 Jenkins Init Groovy 生成运行时 API 凭据。它们不启动 backend、frontend 或 worker。若 `.env` 意外缺失并由脚本复制模板，必须先补齐全部私有项，再重新运行脚本。
 
 如需只执行基础服务 Compose 命令，主人或平台运维可执行：
 
@@ -102,7 +112,7 @@ docker compose up -d mysql jenkins
 docker compose ps
 ```
 
-等待 MySQL 为 `healthy`、Jenkins 页面可访问后，Jenkins 启动时幂等创建或修复固定 Pipeline Job。默认 Job 名由私有 `.env` 的 `JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME` 管理，默认值为 `AiApiTest-DWP-Platform-Bootstrap`。
+等待 MySQL 为 `healthy`、Jenkins 页面可访问后，Jenkins 启动时幂等创建或修复代码固定的 Pipeline Job `AiApiTest-DWP-Platform-Bootstrap`。该名称不允许通过 `.env` 改写。
 
 ### 3. 构建平台应用环境
 
@@ -143,7 +153,7 @@ helper 只通过 Jenkins API 提交并轮询固定 Job，使用相同的参数�
 
 | 阶段 | 做什么 | 失败后的处理 |
 | --- | --- | --- |
-| Checkout/Workspace | 使用当前挂载仓库或受管 SCM 获取流水线源码。 | 保留 Jenkins 控制台和可用证据。 |
+| Checkout/Workspace | 使用代码固定的 `/workspace/AiApiTest-DWP` 挂载仓库获取流水线源码；环境目录同步 Job 才使用独立受管 SCM。 | 保留 Jenkins 控制台和可用证据。 |
 | Bootstrap Preflight | 校验 `.env`、Docker CLI/Compose、Socket/GID、MySQL/Jenkins 运行状态以及 MySQL health。 | 输出结构化诊断并停止。 |
 | Dependency Assurance | 分别校验 backend、frontend、api-runner 三个依赖域。缺失或不满足时各只安装/构建一次，完整记录日志。 | 汇总失败域，在部署前停止。 |
 | Schema & Initial Data | 仅通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务依序执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`。空库创建全部 Django 表；已有库只应用未执行 migration。 | 任一步失败即阻止 Deploy；不 rollback、不清库、不删表。 |
@@ -156,11 +166,11 @@ helper 只通过 Jenkins API 提交并轮询固定 Job，使用相同的参数�
 
 ## 访问平台与构建产物
 
-环境 Job 成功后，从其 Summary 读取由 `.env` 注入的公开地址：
+环境 Job 成功后，从其 Summary 读取由公共主机、协议和端口派生的公开地址：
 
-- Jenkins：`JENKINS_PUBLIC_BASE_URL`
-- 前端：`FRONTEND_SERVICE_URL`
-- 后端与 API 文档：`BACKEND_SERVICE_URL`、`BACKEND_API_BASE_URL`
+- Jenkins：`${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${JENKINS_HTTP_PORT}`
+- 前端：`${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${FRONTEND_HOST_PORT}/platform`
+- 后端 API 文档：`${PLATFORM_PUBLIC_SCHEME}://${PLATFORM_PUBLIC_HOST}:${BACKEND_HOST_PORT}/api/docs/`
 - 测试证据和 Allure：当前 Jenkins Build 的 Artifact 与 Allure 入口
 
 Allure 是 Jenkins Build 级插件和归档入口，不是额外常驻 Compose 服务。原始运行日志、报告、截图和测试证据只保留为 Jenkins Artifact，或在 `docs/` 临时目录短暂存放后清理，不提交 Git。
@@ -174,7 +184,7 @@ Allure 是 Jenkins Build 级插件和归档入口，不是额外常驻 Compose �
 | MySQL 未运行或 `unhealthy` | 由主人/平台运维启动或修复 MySQL，等待 `healthy` 后重新构建。 |
 | backend、frontend 或 api-runner 依赖构建失败 | 阅读对应依赖域完整安装日志，修复 Dockerfile、lockfile、镜像源或网络后重新构建；每次构建内不会重复安装。 |
 | Health 超时 | 阅读 Job Health 阶段和相应服务日志，修复配置或应用逻辑后重新构建。 |
-| helper 认证、Job 名或轮询超时 | 校验 Jenkins 私有凭据、`JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME` 与 timeout 配置，修复后再次触发 helper。 |
+| helper 认证、固定 Job 或轮询超时 | 校验 `JENKINS_USERNAME`、`JENKINS_API_TOKEN` 和 Init Groovy 是否已创建固定 Job；helper 的请求/轮询/30 分钟总等待值由代码维护。 |
 | Jenkins 加载旧代码 | 修正 `PROJECT_WORKSPACE`，保持它指向当前仓库；重建 Jenkins bootstrap 后再运行 Job。 |
 
 ### MySQL 密码不一致：
@@ -206,7 +216,7 @@ AI 对 backend、frontend、worker 的重启、依赖检查/安装和环境验�
 
 ## 修改配置后的刷新
 
-修改本地挂载路径、固定 Job 名或 Jenkins Init Groovy 后，主人/平台运维可保留 Jenkins 数据卷并重建 Jenkins 容器，使 Init Groovy 再次执行：
+修改 `PROJECT_WORKSPACE` 或 Jenkins Init Groovy 后，主人/平台运维可保留 Jenkins 数据卷并重建 Jenkins 容器，使 Init Groovy 再次执行。固定 Job 名不可配置：
 
 ```bash
 docker compose up -d --no-deps --force-recreate jenkins

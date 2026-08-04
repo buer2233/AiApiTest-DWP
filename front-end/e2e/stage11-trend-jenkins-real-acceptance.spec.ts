@@ -2,6 +2,8 @@ import { expect, request as playwrightRequest, test, type Page } from '@playwrig
 import { mkdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
+import { resolveFrontendServiceUrl } from '../config/env'
+
 type EnvMap = Record<string, string>
 type Snapshot = { id: number; package_name: string; module_name: string }
 type JenkinsTask = { id: number; status: string; jenkins_build_url: string }
@@ -69,7 +71,7 @@ test('Stage11 真实验收：模块依赖跳过、每日趋势去重和真实折
   test.skip(process.env.STAGE11_REAL_ACCEPTANCE !== '1', '设置 STAGE11_REAL_ACCEPTANCE=1 后执行真实验收。')
   test.setTimeout(12 * 60 * 1000)
   const env = readLocalEnv()
-  const baseUrl = process.env.STAGE11_REAL_BASE_URL || 'http://127.0.0.1:5173'
+  const baseUrl = process.env.STAGE11_REAL_BASE_URL || resolveFrontendServiceUrl(env)
   const environmentId = process.env.STAGE11_REAL_ENVIRONMENT_ID || '1'
   const packageName = process.env.STAGE11_REAL_PACKAGE_NAME || 'test_gbif_case_module2'
   const username = process.env.STAGE11_REAL_USERNAME || env.INITIAL_ADMIN_USERNAME
