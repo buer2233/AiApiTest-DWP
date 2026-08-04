@@ -126,10 +126,8 @@ def call() {
     if (!env.JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID?.trim()) {
         error('JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID is required.')
     }
-    def catalogServiceBaseUrl = env.JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL?.trim()
-    if (!catalogServiceBaseUrl) {
-        error('JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL is required.')
-    }
+    // 环境 Job 与 backend 位于同一 Compose 网络，内部目录服务地址不允许被根配置覆盖。
+    def catalogServiceBaseUrl = 'http://backend:8000'
     catalogServiceBaseUrl = catalogServiceBaseUrl.replaceFirst('/+$', '')
     // 内部 API 路径不可由请求方传入，避免服务令牌随外部 URL 请求泄露。
     def catalogExportEndpoint = "${catalogServiceBaseUrl}/api/v1/internal/environment-catalog-sync-attempts/${syncRequestId}/export/"

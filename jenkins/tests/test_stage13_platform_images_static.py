@@ -80,7 +80,12 @@ def test_compose_uses_private_application_database_credentials_for_container_net
         environment = services[service_name]["environment"]
         assert environment["DB_USER"] == "${DB_USER:?Set DB_USER in .env}"
         assert environment["DB_PASSWORD"] == "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
-        assert environment["DJANGO_ALLOWED_HOSTS"].endswith(",backend,frontend")
+        assert environment["PLATFORM_BIND_HOST"] == "${PLATFORM_BIND_HOST:-127.0.0.1}"
+        assert environment["PLATFORM_PUBLIC_HOST"] == "${PLATFORM_PUBLIC_HOST:-127.0.0.1}"
+        assert "DJANGO_ALLOWED_HOSTS" not in environment
+    settings = read_text("back-end/config/settings/base.py")
+    assert '"backend"' in settings
+    assert '"frontend"' in settings
 
 
 def test_jenkins_controller_uses_tools_image_and_socket_group_permission():
@@ -117,7 +122,10 @@ def test_backend_and_worker_share_immutable_image_with_healthchecks():
 
     assert worker["image"] == backend["image"]
     assert "sync_jenkins_results" in " ".join(worker["command"])
-    assert worker["environment"]["JENKINS_API_BASE_URL"] == "http://jenkins:8080"
+    assert "JENKINS_API_BASE_URL" not in worker["environment"]
+    assert 'JENKINS_API_BASE_URL = "http://jenkins:8080"' in read_text(
+        "back-end/config/settings/base.py"
+    )
     assert "worker_heartbeat_healthcheck.py" in " ".join(worker["healthcheck"]["test"])
 
 
@@ -243,7 +251,7 @@ def test_worker_heartbeat_healthcheck_handles_fresh_stale_and_missing_files(tmp_
     assert not module.is_heartbeat_fresh(tmp_path / "missing", max_age_seconds=30, now=1_020.0)
 
 
-def test_worker_heartbeat_healthcheck_main_uses_env_and_returns_nonzero_for_stale(
+def test_worker_heartbeat_healthcheck_main_uses_fixed_threshold_for_stale_file(
     tmp_path,
     monkeypatch,
     capsys,
@@ -254,19 +262,19 @@ def test_worker_heartbeat_healthcheck_main_uses_env_and_returns_nonzero_for_stal
     stale_time = time.time() - 120
     os.utime(heartbeat_path, (stale_time, stale_time))
     monkeypatch.setenv("JENKINS_SYNC_HEARTBEAT_PATH", str(heartbeat_path))
-    monkeypatch.setenv("JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS", "30")
+    monkeypatch.setenv("JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS", "3600")
 
     assert module.main() == 1
     assert "missing or stale" in capsys.readouterr().err
 
 
-def test_worker_heartbeat_healthcheck_invalid_threshold_uses_safe_default(tmp_path, monkeypatch):
+def test_worker_heartbeat_healthcheck_ignores_retired_threshold_env(tmp_path, monkeypatch):
     module = load_worker_healthcheck_module()
     heartbeat_path = tmp_path / "worker.heartbeat"
     heartbeat_path.write_text("timestamp-only", encoding="utf-8")
-    fresh_time = time.time() - 5
+    fresh_time = time.time() - 120
     os.utime(heartbeat_path, (fresh_time, fresh_time))
     monkeypatch.setenv("JENKINS_SYNC_HEARTBEAT_PATH", str(heartbeat_path))
     monkeypatch.setenv("JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS", "invalid")
 
-    assert module.main() == 0
+    assert module.main() == 1

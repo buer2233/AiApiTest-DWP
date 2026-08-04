@@ -20,6 +20,16 @@ from metrics.jenkins_service import (
 )
 
 
+@pytest.fixture(autouse=True)
+def isolated_jenkins_settings(settings):
+    """Jenkins 单元测试仅使用显式假地址和空凭据，绝不继承根私有配置。"""
+    settings.JENKINS_API_BASE_URL = "http://jenkins:8080"
+    settings.JENKINS_PUBLIC_BASE_URL = "https://ci.example.test"
+    settings.JENKINS_USERNAME = ""
+    settings.JENKINS_API_TOKEN = ""
+    settings.JENKINS_REQUEST_TIMEOUT_SECONDS = 15
+
+
 class FakeJenkinsResponse:
     def __init__(self, payload=None, headers=None):
         self._payload = payload
@@ -144,9 +154,24 @@ def test_trigger_build_uses_internal_api_url_but_returns_public_queue_url(monkey
     assert result["queue_id"] == "99"
 
 
-def test_trigger_build_falls_back_to_public_url_when_internal_api_url_missing(monkeypatch):
-    monkeypatch.delenv("JENKINS_API_BASE_URL", raising=False)
-    monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "http://localhost:8080")
+def test_jenkins_config_ignores_retired_address_and_timeout_environment(monkeypatch):
+    """内部/公开地址和请求超时统一来自 Django settings。"""
+    from metrics.jenkins_service import _read_config
+
+    monkeypatch.setenv("JENKINS_API_BASE_URL", "https://legacy-api.invalid")
+    monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "https://legacy-public.invalid")
+    monkeypatch.setenv("JENKINS_REQUEST_TIMEOUT_SECONDS", "999")
+
+    config = _read_config()
+
+    assert config.api_base_url == "http://jenkins:8080"
+    assert config.public_base_url == "https://ci.example.test"
+    assert config.timeout_seconds == 15
+
+
+def test_trigger_build_rejects_missing_internal_api_url(monkeypatch, settings):
+    settings.JENKINS_API_BASE_URL = ""
+    settings.JENKINS_PUBLIC_BASE_URL = "http://localhost:8080"
     requested_urls: list[str] = []
 
     def fake_urlopen(request, timeout):
@@ -155,10 +180,10 @@ def test_trigger_build_falls_back_to_public_url_when_internal_api_url_missing(mo
 
     monkeypatch.setattr("metrics.jenkins_service.urllib.request.urlopen", fake_urlopen)
 
-    result = trigger_jenkins_build(job_full_name="AiApiTest-DWP-Failed-Rerun", parameters={"RETRY_MODE": "selected"})
+    with pytest.raises(JenkinsServiceError, match="API_BASE_URL"):
+        trigger_jenkins_build(job_full_name="AiApiTest-DWP-Failed-Rerun", parameters={"RETRY_MODE": "selected"})
 
-    assert requested_urls == ["http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/buildWithParameters"]
-    assert result["queue_id"] == "101"
+    assert requested_urls == []
 
 
 def test_fetch_task_result_returns_public_artifact_urls(monkeypatch):
@@ -426,10 +451,9 @@ def test_fetch_task_result_keeps_queue_pending_when_expired_queue_has_no_matchin
     assert result == {"queue_pending": True, "recovery_pending": True}
 
 
-def test_cancel_task_sends_jenkins_crumb_for_authenticated_post(monkeypatch):
-    monkeypatch.setenv("JENKINS_API_BASE_URL", "http://jenkins:8080")
-    monkeypatch.setenv("JENKINS_USERNAME", "local-user")
-    monkeypatch.setenv("JENKINS_API_TOKEN", "local-token")
+def test_cancel_task_sends_jenkins_crumb_for_authenticated_post(monkeypatch, settings):
+    settings.JENKINS_USERNAME = "local-user"
+    settings.JENKINS_API_TOKEN = "local-token"
     requested: list[tuple[str, str, str]] = []
 
     def fake_urlopen(request, timeout):
@@ -449,10 +473,9 @@ def test_cancel_task_sends_jenkins_crumb_for_authenticated_post(monkeypatch):
     ]
 
 
-def test_cancel_queued_task_sends_jenkins_crumb_for_authenticated_post(monkeypatch):
-    monkeypatch.setenv("JENKINS_API_BASE_URL", "http://jenkins:8080")
-    monkeypatch.setenv("JENKINS_USERNAME", "local-user")
-    monkeypatch.setenv("JENKINS_API_TOKEN", "local-token")
+def test_cancel_queued_task_sends_jenkins_crumb_for_authenticated_post(monkeypatch, settings):
+    settings.JENKINS_USERNAME = "local-user"
+    settings.JENKINS_API_TOKEN = "local-token"
     requested: list[tuple[str, str, str]] = []
 
     def fake_urlopen(request, timeout):

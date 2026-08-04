@@ -28,22 +28,9 @@ def is_heartbeat_fresh(
     return max(0.0, current_time - modified_at) <= max_age_seconds
 
 
-def _positive_int_from_env(name: str, default: int) -> int:
-    raw_value = os.getenv(name, "").strip()
-    try:
-        parsed = int(raw_value)
-    except ValueError:
-        return default
-    return parsed if parsed > 0 else default
-
-
 def main() -> int:
     heartbeat_path = Path(os.getenv("JENKINS_SYNC_HEARTBEAT_PATH", DEFAULT_HEARTBEAT_PATH))
-    max_age_seconds = _positive_int_from_env(
-        "JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS",
-        DEFAULT_MAX_AGE_SECONDS,
-    )
-    if is_heartbeat_fresh(heartbeat_path, max_age_seconds=max_age_seconds):
+    if is_heartbeat_fresh(heartbeat_path, max_age_seconds=DEFAULT_MAX_AGE_SECONDS):
         return 0
     print("worker heartbeat is missing or stale", file=sys.stderr)
     return 1

@@ -5,27 +5,50 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from platform_bootstrap.evidence import EvidenceStore  # noqa: E402
+from platform_bootstrap.env_contract import PRIVATE_SECTION_MARKER  # noqa: E402
 from platform_bootstrap.models import CommandResult, RunContext  # noqa: E402
 from platform_bootstrap.preflight import PreflightService  # noqa: E402
 
 
-REQUIRED_ENV = {
+PUBLIC_ENV = {
+    "PLATFORM_BIND_HOST": "127.0.0.1",
+    "PLATFORM_PUBLIC_HOST": "platform.example.invalid",
+    "PLATFORM_PUBLIC_SCHEME": "https",
+    "MYSQL_HOST_PORT": "3307",
+    "JENKINS_HTTP_PORT": "8443",
+    "JENKINS_AGENT_PORT": "50001",
+    "BACKEND_HOST_PORT": "8000",
+    "FRONTEND_HOST_PORT": "5173",
+    "PROJECT_WORKSPACE": ".",
+    "DOCKER_GID": "0",
+    "CI_RUN_RETENTION_DAYS": "30",
+    "FRONTEND_PLAYWRIGHT_BASE_IMAGE": "registry.example.invalid/playwright:test",
+}
+
+PRIVATE_ENV = {
     "MYSQL_ROOT_PASSWORD": "private-mysql-password",
+    "DB_USER": "private-db-user",
+    "DB_PASSWORD": "private-db-password",
     "DJANGO_SECRET_KEY": "private-django-secret",
     "AUTH_TOKEN_SECRET": "private-auth-secret",
-    "JENKINS_PUBLIC_BASE_URL": "https://jenkins.example.invalid",
-    "JENKINS_API_BASE_URL": "https://jenkins-api.example.invalid",
-    "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME": "Platform/Bootstrap",
-    "MYSQL_HOST": "db.example.invalid",
-    "MYSQL_HOST_PORT": "3307",
-    "FRONTEND_SERVICE_URL": "https://platform.example.invalid",
-    "BACKEND_SERVICE_URL": "https://api.example.invalid",
-    "BACKEND_API_BASE_URL": "https://api.example.invalid/api/v1",
+    "JENKINS_USERNAME": "private-jenkins-user",
+    "JENKINS_API_TOKEN": "private-jenkins-token",
+    "INITIAL_ADMIN_USERNAME": "private-admin",
+    "INITIAL_ADMIN_DISPLAY_NAME": "Private Admin",
+    "INITIAL_ADMIN_PASSWORD": "private-admin-password",
+    "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL": "",
+    "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH": "main",
+    "JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID": "",
+    "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID": "",
+    "JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID": "",
+    "ENVIRONMENT_CATALOG_SERVICE_TOKEN": "",
 }
 
 LIMITED_FORMAT = "{{.Id}}|{{.State.Running}}|unknown"
@@ -52,10 +75,18 @@ class FakeRunner:
 
 
 def write_env(path: Path):
-    path.write_text(
-        "\n".join(f"{key}={value}" for key, value in REQUIRED_ENV.items()) + "\n",
-        encoding="utf-8",
-    )
+    template_path = path.parent / ".env.example"
+    template_lines = [
+        "# AiApiTest-DWP 公共部署配置",
+        "# 测试模板与私有文件的公共结构必须完全一致。",
+        "",
+    ] + [f"{key}={value}" for key, value in PUBLIC_ENV.items()]
+    public_template = "\n".join(template_lines) + "\n"
+    template_path.write_text(public_template + PRIVATE_SECTION_MARKER + "\n", encoding="utf-8")
+    private_lines = [PRIVATE_SECTION_MARKER] + [
+        f"{key}={value}" for key, value in PRIVATE_ENV.items()
+    ]
+    path.write_text(public_template + "\n".join(private_lines) + "\n", encoding="utf-8")
 
 
 def make_context(tmp_path: Path) -> RunContext:
@@ -105,6 +136,81 @@ def test_missing_compose_writes_real_evidence_and_runs_no_command(tmp_path):
     assert "MYSQL_ROOT_PASSWORD" not in evidence_text
 
 
+def test_duplicate_template_key_returns_stable_contract_drift_before_docker(tmp_path):
+    """模板尾部重复键必须产生结构化诊断，不能因索引越界中断预检。"""
+    context = make_context(tmp_path)
+    write_env(context.env_file)
+    template = context.workspace / ".env.example"
+    with template.open("a", encoding="utf-8") as stream:
+        stream.write("PLATFORM_BIND_HOST=synthetic-duplicate\n")
+    runner = FakeRunner()
+
+    result = PreflightService(runner, EvidenceStore(context.evidence_dir)).run(context)
+
+    assert result.success is False
+    assert result.diagnostics[0].code == "CONFIG_ENV_CONTRACT_DRIFT"
+    assert "duplicate:.env.example:PLATFORM_BIND_HOST@line:" in str(result.to_dict())
+    assert "synthetic-duplicate" not in str(result.to_dict())
+    assert runner.specs == []
+
+
+def test_unreadable_template_returns_redacted_contract_drift_before_docker(tmp_path, monkeypatch):
+    """配置结构无法读取时必须形成脱敏证据，且不能继续执行 Docker。"""
+    context = make_context(tmp_path)
+    write_env(context.env_file)
+    template = context.workspace / ".env.example"
+    original_open = Path.open
+
+    def fail_template(self, *args, **kwargs):
+        if self == template:
+            raise PermissionError("synthetic-secret-must-not-escape")
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fail_template)
+    runner = FakeRunner()
+
+    result = PreflightService(runner, EvidenceStore(context.evidence_dir)).run(context)
+
+    assert result.success is False
+    assert result.diagnostics[0].code == "CONFIG_ENV_CONTRACT_DRIFT"
+    assert result.details["contract_issues"] == ["read_error:.env.example"]
+    assert "synthetic-secret-must-not-escape" not in str(result.to_dict())
+    assert runner.specs == []
+
+
+@pytest.mark.parametrize(
+    ("key", "invalid_value"),
+    [
+        ("PLATFORM_BIND_HOST", "not-an-ip"),
+        ("JENKINS_AGENT_PORT", "not-a-port"),
+        ("DOCKER_GID", "-1"),
+        ("CI_RUN_RETENTION_DAYS", "0"),
+        ("FRONTEND_PLAYWRIGHT_BASE_IMAGE", "invalid image reference"),
+    ],
+)
+def test_invalid_retained_public_option_fails_before_docker_without_echoing_value(
+    tmp_path,
+    key,
+    invalid_value,
+):
+    context = make_context(tmp_path)
+    write_env(context.env_file)
+    content = context.env_file.read_text(encoding="utf-8")
+    context.env_file.write_text(
+        content.replace(f"{key}={PUBLIC_ENV[key]}", f"{key}={invalid_value}"),
+        encoding="utf-8",
+    )
+    runner = FakeRunner()
+
+    result = PreflightService(runner, EvidenceStore(context.evidence_dir)).run(context)
+
+    assert result.success is False
+    assert result.diagnostics[0].code == "CONFIG_ENV_VALUE_INVALID"
+    assert key in result.diagnostics[0].observed
+    assert f"{key}={invalid_value}" not in str(result.to_dict())
+    assert runner.specs == []
+
+
 def test_preflight_is_read_only_and_records_only_key_presence(tmp_path):
     context = make_context(tmp_path)
     write_env(context.env_file)
@@ -145,7 +251,7 @@ def test_preflight_is_read_only_and_records_only_key_presence(tmp_path):
     for forbidden in [" up ", " start ", " restart ", " stop ", "chmod", " down "]:
         assert forbidden not in f" {command_text} "
     assert "config --quiet" in command_text
-    assert "config --no-interpolate" in command_text
+    assert "config --no-interpolate" not in command_text
     assert ("docker", "inspect", "aiapitest-jenkins") not in [spec.argv for spec in runner.specs]
     assert ("docker", "inspect", "aiapitest-mysql") not in [spec.argv for spec in runner.specs]
     assert all(".Config" not in " ".join(spec.argv) for spec in runner.specs)

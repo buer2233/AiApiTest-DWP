@@ -155,7 +155,10 @@ def run_stage(command: str, options=None) -> int:
                         reason="Jenkins trigger configuration is missing or invalid",
                         observed=f"{exc}; evidence_persistence={persistence_status}",
                         evidence=config_evidence,
-                        suggestion="Create/fix the private root .env Jenkins URL, Job, username, token, and timeout keys.",
+                        suggestion=(
+                            "Create/fix PLATFORM_PUBLIC_HOST, PLATFORM_PUBLIC_SCHEME, JENKINS_HTTP_PORT, "
+                            "JENKINS_USERNAME, and JENKINS_API_TOKEN in the private root .env."
+                        ),
                         rerun="Run trigger-platform-bootstrap again with the same two boolean values.",
                     ),
                 ),

@@ -126,8 +126,8 @@ def test_init_uses_jenkins_plugin_constructor_signatures_for_throttle_and_scm():
     assert "false,\n        [],\n        null,\n        null,\n        []" in init_script
 
 
-def test_init_removes_legacy_daily_timers_and_deletes_only_explicitly_approved_jobs():
-    """旧 Job 默认保留；仅双开关与精确安全白名单同时成立时才允许删除。"""
+def test_init_removes_legacy_daily_timers_without_any_job_deletion_branch():
+    """旧 Job 只移除 TimerTrigger；Stage15 退役一次性删除分支。"""
     init_script = read_source("scripts/configure-local-mounted-jobs.groovy")
 
     assert "def legacyDailyJobs = jenkins.getAllItems(WorkflowJob).findAll" in init_script
@@ -137,20 +137,14 @@ def test_init_removes_legacy_daily_timers_and_deletes_only_explicitly_approved_j
     assert "legacyDailyJob.setTriggers(legacyTriggers)" in init_script
     assert "legacyDailyJob.save()" in init_script
     assert "removeItem" not in init_script
-    assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" in init_script
-    assert "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES" in init_script
-    assert "split(',', -1)" in init_script
-    assert "legacyDailyDeletionAllowlist" in init_script
-    assert "legacyDailyDeletionAllowlistIsValid" in init_script
-    assert "it.startsWith(\"${dailyFullJobPrefix}-\")" in init_script
-    assert "it != dailyFullParentJobName" in init_script
-    assert "it != dailyFullWorkerJobName" in init_script
-
-    deletion_guard = "if (legacyDailyRemovalApproved == 'true' && legacyDailyDeletionAllowlistIsValid)"
-    assert deletion_guard in init_script
-    deletion_call = "legacyDailyJob.delete()"
-    assert deletion_call in init_script
-    assert init_script.index(deletion_guard) < init_script.index(deletion_call)
+    for retired in [
+        "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED",
+        "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES",
+        "legacyDailyRemovalApproved",
+        "legacyDailyDeletionAllowlist",
+        "legacyDailyJob.delete()",
+    ]:
+        assert retired not in init_script
 
 
 def test_legacy_daily_timer_filter_protects_custom_parent_and_worker_jobs():
@@ -165,49 +159,26 @@ def test_legacy_daily_timer_filter_protects_custom_parent_and_worker_jobs():
     assert "legacyDailyJob.fullName != dailyFullWorkerJobName" in timer_filter
 
 
-def test_legacy_daily_deletion_allowlist_has_static_safety_guards():
-    """缺失、空、重复、非法及不存在 Job 均必须由源码守卫安全处理。"""
+def test_legacy_daily_deletion_allowlist_code_is_fully_retired():
+    """Stage15 不再解析一次性删除白名单，也不保留不可达删除代码。"""
     init_script = read_source("scripts/configure-local-mounted-jobs.groovy")
 
-    assert "System.getenv('JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES') ?: ''" in init_script
-    assert ".split(',', -1)" in init_script
-    assert ".collect { it.trim() }" in init_script
-    assert "legacyDailyDeletionAllowlist &&" in init_script
-    assert (
-        "legacyDailyDeletionAllowlist.toSet().size() == "
-        "legacyDailyDeletionAllowlist.size()"
-    ) in init_script
-    assert "legacyDailyDeletionAllowlist.every { it ->" in init_script
-    assert 'it.startsWith("${dailyFullJobPrefix}-")' in init_script
-    assert "it != dailyFullParentJobName" in init_script
-    assert "it != dailyFullWorkerJobName" in init_script
-
-    deletion_guard = "if (legacyDailyRemovalApproved == 'true' && legacyDailyDeletionAllowlistIsValid)"
-    lookup = "jenkins.getItemByFullName(legacyDailyJobName, WorkflowJob)"
-    null_guard = "if (legacyDailyJob != null)"
-    deletion_call = "legacyDailyJob.delete()"
-    assert all(marker in init_script for marker in [deletion_guard, lookup, null_guard, deletion_call])
-    assert init_script.index(deletion_guard) < init_script.index(lookup)
-    assert init_script.index(lookup) < init_script.index(null_guard) < init_script.index(
-        deletion_call
-    )
+    for retired in [
+        "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES",
+        "split(',', -1)",
+        "legacyDailyDeletionAllowlist",
+        "legacyDailyJobName",
+        "legacyDailyJob.delete()",
+    ]:
+        assert retired not in init_script
 
 
-def test_legacy_daily_deletion_documentation_requires_final_green_platform_job():
-    """README 必须把受控删除限定为验收后由运维重启 Jenkins bootstrap 执行。"""
+def test_legacy_daily_deletion_documentation_is_retired():
+    """README 不得继续指导使用已退役的一次性删除开关。"""
     readme = read_source("README.md")
 
-    for marker in [
-        "默认保留",
-        "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED=true",
-        "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES",
-        "合法精确白名单",
-        "固定 Platform Bootstrap Job 全绿后",
-        "主人/平台运维",
-        "重启 Jenkins",
-        "Jenkins bootstrap",
-    ]:
-        assert marker in readme
+    assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" not in readme
+    assert "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES" not in readme
 
 
 def test_daily_worker_accepts_only_daily_parent_cause_and_skips_module_allure_publish():
@@ -218,7 +189,8 @@ def test_daily_worker_accepts_only_daily_parent_cause_and_skips_module_allure_pu
     failed_rerun_pipeline = read_source("scripts/failed-rerun-pipeline.groovy")
 
     assert "currentBuild.getBuildCauses('hudson.model.Cause$UpstreamCause')" in worker_pipeline
-    assert "JENKINS_DAILY_FULL_JOB_NAME" in worker_pipeline
+    assert "def expectedDailyParentJobName = 'AiApiTest-DWP-Daily-Full-Module'" in worker_pipeline
+    assert "JENKINS_DAILY_FULL_JOB_NAME" not in worker_pipeline
     assert "cause.upstreamProject == expectedDailyParentJobName" in worker_pipeline
     assert "publishAllure: false" in worker_pipeline
     assert "def publishAllure = config.containsKey('publishAllure') ? config.publishAllure : true" in shared_pipeline
@@ -302,7 +274,8 @@ def test_environment_catalog_sync_uses_fixed_private_service_endpoints_not_url_p
     assert "string(name: 'CATALOG_CALLBACK_URL'" not in sync_pipeline
     assert "params.CATALOG_EXPORT_URL" not in sync_pipeline
     assert "params.CATALOG_CALLBACK_URL" not in sync_pipeline
-    assert "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL" in sync_pipeline
+    assert "def catalogServiceBaseUrl = 'http://backend:8000'" in sync_pipeline
+    assert "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL" not in sync_pipeline
     assert "def catalogExportEndpoint =" in sync_pipeline
     assert "def catalogCallbackEndpoint =" in sync_pipeline
     assert "/api/v1/internal/environment-catalog-sync-attempts/${syncRequestId}/export/" in sync_pipeline
@@ -350,25 +323,21 @@ def test_environment_catalog_sync_uses_private_askpass_credentials_only_for_git_
         assert "CATALOG_GIT_PUSH_CREDENTIALS_ID" not in askpass
         assert "origin" not in askpass
 
-    for variable in [
-        "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL",
-        "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID",
-    ]:
-        assert variable in compose
-        assert variable in env_example
-        assert variable in readme
+    assert "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID" in compose
+    assert "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID" not in env_example
+    assert "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL" not in compose
+    assert "JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL" not in env_example
+    assert "http://backend:8000" in sync_pipeline
+    assert "JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID" in readme
 
 
-def test_legacy_daily_job_deletion_guard_defaults_to_preserving_all_jobs():
-    """TC-S13-F4-001：批准缺失、白名单为空或非法时不得删除任何 Job。"""
+def test_legacy_daily_job_migration_preserves_all_jobs_unconditionally():
+    """Stage15 后旧 Daily Job 无条件保留，仅移除重复定时器。"""
     init_script = read_source("scripts/configure-local-mounted-jobs.groovy")
 
-    assert "JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED" in init_script
-    assert "JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES" in init_script
-    assert "legacyDailyRemovalApproved" in init_script
-    assert "legacyDailyDeletionAllowlistIsValid" in init_script
     assert "removeItem" not in init_script
-    assert "Preserving legacy per-module Daily Jobs" in init_script
+    assert "legacyDailyJob.delete()" not in init_script
+    assert "preserving Job and build history" in init_script
 
 
 class FakeJenkins:

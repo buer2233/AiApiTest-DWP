@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { parsePort, resolveFrontendEnv, resolvePlaywrightEnv } from '../config/env'
+import { parsePort, resolveFrontendEnv, resolveFrontendServiceUrl, resolvePlaywrightEnv } from '../config/env'
 
 describe('frontend environment config', () => {
   it('falls back to safe numeric defaults for invalid ports', () => {
@@ -12,29 +12,66 @@ describe('frontend environment config', () => {
     expect(parsePort('', 5173)).toBe(5173)
   })
 
-  it('resolves Vite dev server values from root environment variables', () => {
+  it('derives Vite dev server and API proxy from platform host and ports', () => {
     const env = resolveFrontendEnv({
-      FRONTEND_DEV_HOST: '0.0.0.0',
-      FRONTEND_DEV_PORT: '5280',
-      FRONTEND_DEV_API_PROXY_TARGET: 'http://backend:8000',
-      VITE_API_BASE_URL: '/api/v1',
+      PLATFORM_BIND_HOST: '0.0.0.0',
+      PLATFORM_PUBLIC_HOST: 'platform.example.test',
+      PLATFORM_PUBLIC_SCHEME: 'https',
+      BACKEND_HOST_PORT: '18000',
+      FRONTEND_HOST_PORT: '15280',
     })
 
     expect(env.devHost).toBe('0.0.0.0')
-    expect(env.devPort).toBe(5280)
-    expect(env.apiProxyTarget).toBe('http://backend:8000')
+    expect(env.devPort).toBe(15280)
+    // 本地 Vite 直连的是明文 backend 端口，公开 HTTPS 仅用于外部入口链接。
+    expect(env.apiProxyTarget).toBe('http://127.0.0.1:18000')
     expect(env.apiBaseUrl).toBe('/api/v1')
   })
 
-  it('keeps Playwright baseURL, webServer URL and permission origin aligned', () => {
+  it('derives Playwright endpoints with the fixed acceptance port', () => {
     const env = resolvePlaywrightEnv({
-      PLAYWRIGHT_WEB_SERVER_HOST: '127.0.0.1',
-      PLAYWRIGHT_WEB_SERVER_PORT: '4300',
+      PLATFORM_BIND_HOST: '0.0.0.0',
+      PLATFORM_PUBLIC_HOST: 'platform.example.test',
+      PLATFORM_PUBLIC_SCHEME: 'https',
     })
 
-    expect(env.baseUrl).toBe('http://127.0.0.1:4300')
-    expect(env.webServerUrl).toBe('http://127.0.0.1:4300/@vite/client')
-    expect(env.permissionOrigin).toBe('http://127.0.0.1:4300')
+    expect(env.baseUrl).toBe('http://127.0.0.1:4173')
+    expect(env.webServerHost).toBe('0.0.0.0')
+    expect(env.webServerPort).toBe(4173)
+    expect(env.webServerUrl).toBe('http://127.0.0.1:4173/@vite/client')
+    expect(env.permissionOrigin).toBe('http://127.0.0.1:4173')
+  })
+
+  it('uses the fixed Compose backend endpoint for Jenkins container tests', () => {
+    const env = resolveFrontendEnv({
+      CI: 'true',
+      PLATFORM_PUBLIC_HOST: '127.0.0.1',
+      BACKEND_HOST_PORT: '18000',
+    })
+
+    expect(env.apiProxyTarget).toBe('http://backend:8000')
+  })
+
+  it('derives the deployed frontend URL for real acceptance specs', () => {
+    expect(resolveFrontendServiceUrl({
+      PLATFORM_PUBLIC_HOST: 'platform.example.test',
+      PLATFORM_PUBLIC_SCHEME: 'https',
+      FRONTEND_HOST_PORT: '15173',
+    })).toBe('https://platform.example.test:15173')
+  })
+
+  it('normalizes wildcard and IPv6 hosts for local and public URLs', () => {
+    const local = resolvePlaywrightEnv({
+      PLATFORM_BIND_HOST: '::',
+      PLATFORM_PUBLIC_HOST: '2001:db8::8',
+    })
+
+    expect(local.baseUrl).toBe('http://[::1]:4173')
+    expect(resolveFrontendServiceUrl({
+      PLATFORM_PUBLIC_HOST: '[2001:db8::8]',
+      PLATFORM_PUBLIC_SCHEME: 'https',
+      FRONTEND_HOST_PORT: '15173',
+    })).toBe('https://[2001:db8::8]:15173')
   })
 
   it('keeps Stage12 real acceptance URL on the centralized Playwright baseURL', () => {

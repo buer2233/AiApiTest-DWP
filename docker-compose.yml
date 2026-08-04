@@ -7,12 +7,15 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_api_test_platform}
+      MYSQL_DATABASE: ai_api_test_platform
       MYSQL_USER: ${DB_USER:?Set DB_USER in .env}
       MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
-      TZ: ${TZ:-Asia/Shanghai}
+      TZ: Asia/Shanghai
     ports:
-      - "${MYSQL_BIND_HOST:-127.0.0.1}:${MYSQL_HOST_PORT:-3307}:3306"
+      - target: 3306
+        published: "${MYSQL_HOST_PORT:-3307}"
+        host_ip: ${PLATFORM_BIND_HOST:-127.0.0.1}
+        protocol: tcp
     volumes:
       - aiapitest-mysql-data:/var/lib/mysql
     healthcheck:
@@ -38,38 +41,25 @@ services:
     container_name: aiapitest-jenkins
     restart: unless-stopped
     environment:
-      TZ: ${TZ:-Asia/Shanghai}
-      JENKINS_OPTS: ${JENKINS_OPTS:-}
-      JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}
-      JENKINS_EXECUTORS: ${JENKINS_EXECUTORS:-40}
-      JENKINS_GENERIC_PIPELINE_JOB_NAME: ${JENKINS_GENERIC_PIPELINE_JOB_NAME:-AiApiTest-DWP-Pipeline}
-      JENKINS_FAILED_RERUN_JOB_NAME: ${JENKINS_FAILED_RERUN_JOB_NAME:-AiApiTest-DWP-Failed-Rerun}
-      JENKINS_MODULE_RERUN_JOB_NAME: ${JENKINS_MODULE_RERUN_JOB_NAME:-AiApiTest-DWP-Module-Rerun}
-      JENKINS_DAILY_FULL_JOB_PREFIX: ${JENKINS_DAILY_FULL_JOB_PREFIX:-AiApiTest-DWP-Daily-Full-Module}
-      JENKINS_DAILY_FULL_JOB_NAME: ${JENKINS_DAILY_FULL_JOB_NAME:-AiApiTest-DWP-Daily-Full-Module}
-      JENKINS_DAILY_FULL_WORKER_JOB_NAME: ${JENKINS_DAILY_FULL_WORKER_JOB_NAME:-AiApiTest-DWP-Daily-Full-Module-Worker}
-      JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_JOB_NAME:-AiApiTest-DWP-Environment-Catalog-Sync}
+      TZ: Asia/Shanghai
       JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL:-}
       JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH:-main}
       JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID:-}
       JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID: ${JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID:-}
-      JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL: ${JENKINS_ENVIRONMENT_CATALOG_SERVICE_BASE_URL:-}
       JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID: ${JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID:-}
-      JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED: ${JENKINS_STAGE13_LEGACY_DAILY_REMOVAL_APPROVED:-false}
-      JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES: ${JENKINS_STAGE13_LEGACY_DAILY_JOB_NAMES:-}
-      JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME: ${JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME:-AiApiTest-DWP-Platform-Bootstrap}
       FRONTEND_PLAYWRIGHT_BASE_IMAGE: ${FRONTEND_PLAYWRIGHT_BASE_IMAGE:-mcr.m.daocloud.io/playwright:v1.61.1-noble}
-      JENKINS_DEFAULT_CASE_PATH: ${JENKINS_DEFAULT_CASE_PATH:-test_case/test_gbif_case}
-      JENKINS_API_TEST_DIR: ${JENKINS_API_TEST_DIR:-api-test}
-      LOCAL_WORKSPACE_REPO: ${LOCAL_WORKSPACE_REPO:-true}
-      AIAPITEST_LOCAL_WORKSPACE: ${AIAPITEST_LOCAL_WORKSPACE:-/workspace/AiApiTest-DWP}
-      AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS: ${AIAPITEST_REPLACE_EXISTING_LOCAL_JOBS:-false}
       CI_RUN_RETENTION_DAYS: ${CI_RUN_RETENTION_DAYS:-30}
     group_add:
       - "${DOCKER_GID:-0}"
     ports:
-      - "${JENKINS_HTTP_PORT:-8080}:8080"
-      - "${JENKINS_AGENT_PORT:-50001}:50000"
+      - target: 8080
+        published: "${JENKINS_HTTP_PORT:-8080}"
+        host_ip: ${PLATFORM_BIND_HOST:-127.0.0.1}
+        protocol: tcp
+      - target: 50000
+        published: "${JENKINS_AGENT_PORT:-50001}"
+        host_ip: ${PLATFORM_BIND_HOST:-127.0.0.1}
+        protocol: tcp
     volumes:
       - aiapitest-jenkins-home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
@@ -107,23 +97,30 @@ services:
         "60",
       ]
     environment:
-      TZ: ${TZ:-Asia/Shanghai}
+      TZ: Asia/Shanghai
       DJANGO_SETTINGS_MODULE: config.settings.local
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1},backend,frontend
       AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?Set AUTH_TOKEN_SECRET in .env}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_api_test_platform}
+      PLATFORM_BIND_HOST: ${PLATFORM_BIND_HOST:-127.0.0.1}
+      PLATFORM_PUBLIC_HOST: ${PLATFORM_PUBLIC_HOST:-127.0.0.1}
+      PLATFORM_PUBLIC_SCHEME: ${PLATFORM_PUBLIC_SCHEME:-http}
+      MYSQL_HOST_PORT: ${MYSQL_HOST_PORT:-3307}
+      JENKINS_HTTP_PORT: ${JENKINS_HTTP_PORT:-8080}
+      BACKEND_HOST_PORT: ${BACKEND_HOST_PORT:-8000}
+      FRONTEND_HOST_PORT: ${FRONTEND_HOST_PORT:-5173}
+      MYSQL_DATABASE: ai_api_test_platform
       DB_USER: ${DB_USER:?Set DB_USER in .env}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       DB_HOST: mysql
       DB_PORT: "3306"
-      JENKINS_API_BASE_URL: http://jenkins:8080
-      JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}
       JENKINS_USERNAME: ${JENKINS_USERNAME:-}
       JENKINS_API_TOKEN: ${JENKINS_API_TOKEN:-}
+      ENVIRONMENT_CATALOG_SERVICE_TOKEN: ${ENVIRONMENT_CATALOG_SERVICE_TOKEN:-}
     ports:
-      - "${BACKEND_BIND_HOST:-127.0.0.1}:${BACKEND_HOST_PORT:-8000}:8000"
+      - target: 8000
+        published: "${BACKEND_HOST_PORT:-8000}"
+        host_ip: ${PLATFORM_BIND_HOST:-127.0.0.1}
+        protocol: tcp
     healthcheck:
       test:
         [
@@ -143,13 +140,18 @@ services:
     image: aiapitest-backend:local
     profiles: ["bootstrap"]
     environment:
-      TZ: ${TZ:-Asia/Shanghai}
+      TZ: Asia/Shanghai
       DJANGO_SETTINGS_MODULE: config.settings.local
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1},backend,frontend
       AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?Set AUTH_TOKEN_SECRET in .env}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_api_test_platform}
+      PLATFORM_BIND_HOST: ${PLATFORM_BIND_HOST:-127.0.0.1}
+      PLATFORM_PUBLIC_HOST: ${PLATFORM_PUBLIC_HOST:-127.0.0.1}
+      PLATFORM_PUBLIC_SCHEME: ${PLATFORM_PUBLIC_SCHEME:-http}
+      MYSQL_HOST_PORT: ${MYSQL_HOST_PORT:-3307}
+      JENKINS_HTTP_PORT: ${JENKINS_HTTP_PORT:-8080}
+      BACKEND_HOST_PORT: ${BACKEND_HOST_PORT:-8000}
+      FRONTEND_HOST_PORT: ${FRONTEND_HOST_PORT:-5173}
+      MYSQL_DATABASE: ai_api_test_platform
       DB_USER: ${DB_USER:?Set DB_USER in .env}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       DB_HOST: mysql
@@ -171,12 +173,13 @@ services:
         AIAPITEST_BUILD_INPUT_HASH: ${FRONTEND_BUILD_INPUT_HASH:-unknown}
         AIAPITEST_SOURCE_REVISION: ${AIAPITEST_SOURCE_REVISION:-unknown}
         PLAYWRIGHT_BASE_IMAGE: ${FRONTEND_PLAYWRIGHT_BASE_IMAGE:-mcr.m.daocloud.io/playwright:v1.61.1-noble}
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
-        VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS:-10000}
     container_name: aiapitest-frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_BIND_HOST:-127.0.0.1}:${FRONTEND_HOST_PORT:-5173}:80"
+      - target: 80
+        published: "${FRONTEND_HOST_PORT:-5173}"
+        host_ip: ${PLATFORM_BIND_HOST:-127.0.0.1}
+        protocol: tcp
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
       interval: 10s
@@ -204,26 +207,28 @@ services:
         "sync_jenkins_results",
         "--watch",
         "--interval",
-        "${JENKINS_BUILD_POLL_INTERVAL_SECONDS:-10}",
+        "10",
       ]
     environment:
-      TZ: ${TZ:-Asia/Shanghai}
+      TZ: Asia/Shanghai
       DJANGO_SETTINGS_MODULE: config.settings.local
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1},backend,frontend
       AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?Set AUTH_TOKEN_SECRET in .env}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_api_test_platform}
+      PLATFORM_BIND_HOST: ${PLATFORM_BIND_HOST:-127.0.0.1}
+      PLATFORM_PUBLIC_HOST: ${PLATFORM_PUBLIC_HOST:-127.0.0.1}
+      PLATFORM_PUBLIC_SCHEME: ${PLATFORM_PUBLIC_SCHEME:-http}
+      MYSQL_HOST_PORT: ${MYSQL_HOST_PORT:-3307}
+      JENKINS_HTTP_PORT: ${JENKINS_HTTP_PORT:-8080}
+      BACKEND_HOST_PORT: ${BACKEND_HOST_PORT:-8000}
+      FRONTEND_HOST_PORT: ${FRONTEND_HOST_PORT:-5173}
+      MYSQL_DATABASE: ai_api_test_platform
       DB_USER: ${DB_USER:?Set DB_USER in .env}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       DB_HOST: mysql
       DB_PORT: "3306"
-      JENKINS_API_BASE_URL: http://jenkins:8080
-      JENKINS_PUBLIC_BASE_URL: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}
       JENKINS_USERNAME: ${JENKINS_USERNAME:-}
       JENKINS_API_TOKEN: ${JENKINS_API_TOKEN:-}
       JENKINS_SYNC_HEARTBEAT_PATH: /tmp/aiapitest-dwp/jenkins-sync-worker.heartbeat
-      JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS: ${JENKINS_SYNC_HEARTBEAT_MAX_AGE_SECONDS:-60}
     healthcheck:
       test: ["CMD", "python", "/usr/local/bin/worker_heartbeat_healthcheck.py"]
       interval: 10s

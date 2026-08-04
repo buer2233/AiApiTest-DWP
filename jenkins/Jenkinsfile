@@ -1,16 +1,8 @@
 // Jenkins Pipeline 入口文件。
-// 该文件只负责在 Jenkins node 上拉取源码并加载可复用 Groovy Pipeline，
+// 该文件只负责在 Jenkins node 上从固定挂载 workspace 加载可复用 Groovy Pipeline，
 // 具体参数、stage 编排和 api-test 调用逻辑统一维护在 scripts/api-test-pipeline.groovy。
 node {
-    if (env.LOCAL_WORKSPACE_REPO == 'true') {
-        // 本地 Docker Compose Jenkins 已通过 volume 挂载仓库，不能再依赖远端 Git checkout。
-        echo "Using local mounted repository at ${pwd()}"
-    } else {
-        // 远端 Jenkins 使用 SCM 配置检出仓库，确保后续 load 能读取 workspace 中的 Groovy 脚本。
-        checkout scm
-    }
-
-    // 将主体 Pipeline 放到独立脚本中，便于静态测试和后续复用。
+    echo "Using fixed local mounted repository at ${pwd()}"
     def pipelineScript = load 'jenkins/scripts/api-test-pipeline.groovy'
     pipelineScript.call()
 }

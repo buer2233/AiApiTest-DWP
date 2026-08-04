@@ -1,11 +1,6 @@
 // 唯一 Daily 父 Pipeline 入口。模块只能由无定时 Worker 执行。
 node {
-    if (env.LOCAL_WORKSPACE_REPO == 'true') {
-        echo "Using local mounted repository at ${pwd()}"
-    } else {
-        checkout scm
-    }
-
+    echo "Using fixed local mounted repository at ${pwd()}"
     def pipelineScript = load 'jenkins/scripts/daily-full-module-pipeline.groovy'
     pipelineScript.call()
 }

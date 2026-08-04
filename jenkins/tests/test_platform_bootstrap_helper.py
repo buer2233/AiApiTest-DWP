@@ -19,10 +19,10 @@ from platform_bootstrap.jenkins_api import (  # noqa: E402
 from platform_bootstrap.models import HttpResponse  # noqa: E402
 
 
-BASE_URL = "https://jenkins.example.invalid"
-JOB_NAME = "Folder A/中文 Job"
+BASE_URL = "https://jenkins.example.invalid:8443"
+JOB_NAME = "AiApiTest-DWP-Platform-Bootstrap"
 QUEUE_URL = f"{BASE_URL}/queue/item/12/"
-BUILD_URL = f"{BASE_URL}/job/Folder%20A/job/%E4%B8%AD%E6%96%87%20Job/42/"
+BUILD_URL = f"{BASE_URL}/job/{JOB_NAME}/42/"
 
 
 class FakeClock:
@@ -61,14 +61,14 @@ def response(status, payload=None, headers=None):
 def write_env(tmp_path: Path, **overrides) -> Path:
     tmp_path.mkdir(parents=True, exist_ok=True)
     values = {
-        "JENKINS_API_BASE_URL": BASE_URL,
-        "JENKINS_PLATFORM_BOOTSTRAP_JOB_NAME": JOB_NAME,
+        "PLATFORM_PUBLIC_HOST": "jenkins.example.invalid",
+        "PLATFORM_PUBLIC_SCHEME": "https",
+        "MYSQL_HOST_PORT": "3307",
+        "JENKINS_HTTP_PORT": "8443",
+        "BACKEND_HOST_PORT": "8000",
+        "FRONTEND_HOST_PORT": "5173",
         "JENKINS_USERNAME": "private-user",
         "JENKINS_API_TOKEN": "private-token-value",
-        "JENKINS_REQUEST_TIMEOUT_SECONDS": "15",
-        "JENKINS_QUEUE_POLL_INTERVAL_SECONDS": "1",
-        "JENKINS_BUILD_POLL_INTERVAL_SECONDS": "1",
-        "JENKINS_BUILD_POLL_TIMEOUT_SECONDS": "30",
     }
     values.update(overrides)
     path = tmp_path / ".env"
@@ -128,7 +128,7 @@ def success_routes():
 
 
 def test_job_url_encodes_folder_space_and_chinese_per_segment():
-    assert encode_job_url(BASE_URL, JOB_NAME) == (
+    assert encode_job_url(BASE_URL, "Folder A/中文 Job") == (
         f"{BASE_URL}/job/Folder%20A/job/%E4%B8%AD%E6%96%87%20Job"
     )
 
@@ -236,7 +236,7 @@ def test_unreachable_queue_lost_cancel_and_aborted_are_distinct(tmp_path):
     assert outcomes[-1].status == "ABORTED"
 
 
-def test_total_timeout_and_invalid_timeout_values_use_bounded_defaults(tmp_path):
+def test_retired_timeout_overrides_do_not_change_fixed_bounded_defaults(tmp_path):
     _, job_api, trigger_url = job_urls()
     routes = {
         ("GET", job_api): [response(200, {"inQueue": False, "lastBuild": {"building": False}})],
@@ -257,10 +257,10 @@ def test_total_timeout_and_invalid_timeout_values_use_bounded_defaults(tmp_path)
     assert config.request_timeout_seconds == 15
     assert config.queue_poll_interval_seconds == 5
     assert config.build_poll_interval_seconds == 10
-    assert config.total_timeout_seconds == 2
+    assert config.total_timeout_seconds == 1800
     assert outcome.success is False
     assert outcome.status == "TIMEOUT"
-    assert clock.value <= 2
+    assert clock.value <= 1800
 
 
 def test_failed_and_aborted_builds_preserve_downloaded_structured_summary(tmp_path):

@@ -7,18 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from .addressing import PUBLIC_ADDRESS_KEYS, derive_public_addresses
+from .configuration import ConfigError
 from .evidence import EvidenceStore
 from .models import Diagnostic, RunContext
 
 
-REQUIRED_ADDRESS_KEYS = (
-    "JENKINS_PUBLIC_BASE_URL",
-    "MYSQL_HOST",
-    "MYSQL_HOST_PORT",
-    "FRONTEND_SERVICE_URL",
-    "BACKEND_SERVICE_URL",
-    "BACKEND_API_BASE_URL",
-)
+REQUIRED_ADDRESS_KEYS = PUBLIC_ADDRESS_KEYS
 REQUIRED_STAGES = (
     "preflight",
     "dependencies",
@@ -50,18 +45,16 @@ class SummaryService:
         self.evidence = evidence
 
     def _addresses(self, context: RunContext, config: Mapping[str, str]) -> dict[str, str]:
-        backend = config["BACKEND_SERVICE_URL"].rstrip("/")
-        api_base = config["BACKEND_API_BASE_URL"].rstrip("/")
-        frontend = config["FRONTEND_SERVICE_URL"].rstrip("/")
+        public = derive_public_addresses(config)
         build_url = context.build_url.rstrip("/") + "/"
         return {
-            "jenkins": config["JENKINS_PUBLIC_BASE_URL"].rstrip("/"),
-            "mysql": f"{config['MYSQL_HOST']}:{config['MYSQL_HOST_PORT']}",
-            "frontend": frontend,
-            "backend": backend,
-            "api_docs": f"{backend}/api/docs/",
-            "live": f"{api_base}/health/live/",
-            "ready": f"{api_base}/health/ready/",
+            "jenkins": public.jenkins,
+            "mysql": public.mysql,
+            "frontend": public.frontend,
+            "backend": public.backend,
+            "api_docs": f"{public.backend}/api/docs/",
+            "live": f"{public.backend_api}/health/live/",
+            "ready": f"{public.backend_api}/health/ready/",
             "allure_or_artifacts": f"{build_url}artifact/",
         }
 
@@ -105,7 +98,21 @@ class SummaryService:
                 )
             )
         else:
-            addresses = self._addresses(context, config)
+            try:
+                addresses = self._addresses(context, config)
+            except ConfigError as exc:
+                diagnostics.append(
+                    Diagnostic(
+                        stage="summary",
+                        code="CONFIG_ENV_VALUE_INVALID",
+                        target="public-address",
+                        reason="public address configuration is invalid",
+                        observed=str(exc),
+                        evidence=(str(context.env_file),),
+                        suggestion="Correct the listed public address key, then rebuild.",
+                        rerun="Rebuild AiApiTest-DWP-Platform-Bootstrap after the issue is resolved.",
+                    )
+                )
 
         stages_success = (
             not missing_stages

@@ -6,23 +6,11 @@ import org.jenkinsci.plugins.workflow.job.WorkflowJob
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty
 
 def jenkins = Jenkins.get()
-def rawExecutorCount = System.getenv('JENKINS_EXECUTORS') ?: '40'
-def executorCount
-
-try {
-    executorCount = Integer.parseInt(rawExecutorCount)
-} catch (NumberFormatException ignored) {
-    throw new IllegalArgumentException("JENKINS_EXECUTORS must be an integer: ${rawExecutorCount}")
-}
-
-if (executorCount < 1 || executorCount > 100) {
-    throw new IllegalArgumentException("JENKINS_EXECUTORS must be between 1 and 100: ${executorCount}")
-}
-
-def genericPipelineJobName = System.getenv('JENKINS_GENERIC_PIPELINE_JOB_NAME') ?: 'AiApiTest-DWP-Pipeline'
-def failedRerunJobName = System.getenv('JENKINS_FAILED_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Failed-Rerun'
-def moduleRerunJobName = System.getenv('JENKINS_MODULE_RERUN_JOB_NAME') ?: 'AiApiTest-DWP-Module-Rerun'
-def dailyFullJobPrefix = System.getenv('JENKINS_DAILY_FULL_JOB_PREFIX') ?: 'AiApiTest-DWP-Daily-Full-Module'
+def executorCount = 40
+def genericPipelineJobName = 'AiApiTest-DWP-Pipeline'
+def failedRerunJobName = 'AiApiTest-DWP-Failed-Rerun'
+def moduleRerunJobName = 'AiApiTest-DWP-Module-Rerun'
+def dailyFullJobPrefix = 'AiApiTest-DWP-Daily-Full-Module'
 def exactJobNames = [genericPipelineJobName, failedRerunJobName, moduleRerunJobName] as Set
 
 jenkins.setNumExecutors(executorCount)

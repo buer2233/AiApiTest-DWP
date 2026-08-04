@@ -7,6 +7,9 @@ export const repoRoot = resolve(frontendRoot, '..')
 
 type EnvRecord = Record<string, string | undefined>
 
+export const API_BASE_PATH = '/api/v1'
+export const PLAYWRIGHT_PORT = 4173
+
 export interface FrontendEnv {
   devHost: string
   devPort: number
@@ -30,20 +33,62 @@ export function parsePort(value: string | undefined, fallback: number): number {
   return parsed
 }
 
-export function resolveFrontendEnv(env: EnvRecord): FrontendEnv {
+function resolvePlatformHosts(env: EnvRecord): {
+  bindHost: string
+  publicHost: string
+} {
+  const bindHost = env.PLATFORM_BIND_HOST || '127.0.0.1'
   return {
-    devHost: env.FRONTEND_DEV_HOST || '127.0.0.1',
-    devPort: parsePort(env.FRONTEND_DEV_PORT, 5173),
-    apiProxyTarget: env.FRONTEND_DEV_API_PROXY_TARGET || env.VITE_DEV_API_PROXY || 'http://127.0.0.1:8000',
-    apiBaseUrl: env.VITE_API_BASE_URL || '/api/v1',
+    bindHost,
+    publicHost: env.PLATFORM_PUBLIC_HOST || bindHost,
   }
 }
 
+function stripIpv6Brackets(host: string): string {
+  return host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host
+}
+
+function formatUrlHost(host: string): string {
+  const normalized = stripIpv6Brackets(host)
+  return normalized.includes(':') ? `[${normalized}]` : normalized
+}
+
+function resolveLocalConnectHost(bindHost: string): string {
+  const normalized = stripIpv6Brackets(bindHost)
+  if (normalized === '0.0.0.0') return '127.0.0.1'
+  if (normalized === '::') return '::1'
+  return normalized
+}
+
+export function resolveFrontendEnv(env: EnvRecord): FrontendEnv {
+  const { bindHost } = resolvePlatformHosts(env)
+  const connectHost = formatUrlHost(resolveLocalConnectHost(bindHost))
+  const backendPort = parsePort(env.BACKEND_HOST_PORT, 8000)
+  const apiProxyTarget = env.CI?.toLowerCase() === 'true'
+    ? 'http://backend:8000'
+    : `http://${connectHost}:${backendPort}`
+  return {
+    devHost: bindHost,
+    devPort: parsePort(env.FRONTEND_HOST_PORT, 5173),
+    // Vite 直连宿主机暴露的 Gunicorn 端口，该端口本身不终止 TLS。
+    apiProxyTarget,
+    apiBaseUrl: API_BASE_PATH,
+  }
+}
+
+export function resolveFrontendServiceUrl(env: EnvRecord): string {
+  const { publicHost } = resolvePlatformHosts(env)
+  const scheme = env.PLATFORM_PUBLIC_SCHEME?.toLowerCase() === 'https' ? 'https' : 'http'
+  const port = parsePort(env.FRONTEND_HOST_PORT, 5173)
+  return `${scheme}://${formatUrlHost(publicHost)}:${port}`
+}
+
 export function resolvePlaywrightEnv(env: EnvRecord): PlaywrightEnv {
-  const webServerHost = env.PLAYWRIGHT_WEB_SERVER_HOST || env.FRONTEND_DEV_HOST || '127.0.0.1'
-  const webServerPort = parsePort(env.PLAYWRIGHT_WEB_SERVER_PORT || env.FRONTEND_DEV_PORT, 4173)
-  const defaultBaseUrl = `http://${webServerHost}:${webServerPort}`
-  const baseUrl = env.PLAYWRIGHT_BASE_URL || defaultBaseUrl
+  const { bindHost } = resolvePlatformHosts(env)
+  const webServerHost = bindHost
+  const webServerPort = PLAYWRIGHT_PORT
+  // Playwright 启动的 Vite webServer 是明文 HTTP，不能复用外部 HTTPS 协议。
+  const baseUrl = `http://${formatUrlHost(resolveLocalConnectHost(bindHost))}:${webServerPort}`
   return {
     baseUrl,
     webServerHost,

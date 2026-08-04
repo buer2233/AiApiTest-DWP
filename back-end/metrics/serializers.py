@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import os
 import re
 import urllib.parse
 
+from django.conf import settings
 from rest_framework import serializers
 
 from common.serializers import PaginationMetaSerializer
@@ -371,7 +371,7 @@ class JenkinsTaskSerializer(serializers.ModelSerializer):
         return "/".join(f"job/{urllib.parse.quote(part)}" for part in job_full_name.split("/") if part)
 
     def _public_base_url(self) -> str:
-        return os.environ.get("JENKINS_PUBLIC_BASE_URL", os.environ.get("JENKINS_API_BASE_URL", "")).rstrip("/")
+        return settings.JENKINS_PUBLIC_BASE_URL.rstrip("/")
 
     def get_jenkins_build_url(self, obj: JenkinsTask) -> str:
         if obj.jenkins_build_url:

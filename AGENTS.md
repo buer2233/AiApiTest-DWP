@@ -8,7 +8,6 @@
 - 默认使用简体中文沟通。
 - 开发过程中需要添加必要且清晰的简体中文注释。
 - 不能把本项目当成无历史的新项目处理，必须保持多阶段开发上下文完整。
-- 开发过程中，能使用子代理的优先使用子代理
 
 ## Skill 使用策略
 
@@ -155,13 +154,13 @@
 
 ## 环境配置标准流程
 
-根目录 `.env` 是本项目本地启动和验收的唯一私有配置入口，`.env.example` 是可提交的通用网络配置模板。后续服务地址、IP、端口、公开访问 URL、前端代理、Playwright 入口和本机挂载路径等通用可变配置，应进入 `.env.example`；账号、密码、token、Cookie、密钥、初始化管理员、数据库名和固定默认项只写入本地 `.env`、CI/Jenkins 私有环境变量或代码默认值，不进入 `.env.example`。
+根目录 `.env` 是本项目本地启动和验收的唯一私有配置入口，`.env.example` 是可提交的公共部署配置模板。公共配置只保留平台绑定主机、公开主机/协议、各服务宿主机端口、本机挂载路径和必要运维选项；公开 URL、前端代理与 Playwright 入口必须由这些公共基础量统一派生。账号、密码、token、密钥、初始化管理员和内部 SCM 配置只写入本地 `.env`、CI/Jenkins 私有环境变量或 Credentials；数据库名、Cookie 策略、Job 名、API 路径、超时和内部服务地址等固定默认值必须由所属模块代码维护，不进入 `.env.example`。
 
 - 后端正式运行默认读取根 `.env`，并使用 Docker MySQL；pytest 测试配置可继续使用内存 SQLite 以保证单元/接口测试速度。
-- 前端 Vite 配置必须从仓库根目录加载 `.env`，客户端可见变量必须使用 `VITE_` 前缀，dev server、代理目标和 Playwright webServer/baseURL 不得写死本机端口。
+- 前端 Vite 配置必须从仓库根目录加载 `.env`，客户端可见变量必须使用 `VITE_` 前缀；部署公开 URL 由平台公开主机、协议及服务端口派生，本地 dev server、代理目标和 Playwright webServer/baseURL 由平台绑定主机映射出的可连接回环地址及服务端口派生，不得另设重复地址配置或写死个人地址。
 - Docker Compose 只能通过 `.env`、Compose 服务名、volume 和标准镜像参数注入可变配置；不得把真实 `.env`、数据库数据或 Jenkins home 打包进镜像。
-- Jenkins Pipeline 的公开访问地址、本机端口和挂载路径可由 `.env.example` 说明；默认 case path、虚拟环境目录等固定默认值由 Pipeline 代码默认值维护，`api-test` 执行协议变更必须单独走需求 loop。
-- 启动后不建议修改的配置必须在部署文档中备注，例如 MySQL 数据库名、root 密码、数据卷、Jenkins home、Jenkins 端口、`AUTH_TOKEN_SECRET` 和 Cookie 策略；其中敏感项只在本地 `.env` 或私有环境变量中维护。
+- Jenkins Pipeline 的公开访问地址由平台公开主机、协议及 Jenkins 宿主机端口派生；挂载路径和必要运维选项可由 `.env.example` 说明。Job 名、默认 case path、内部 workspace、executor 数量和超时等固定默认值由 Pipeline 或 helper 代码维护，`api-test` 执行协议变更必须单独走需求 loop。
+- 启动后不建议修改的私有项和持久化资源必须在部署文档中备注，例如 MySQL root/应用密码、数据卷、Jenkins home 和 `AUTH_TOKEN_SECRET`；敏感项只在本地 `.env`、私有环境变量或 Credentials 中维护。MySQL 数据库名、Cookie 策略等固定值应说明代码归属和变更影响，不得伪装成部署配置。
 - 每次新增、删除或改名环境变量，都必须同步更新 `.env.example`、对应模块文档、相关静态测试和验收包；不得只改本机 `.env`。
 
 ## 流程检查点和并行规则

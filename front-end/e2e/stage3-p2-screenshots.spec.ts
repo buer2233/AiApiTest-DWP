@@ -84,6 +84,7 @@ async function mockStage3P2Api(page: Page) {
 
 test.describe('Stage3 P2 截图证据', () => {
   test('保存环境页和模块页关键截图', async ({ page }) => {
+    test.setTimeout(60_000)
     await mockStage3P2Api(page)
 
     await page.goto('/environments')

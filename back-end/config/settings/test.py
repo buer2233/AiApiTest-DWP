@@ -14,6 +14,11 @@ from .base import *  # noqa: F401,F403
 
 
 DEBUG = True
+# 即使根私有配置存在，pytest 也不会把真实 Jenkins 作为测试依赖。
+JENKINS_API_BASE_URL = ""
+JENKINS_PUBLIC_BASE_URL = ""
+JENKINS_USERNAME = ""
+JENKINS_API_TOKEN = ""
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",

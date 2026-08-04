@@ -28,11 +28,8 @@ def brace_block(source: str, token: str) -> str:
 
 
 def local_mounted_copy_block(source: str) -> str:
-    """返回加载完成后、负责复制源码的第二个本地挂载分支。"""
-    token = "if (env.LOCAL_WORKSPACE_REPO == 'true')"
-    first = source.index(token)
-    second = source.index(token, first + len(token))
-    return brace_block(source[second:], token)
+    """返回从固定挂载目录复制到可写 Jenkins workspace 的代码块。"""
+    return source[source.index("deleteDir()") : source.index("withEnv(")]
 
 
 def test_pipeline_has_only_two_boolean_parameters_and_disables_concurrency():
@@ -46,7 +43,7 @@ def test_pipeline_has_only_two_boolean_parameters_and_disables_concurrency():
         assert forbidden not in source
 
 
-def test_pipeline_uses_fixed_eight_stage_order_and_local_or_scm_checkout():
+def test_pipeline_uses_fixed_eight_stage_order_and_fixed_local_workspace():
     jenkinsfile = read_required(JENKINSFILE)
     pipeline = read_required(PIPELINE)
     source = jenkinsfile + "\n" + pipeline
@@ -63,10 +60,10 @@ def test_pipeline_uses_fixed_eight_stage_order_and_local_or_scm_checkout():
 
     offsets = [source.index(f"stage('{stage}')") for stage in stages]
     assert offsets == sorted(offsets)
-    assert "LOCAL_WORKSPACE_REPO" in jenkinsfile
-    assert "checkout scm" in jenkinsfile
+    assert "def localWorkspace = '/workspace/AiApiTest-DWP'" in jenkinsfile
+    assert "LOCAL_WORKSPACE_REPO" not in jenkinsfile
+    assert "checkout scm" not in jenkinsfile
     assert "load 'jenkins/scripts/platform-bootstrap-pipeline.groovy'" in jenkinsfile
-    assert jenkinsfile.index("LOCAL_WORKSPACE_REPO") < jenkinsfile.index("checkout scm")
 
 
 def test_pipeline_is_cross_platform_and_delegates_all_logic_to_python_cli():
@@ -155,18 +152,16 @@ def test_archive_failures_preserve_primary_and_fail_when_no_primary_exists():
     assert jenkinsfile.rindex("throw failure") > jenkinsfile.index("fallbackArchiveFailure")
 
 
-def test_local_mounted_mode_validates_and_enters_configured_workspace_before_load():
+def test_fixed_local_workspace_is_validated_before_pipeline_load():
     jenkinsfile = read_required(JENKINSFILE)
 
-    assert "AIAPITEST_LOCAL_WORKSPACE" in jenkinsfile
+    assert "def localWorkspace = '/workspace/AiApiTest-DWP'" in jenkinsfile
     assert "fileExists" in jenkinsfile
     assert "dir(localWorkspace)" in jenkinsfile
-    local_block = jenkinsfile[
-        jenkinsfile.index("LOCAL_WORKSPACE_REPO") : jenkinsfile.index("else {")
-    ]
-    assert local_block.index("dir(localWorkspace)") < jenkinsfile.index(
+    assert jenkinsfile.index("dir(localWorkspace)") < jenkinsfile.index(
         "load 'jenkins/scripts/platform-bootstrap-pipeline.groovy'"
     )
+    assert "AIAPITEST_LOCAL_WORKSPACE" not in jenkinsfile
 
 
 def test_local_mounted_mode_runs_durable_steps_from_writable_workspace():
@@ -212,8 +207,7 @@ def test_windows_local_copy_excludes_generated_and_runtime_directories():
 def test_local_mounted_copy_cleans_only_writable_workspace_before_copy():
     """每次复制前清理 Jenkins workspace，挂载源码加载块不得执行删除。"""
     jenkinsfile = read_required(JENKINSFILE)
-    token = "if (env.LOCAL_WORKSPACE_REPO == 'true')"
-    mounted_load_block = brace_block(jenkinsfile, token)
+    mounted_load_block = brace_block(jenkinsfile, "dir(localWorkspace)")
     copy_block = local_mounted_copy_block(jenkinsfile)
 
     assert "deleteDir()" not in mounted_load_block

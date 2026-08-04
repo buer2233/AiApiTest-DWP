@@ -2,6 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
+import { resolveFrontendServiceUrl } from '../config/env'
+
 type EnvMap = Record<string, string>
 type FilterOptionPayload = {
   value: string
@@ -29,7 +31,7 @@ function readLocalEnv(): EnvMap {
 function realAcceptanceConfig() {
   const localEnv = readLocalEnv()
   return {
-    baseUrl: process.env.STAGE8_REAL_BASE_URL || 'http://127.0.0.1:5174',
+    baseUrl: process.env.STAGE8_REAL_BASE_URL || resolveFrontendServiceUrl(localEnv),
     username: process.env.STAGE8_REAL_USERNAME || process.env.INITIAL_ADMIN_USERNAME || localEnv.INITIAL_ADMIN_USERNAME,
     password: process.env.STAGE8_REAL_PASSWORD || process.env.INITIAL_ADMIN_PASSWORD || localEnv.INITIAL_ADMIN_PASSWORD,
   }
@@ -47,8 +49,8 @@ async function expectAcceptedOrLocked(responseStatus: number) {
   expect([202, 409]).toContain(responseStatus)
 }
 
-test('AI 真实验收：5174 模块筛选、按钮动作和右侧用例详情抽屉', async ({ page }) => {
-  test.skip(process.env.STAGE8_REAL_ACCEPTANCE !== '1', '设置 STAGE8_REAL_ACCEPTANCE=1 后执行真实 5174 验收。')
+test('AI 真实验收：模块筛选、按钮动作和右侧用例详情抽屉', async ({ page }) => {
+  test.skip(process.env.STAGE8_REAL_ACCEPTANCE !== '1', '设置 STAGE8_REAL_ACCEPTANCE=1 后执行真实验收。')
   const config = realAcceptanceConfig()
   test.skip(!config.username || !config.password, '真实验收需要本地 .env 或环境变量提供平台管理员账号。')
 

@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 from django.apps import apps
+from django.test import override_settings
 from django.utils import timezone
 
 from metrics.jenkins_service import JenkinsBuildMatchError, JenkinsServiceError
@@ -710,8 +711,8 @@ def test_cancel_running_task_enters_canceling_and_keeps_lock(admin_client, p5_co
     cancel_task.assert_called_once_with(task)
 
 
-def test_module_jenkins_tasks_list_returns_actions(admin_client, p5_context, monkeypatch):
-    monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "http://localhost:8080")
+@override_settings(JENKINS_PUBLIC_BASE_URL="http://localhost:8080")
+def test_module_jenkins_tasks_list_returns_actions(admin_client, p5_context):
     snapshot = p5_context["module_snapshot"]
     task = create_task(p5_context, status="running")
 
@@ -725,7 +726,8 @@ def test_module_jenkins_tasks_list_returns_actions(admin_client, p5_context, mon
     assert row["actions"] == {"cancel": True, "view_report": True, "view_jenkins_task": True}
 
 
-def test_module_jenkins_tasks_list_derives_jenkins_and_allure_links(admin_client, p5_context, monkeypatch):
+@override_settings(JENKINS_PUBLIC_BASE_URL="http://localhost:8080")
+def test_module_jenkins_tasks_list_derives_jenkins_and_allure_links(admin_client, p5_context):
     snapshot = p5_context["module_snapshot"]
     task = create_task(
         p5_context,
@@ -736,8 +738,6 @@ def test_module_jenkins_tasks_list_derives_jenkins_and_allure_links(admin_client
     task.jenkins_build_url = ""
     task.allure_report_url = ""
     task.save(update_fields=["jenkins_build_url", "allure_report_url", "updated_at"])
-    monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "http://localhost:8080")
-
     response = admin_client.get(f"/api/v1/module-snapshots/{snapshot.id}/jenkins-tasks", {"date": "today"})
 
     assert response.status_code == 200
@@ -770,7 +770,8 @@ def test_module_jenkins_tasks_list_normalizes_legacy_artifact_report_link(admin_
     assert row["allure_report_url"] == "http://localhost:8080/job/AiApiTest-DWP-Failed-Rerun/19/allure/"
 
 
-def test_module_jenkins_tasks_list_does_not_derive_report_link_before_build(admin_client, p5_context, monkeypatch):
+@override_settings(JENKINS_PUBLIC_BASE_URL="http://localhost:8080")
+def test_module_jenkins_tasks_list_does_not_derive_report_link_before_build(admin_client, p5_context):
     snapshot = p5_context["module_snapshot"]
     task = create_task(
         p5_context,
@@ -781,8 +782,6 @@ def test_module_jenkins_tasks_list_does_not_derive_report_link_before_build(admi
     task.jenkins_build_url = ""
     task.allure_report_url = ""
     task.save(update_fields=["jenkins_build_url", "allure_report_url", "updated_at"])
-    monkeypatch.setenv("JENKINS_PUBLIC_BASE_URL", "http://localhost:8080")
-
     response = admin_client.get(f"/api/v1/module-snapshots/{snapshot.id}/jenkins-tasks", {"date": "today"})
 
     assert response.status_code == 200

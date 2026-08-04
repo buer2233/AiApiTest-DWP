@@ -21,7 +21,8 @@ docker compose version >/dev/null
 # .env 是本地私有配置，不提交 git；首次部署时从模板复制一份。
 if [ ! -f ".env" ]; then
   cp .env.example .env
-  echo "Created .env from .env.example. Fill private secrets in .env before starting shared services."
+  echo "Created .env from .env.example. Add the private configuration documented in docker/DEPLOYMENT.md, then rerun this script." >&2
+  exit 2
 fi
 
 set_private_env_value() {
@@ -39,6 +40,35 @@ set_private_env_value() {
     mv "${tmp_file}" .env
   else
     printf '\n%s=%s\n' "${key}" "${value}" >>.env
+  fi
+}
+
+dotenv_value() {
+  local value="$1"
+  value="$(printf '%s' "${value}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+  case "${value}" in
+    \"*) value="${value#\"}"; value="${value%%\"*}" ;;
+    \'*) value="${value#\'}"; value="${value%%\'*}" ;;
+    *) value="$(printf '%s' "${value}" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//')" ;;
+  esac
+  printf '%s' "${value}"
+}
+
+read_env_value() {
+  local key="$1"
+  local raw
+  raw="$(grep -E "^${key}=" .env | head -n 1 | cut -d= -f2- || true)"
+  dotenv_value "${raw}"
+}
+
+format_host_port_host() {
+  local host="$1"
+  host="${host#[}"
+  host="${host%]}"
+  if [[ "${host}" == *:* ]]; then
+    printf '[%s]' "${host}"
+  else
+    printf '%s' "${host}"
   fi
 }
 
@@ -65,13 +95,15 @@ else
   echo "Local Jenkins API token was not ready. Re-run this script after Jenkins finishes startup." >&2
 fi
 
-# 从 .env 读取端口并输出访问提示；读取不到时回退到 Compose 默认端口。
-JENKINS_PUBLIC_BASE_URL="$(grep -E '^JENKINS_PUBLIC_BASE_URL=' .env | cut -d= -f2- || true)"
-MYSQL_BIND_HOST="$(grep -E '^MYSQL_BIND_HOST=' .env | cut -d= -f2- || true)"
-MYSQL_HOST_PORT="$(grep -E '^MYSQL_HOST_PORT=' .env | cut -d= -f2- || true)"
+# 地址提示与应用相同，都从平台公开主机、协议和服务端口派生。
+PLATFORM_PUBLIC_HOST="$(read_env_value 'PLATFORM_PUBLIC_HOST')"
+PLATFORM_PUBLIC_SCHEME="$(read_env_value 'PLATFORM_PUBLIC_SCHEME')"
+JENKINS_HTTP_PORT="$(read_env_value 'JENKINS_HTTP_PORT')"
+MYSQL_HOST_PORT="$(read_env_value 'MYSQL_HOST_PORT')"
+PUBLIC_DISPLAY_HOST="$(format_host_port_host "${PLATFORM_PUBLIC_HOST:-127.0.0.1}")"
 
 echo
-echo "Jenkins: ${JENKINS_PUBLIC_BASE_URL:-http://localhost:8080}"
-echo "MySQL: ${MYSQL_BIND_HOST:-127.0.0.1}:${MYSQL_HOST_PORT:-3307}"
+echo "Jenkins: ${PLATFORM_PUBLIC_SCHEME:-http}://${PUBLIC_DISPLAY_HOST}:${JENKINS_HTTP_PORT:-8080}"
+echo "MySQL: ${PUBLIC_DISPLAY_HOST}:${MYSQL_HOST_PORT:-3307}"
 echo "Initial Jenkins password:"
 echo "  docker exec aiapitest-jenkins cat /var/jenkins_home/secrets/initialAdminPassword"
