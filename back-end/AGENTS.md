@@ -15,18 +15,18 @@
 - 开发前必须确认 API 契约已经冻结，至少包含路径、方法、请求参数、响应字段、错误码、分页筛选、权限和关键状态流转。
 - 后端必须包含 Swagger/OpenAPI 接口文档；新增或变更 DRF 接口时，必须同步维护 schema 注解、请求/响应字段、错误码、权限说明和筛选分页参数，并补充 Swagger 文档端点回归测试。
 - 开发前必须确认架构影响评估已完成；如果影响 Jenkins、`api-test`、Docker、报告协议或权限模型，应同步对应模块说明后再编码。
-- 开发顺序必须是：先写 pytest/pytest-django 接口测试，再实现 DRF 接口，再回归测试，遵循 RED -> GREEN -> REFACTOR。
+- 开发顺序必须是：先写并运行 pytest/pytest-django 接口测试，确认失败由目标行为缺失导致，再做最小 DRF 实现、目标测试 GREEN、重构和相关回归，遵循 `RED -> GREEN -> REFACTOR`。
 - 如果需求文档、测试用例或表设计缺失，应先回到 `project-info/` 对应阶段补齐，不直接进入编码。
 - 阶段完成必须留存 pytest 运行输出与覆盖率证据，并补全 `需求名-可追溯矩阵.md` 的后端实现列。
-- 接口实现完成后必须经过独立对抗审查（review subagent，可用 `receiving-code-review`/`security-review`）：做工的 agent 不给自己打分，审查发现的问题修复后再进入下一阶段。自主流水线整体执行方式见 `docs/自主开发流水线.md`。
+- 接口实现完成后必须按根规则经过独立 review subagent 对抗审查：实现者不得自审，问题修复并由同一 reviewer 复审、阻断问题清零后再进入下一阶段。自主流水线整体执行方式见 `docs/自主开发流水线.md`。
 
-## 技能推荐
+## 后端工程方法与 Skill 选择
 
-- `django-tdd`：DRF 后端 TDD 开发流程。
-- `api-design`：REST API 资源、状态码、分页、筛选、错误模型。
-- `python-patterns`：Python 风格、类型、健壮性和可维护性。
-- `python-testing`：pytest、fixture、mock、参数化和覆盖率策略。
-- `systematic-debugging`：遇到失败、异常或接口不一致时使用。
+- API 设计必须检查资源语义、路径与 HTTP 方法、请求校验、HTTP 状态、统一错误模型、鉴权与权限、分页筛选排序、幂等、并发冲突、兼容性和关键状态流转。
+- 新增或变更接口必须同步 serializer、权限类、查询行为、OpenAPI schema、消费者说明和契约测试，禁止只改 view 形成隐式协议。
+- Python 代码保持职责单一、显式依赖、清晰类型和可测试边界；外部 Jenkins/HTTP/时间源在测试中使用可控 fake 或 mock，不把真实网络当作单元测试前置条件。
+- 当前会话可用且任务匹配时，可使用 `python-testing` 辅助 pytest fixture、参数化、mock 和覆盖率设计；Skill 不可用不影响本文件 TDD 与覆盖要求。
+- 接口失败按根目录的根因排查协议处理，先区分规格、权限、序列化、数据库、外部服务和测试环境问题，再做最小修复。
 
 ## 模块职责
 
