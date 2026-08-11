@@ -5,8 +5,10 @@ BaseAPI 会通过该适配器发送请求，从而避免每个接口方法重复
 """
 
 import json
+import re
 import time
 from dataclasses import dataclass
+from urllib.parse import parse_qsl, urlencode
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -14,6 +16,34 @@ from requests.exceptions import ReadTimeout
 from requests.models import Response
 
 import config
+
+
+_SENSITIVE_FIELD_MARKERS = (
+    "password",
+    "passwd",
+    "token",
+    "secret",
+    "authorization",
+    "cookie",
+)
+
+
+def _is_sensitive_field(field_name):
+    """判断字段名是否可能包含凭据或会话敏感信息。"""
+    normalized_name = str(field_name).lower().replace("-", "_")
+    return any(marker in normalized_name for marker in _SENSITIVE_FIELD_MARKERS)
+
+
+def _redact_json_value(value):
+    """递归脱敏 JSON 请求体中的敏感字段。"""
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]" if _is_sensitive_field(key) else _redact_json_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_json_value(item) for item in value]
+    return value
 
 try:
     from curl_cffi.requests import Session as CurlSession
@@ -165,13 +195,21 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         # 输出请求 URL、请求体、响应内容、请求头和耗时，便于失败后快速排查。
         info = (
             f"\n--url:{request.url};"
-            f"\n--headers:{dict(response.headers)};"
+            f"\n--headers:{self._safe_headers(response.headers)};"
             f"\n--body:{self._safe_body(request)};"
             f"\n--response:{self._safe_response_text(response)};"
-            f"\n--request.headers:{dict(request.headers)};"
+            f"\n--request.headers:{self._safe_headers(request.headers)};"
             f"\n接口响应时间:{request_duration}秒"
         )
         print(f"\n--[接口异常信息开始]--{info}\n--[接口异常信息结束]--\n")
+
+    @staticmethod
+    def _safe_headers(headers):
+        """对请求/响应头中的 Cookie、Token 等敏感值统一脱敏。"""
+        return {
+            key: "[REDACTED]" if _is_sensitive_field(key) else value
+            for key, value in dict(headers or {}).items()
+        }
 
     @staticmethod
     def _safe_body(request):
@@ -186,19 +224,38 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         if body is None:
             return " "
 
-        # bytes 请求体优先按 UTF-8 解码；解码失败时退回 str(body)。
+        # bytes 请求体优先按 UTF-8 解码；解码失败时不输出原始二进制内容。
         if isinstance(body, bytes):
             try:
-                return body.decode("utf-8")
+                body = body.decode("utf-8")
             except UnicodeDecodeError:
-                return str(body)
+                return "[BINARY_BODY_REDACTED]"
 
-        # dict/list 请求体转 JSON 字符串，ensure_ascii=False 保留中文可读性。
+        # dict/list 请求体先递归脱敏，再转 JSON 字符串。
         if isinstance(body, (dict, list)):
-            return json.dumps(body, ensure_ascii=False)
+            return json.dumps(_redact_json_value(body), ensure_ascii=False)
 
-        # 其他类型统一转字符串，保证日志打印不抛异常。
-        return str(body)
+        body = str(body)
+
+        # requests 的表单请求体通常是 URL 编码字符串，按字段名脱敏后再输出。
+        if "=" in body:
+            form_fields = parse_qsl(body, keep_blank_values=True)
+            if form_fields:
+                return urlencode(
+                    [
+                        (key, "[REDACTED]" if _is_sensitive_field(key) else value)
+                        for key, value in form_fields
+                    ]
+                )
+
+        # JSON 字符串请求体兼容 curl-cffi 等实现，解析失败时不输出原文。
+        try:
+            parsed_body = json.loads(body)
+        except (TypeError, ValueError):
+            if any(marker in body.lower() for marker in _SENSITIVE_FIELD_MARKERS):
+                return "[SENSITIVE_BODY_REDACTED]"
+            return body
+        return json.dumps(_redact_json_value(parsed_body), ensure_ascii=False)
 
     @staticmethod
     def _safe_response_text(response):
@@ -209,10 +266,27 @@ class TimeoutHTTPAdapter(HTTPAdapter):
             str: 可打印的响应文本；读取失败时返回 response.reason。
         """
         try:
-            return response.text
+            text = response.text
         except Exception:
             # 极少数情况下 response.text 读取失败，使用 reason 作为兜底信息。
             return response.reason
+
+        try:
+            parsed_text = json.loads(text)
+        except (TypeError, ValueError):
+            if "=" in text:
+                form_fields = parse_qsl(text, keep_blank_values=True)
+                if form_fields:
+                    return urlencode(
+                        [
+                            (key, "[REDACTED]" if _is_sensitive_field(key) else value)
+                            for key, value in form_fields
+                        ]
+                    )
+            if any(marker in text.lower() for marker in _SENSITIVE_FIELD_MARKERS):
+                return "[SENSITIVE_RESPONSE_REDACTED]"
+            return text
+        return json.dumps(_redact_json_value(parsed_text), ensure_ascii=False)
 
 
 class TimeoutCurlCffiSession:
@@ -312,6 +386,10 @@ class TimeoutCurlCffiSession:
     @staticmethod
     def _safe_body(request):
         return TimeoutHTTPAdapter._safe_body(request)
+
+    @staticmethod
+    def _safe_headers(headers):
+        return TimeoutHTTPAdapter._safe_headers(headers)
 
     @staticmethod
     def _safe_response_text(response):
