@@ -6,6 +6,7 @@ HTTP 状态码断言、JSON 响应解析，以及接口用例中常用的多层�
 """
 
 import config
+import time
 import allure
 from urllib.parse import urlparse
 from utils.timeout_http_adapter import create_http_session
@@ -134,8 +135,15 @@ class BaseAPI:
         # 统一在基类中构造完整 URL，接口方法只需传相对路径即可。
         url = self.build_url(path_or_url)
 
+        # 记录请求开始时间，用于计算接口响应耗时。
+        start_time = time.time()
+
         # 通过复用 session 发送请求，继承统一 headers、cookies、timeout、proxies 等配置。
         response = self.get_base_request().request(method.upper(), url, **kwargs)
+
+        # 计算接口响应时间并打印通过信息，便于实时观察每次请求的耗时。
+        elapsed = time.time() - start_time
+        print(f"--通过接口：--url:{url}; 响应时间：{elapsed:.2f}秒")
 
         # error_msg 可由接口方法传入，用于让失败日志更贴近业务接口含义。
         message = error_msg or f"接口<{url}>请求失败"
