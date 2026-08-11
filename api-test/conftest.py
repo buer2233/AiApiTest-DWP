@@ -3,16 +3,28 @@ import pytest
 import config
 
 
+def _option_registered(parser, option_name):
+    """检查 pytest 当前 parser 是否已由插件注册指定长选项。"""
+    anonymous_parser = getattr(parser, "_anonymous", None)
+    options = getattr(anonymous_parser, "options", ())
+    return any(option_name in getattr(option, "_long_opts", ()) for option in options)
+
+
 def pytest_addoption(parser):
     """注册 pytest 命令行参数。
     这些参数用于在不修改 config.py 的情况下覆盖运行环境配置，
     适合本地调试、CI 多环境执行或临时切换被测站点。
     """
     # --base-url 用于临时覆盖 config.base_url，常用于切换测试环境域名。
-    parser.addoption("--base-url", action="store", default=None, help="override config.base_url")
+    # pytest-base-url 插件也可能提供同名参数，此时复用插件选项避免重复注册。
+    if not _option_registered(parser, "--base-url"):
+        parser.addoption("--base-url", action="store", default=None, help="override config.base_url")
 
     # --website-name 用于覆盖 Allure 报告中的网站/项目名称展示。
-    parser.addoption("--website-name", action="store", default=None, help="override Allure epic website name")
+    if not _option_registered(parser, "--website-name"):
+        parser.addoption(
+            "--website-name", action="store", default=None, help="override Allure epic website name"
+        )
 
 
 @pytest.fixture(scope="session")
