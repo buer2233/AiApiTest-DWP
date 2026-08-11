@@ -164,6 +164,42 @@ python -m tools.ci_runner --retry-mode module --case-path test_case/test_gbif_ca
 - 运行产物写入 `runtime/`，报告产物写入 `report/`，不要作为业务代码提交。
 - 新功能和缺陷修复必须先写测试，按 RED -> GREEN -> REFACTOR 推进。
 
+## 接口基类设计：Session 复用与 Cookie 自动持久化
+
+`page_api/public/base_api.py` 中的 `BaseAPI` 是所有接口封装类的公共父类，其核心设计依赖 `requests.Session` 的内置 Cookie 持久化机制，实现零手动干预的登录态透传。
+
+### 工作原理
+
+```
+LoginAPI 实例化
+       │
+       ▼
+Step 1: get_rsa_info()     ──→  Session 懒创建，服务端可能下发初始 Cookie
+       │                         (如 JSESSIONID、路由标识)
+       ▼
+Step 2: check_login()      ──→  POST 登录，服务端 Set-Cookie 写入登录态
+       │                         Session 自动存入内部 cookieJar  ← 关键！
+       ▼
+Step 3: remind_login()     ──→  自动携带 Step2 的 Cookie ✓
+       │
+Step 4: is_weak_password() ──→  自动携带 Step2 的 Cookie ✓
+       │
+Step 5: get_os_info()      ──→  自动携带 Step2 的 Cookie ✓
+```
+
+### 关键设计点
+
+1. **懒加载单例 Session**：`BaseAPI.get_base_request()` 只在首次请求时创建 `requests.Session`，同一实例内的所有接口调用复用同一个 Session，Cookie 自然透传。
+2. **`requests.Session` 内置 Cookie Jar**：像浏览器一样自动接收 `Set-Cookie` 响应头并存入内部 `cookieJar`，后续同域请求自动携带，整个过程对调用方完全透明。
+3. **零手动 Cookie 操作**：接口封装层（如 `LoginAPI`）无需读取 `response.cookies`、无需手动设置 `headers["Cookie"]`，也无需覆写 `__init__`——完全沿用 `BaseAPI` 的 Session 管理。
+
+### 优势
+
+- **代码简洁**：业务接口方法只关注请求参数和路径，不掺杂 Cookie 管理逻辑。
+- **不易出错**：避免手动 Cookie 传递中的遗漏、过期、域名不匹配等问题。
+- **跨用例复用**：同一 `BaseAPI` 子类实例可在同一测试会话中多次调用不同接口，登录态始终保持。
+- **可测试性**：Session 隔离在实例级别，不同测试用例各自持有独立实例，互不干扰。
+
 ## 验证命令
 
 运行 `api-test` 自身测试：

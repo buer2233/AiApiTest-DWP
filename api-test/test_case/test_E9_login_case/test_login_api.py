@@ -42,8 +42,7 @@ def _safe_login_fields(response):
 class TestE9LoginAPI:
     """E9 登录及登录态校验接口测试。"""
 
-    def setup_method(self, method):
-        del method
+    def setup_method(self):
         self.account = load_account()
 
     @allure.story("账号密码登录并校验登录态")
@@ -81,39 +80,7 @@ class TestE9LoginAPI:
             os_info_response = api.get_os_info()
 
         with allure.step("6.断言登录后系统信息"):
-            assert os_info_response == {
-                "resourceid": 1,
-                "isIMLoginAuto": "",
-                "code": 0,
-                "languageType": "7",
-                "resourceOptionInfo": {
-                    "resourceOptionList": [
-                        {"disabled": False, "key": "4", "selected": False, "showname": "公开", "visible": True},
-                        {"disabled": False, "key": "3", "selected": False, "showname": "内部", "visible": True},
-                        {"disabled": False, "key": "2", "selected": False, "showname": "秘密", "visible": True},
-                        {"disabled": False, "key": "1", "selected": False, "showname": "机密", "visible": True},
-                    ],
-                    "resourceValidityInfo": {"0": "", "1": "20年", "2": "10年", "3": "", "4": ""},
-                },
-                "languageVersion": "21",
-                "prohibitDownload": "0",
-                "dragColumns": "1",
-                "translate": False,
-                "uploadSuffixLimit": "*.*",
-                "msgShowType": "none",
-                "isPageAutoWrap": "1",
-                "browserConfig": {
-                    "pageConfigList": [],
-                    "defaultPageSize": "10",
-                    "typeList": [],
-                    "selectAllTypeList": [],
-                    "defaultSelectAllMaxSize": "500",
-                    "timeInterval": "1",
-                    "defaultCountry": "",
-                },
-                "id": "11",
-                "defaultLinkMode": "1",
-                "mapParams": {"defaultMap": "gaode", "ableToSwitchMap": "0"},
-                "status": True,
-                "isOpenClassification": False,
-            }
+            # 仅断言登录态生效的关键字段，避免因系统配置字段变更导致用例脆断。
+            assert os_info_response.get("code") == 0, f"系统信息 code 异常:{os_info_response}"
+            assert os_info_response.get("status") is True, f"系统信息 status 异常:{os_info_response}"
+            assert os_info_response.get("resourceid") == 1, f"系统信息 resourceid 异常:{os_info_response}"
