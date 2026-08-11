@@ -52,6 +52,16 @@ python runpytest.py --case-path test_case/test_gbif_case --clean
 python runpytest.py -m smoke
 ```
 
+E9 真实登录验收优先从 Jenkins Credentials 或进程环境变量读取私有凭据：
+`E9_LOGINID` 与 `E9_USERPASSWORD` 必须同时配置。仅在本地调试且明确使用抓包账号时，
+才回退读取 `page_api/E9/login_api/account.json`；该文件已被 Git 忽略，不能提交真实值。
+
+```powershell
+$env:E9_LOGINID = "<E9_LOGINID>"
+$env:E9_USERPASSWORD = "<E9_USERPASSWORD>"
+python -m pytest -p no:base_url test_case/test_E9_login_case --base-url http://<E9_HOST>:<E9_PORT>
+```
+
 生成后打开 Allure 报告：
 
 ```powershell
