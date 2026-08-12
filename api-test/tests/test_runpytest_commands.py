@@ -60,12 +60,12 @@ def test_build_pytest_command_uses_api_test_allure_results_by_default():
     runpytest = load_module_from_api_test("runpytest")
 
     command = runpytest.build_pytest_command(
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
         marker="smoke",
         clean=True,
     )
 
-    assert command[:4] == ["python", "-m", "pytest", "test_case/test_gbif_case"]
+    assert command[:4] == ["python", "-m", "pytest", "test_case/test_login_case"]
     assert f"--alluredir={API_TEST_ROOT / 'report' / 'allure-results'}" in command
     assert ["-m", "smoke"] == command[5:7]
     assert "--clean-alluredir" in command
@@ -111,7 +111,7 @@ def test_default_script_entry_runs_all_test_case_cases_even_with_legacy_cli_args
     monkeypatch.setattr(
         sys,
         "argv",
-        ["runpytest.py", "--case-path", "test_case/test_gbif_case", "--clean"],
+        ["runpytest.py", "--case-path", "test_case/test_login_case", "--clean"],
     )
     monkeypatch.setattr(runpytest, "ensure_runtime_dirs", lambda: None)
     monkeypatch.setattr(runpytest.shutil, "which", lambda executable: None)

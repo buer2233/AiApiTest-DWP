@@ -30,7 +30,7 @@ def test_build_pytest_command_for_module_run(tmp_path):
     allure_results_dir = tmp_path / "runtime" / "ci-runs" / "run-1" / "allure-results"
 
     command = ci_runner.build_pytest_command(
-        targets=["test_case/test_gbif_case"],
+        targets=["test_case/test_login_case"],
         allure_results_dir=allure_results_dir,
         clean=True,
         retry_count=0,
@@ -42,7 +42,7 @@ def test_build_pytest_command_for_module_run(tmp_path):
         "-m",
         "pytest",
         "-vv",
-        "test_case/test_gbif_case",
+        "test_case/test_login_case",
         f"--alluredir={allure_results_dir}",
         "-p",
         "tools.pytest_case_reporter",
@@ -56,7 +56,7 @@ def test_build_pytest_command_for_module_run(tmp_path):
 def test_build_pytest_command_for_selected_nodeids_with_rerun_count(tmp_path):
     allure_results_dir = tmp_path / "runtime" / "ci-runs" / "run-1" / "allure-results"
     nodeids = [
-        "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword",
+        "test_case/test_login_case/test_login_api.py::TestE9LoginAPI::test_login_and_get_os_info",
         "test_case/test_demo.py::TestDemo::test_param[a/b]",
     ]
 
@@ -88,7 +88,7 @@ def test_build_pytest_command_for_selected_nodeids_with_rerun_count(tmp_path):
 def test_build_pytest_command_rejects_negative_rerun_count(tmp_path):
     with pytest.raises(ValueError, match="retry_count"):
         ci_runner.build_pytest_command(
-            targets=["test_case/test_gbif_case"],
+            targets=["test_case/test_login_case"],
             allure_results_dir=tmp_path / "allure-results",
             retry_count=-1,
         )
@@ -99,7 +99,7 @@ def test_build_pytest_command_passes_normalized_base_url_to_pytest(tmp_path):
     allure_results_dir = tmp_path / "runtime" / "ci-runs" / "run-base-url" / "allure-results"
 
     command = ci_runner.build_pytest_command(
-        targets=["test_case/test_gbif_case"],
+        targets=["test_case/test_login_case"],
         allure_results_dir=allure_results_dir,
         base_url="https://stage13-qa.example.invalid/api/",
     )
@@ -203,7 +203,7 @@ def test_run_ci_tests_defaults_to_current_python_interpreter(tmp_path, monkeypat
         api_test_root=tmp_path,
         run_dir=tmp_path / "runtime" / "ci-runs" / "run-1",
         retry_mode="module",
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
         clean=True,
     )
     calls = {}
@@ -221,14 +221,14 @@ def test_run_ci_tests_defaults_to_current_python_interpreter(tmp_path, monkeypat
 
 
 def test_resolve_all_failed_targets_reads_pytest_lastfailed_cache(tmp_path):
-    first = "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword"
+    first = "test_case/test_login_case/test_login_api.py::TestE9LoginAPI::test_login_and_get_os_info"
     second = "test_case/test_demo.py::TestDemo::test_param[a/b]"
     write_lastfailed(tmp_path, {first: True, second: True})
     request = ci_runner.RunRequest(
         api_test_root=tmp_path,
         run_dir=tmp_path / "runtime" / "ci-runs" / "run-1",
         retry_mode="all-failed",
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
     )
 
     assert ci_runner.resolve_pytest_targets(request) == [first, second]
@@ -271,14 +271,14 @@ def test_resolve_all_failed_targets_accepts_empty_latest_ci_run_artifact(tmp_pat
 
 def test_resolve_selected_targets_uses_explicit_nodeids(tmp_path):
     nodeids = [
-        "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword",
+        "test_case/test_login_case/test_login_api.py::TestE9LoginAPI::test_login_and_get_os_info",
         "test_case/test_demo.py::TestDemo::test_param[a/b]",
     ]
     request = ci_runner.RunRequest(
         api_test_root=tmp_path,
         run_dir=tmp_path / "runtime" / "ci-runs" / "run-1",
         retry_mode="selected",
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
         node_ids=nodeids,
     )
 
@@ -302,7 +302,7 @@ def test_parse_jenkins_node_ids_accepts_newlines_and_commas():
 
 def test_build_run_request_from_jenkins_env_uses_pipeline_parameters(tmp_path):
     env = {
-        "CASE_PATH": "test_case/test_gbif_case",
+        "CASE_PATH": "test_case/test_login_case",
         "PYTEST_NODE_IDS": "test_case/test_demo.py::TestDemo::test_one,\n"
         "test_case/test_demo.py::TestDemo::test_two",
         "RETRY_MODE": "all-failed",
@@ -316,7 +316,7 @@ def test_build_run_request_from_jenkins_env_uses_pipeline_parameters(tmp_path):
 
     assert request.api_test_root == tmp_path
     assert request.run_dir == tmp_path / "runtime" / "ci-runs" / "jenkins-demo-12"
-    assert request.case_path == "test_case/test_gbif_case"
+    assert request.case_path == "test_case/test_login_case"
     assert request.node_ids == [
         "test_case/test_demo.py::TestDemo::test_one",
         "test_case/test_demo.py::TestDemo::test_two",
@@ -331,7 +331,7 @@ def test_build_run_request_from_jenkins_env_ignores_open_report_to_prevent_ci_ha
     """Jenkins 环境即使传入 OPEN_REPORT=true，也不能启动 allure open 常驻服务。"""
     env = {
         "CI_RUNNER_ENV": "jenkins",
-        "CASE_PATH": "test_case/test_gbif_case",
+        "CASE_PATH": "test_case/test_login_case",
         "RETRY_MODE": "none",
         "OPEN_REPORT": "true",
         "RUN_ID": "jenkins-demo-open-report",
@@ -346,7 +346,7 @@ def test_build_run_request_from_jenkins_env_uses_default_report_retention_days(t
     """Jenkins 默认仅清理超过 30 天的本地 runtime 历史报告。"""
     env = {
         "CI_RUNNER_ENV": "jenkins",
-        "CASE_PATH": "test_case/test_gbif_case",
+        "CASE_PATH": "test_case/test_login_case",
         "RETRY_MODE": "none",
         "RUN_ID": "jenkins-demo-retention-default",
     }
@@ -360,7 +360,7 @@ def test_build_run_request_from_jenkins_env_uses_configured_report_retention_day
     """Jenkins 可通过 CI_RUN_RETENTION_DAYS 调整 runtime 历史报告保留天数。"""
     env = {
         "CI_RUNNER_ENV": "jenkins",
-        "CASE_PATH": "test_case/test_gbif_case",
+        "CASE_PATH": "test_case/test_login_case",
         "RETRY_MODE": "none",
         "RUN_ID": "jenkins-demo-retention-configured",
         "CI_RUN_RETENTION_DAYS": "45",
@@ -430,7 +430,7 @@ def test_parse_args_preserves_local_open_report_option():
 def test_write_summary_creates_required_summary_json(tmp_path):
     run_dir = tmp_path / "runtime" / "ci-runs" / "run-1"
     failed_nodeids = [
-        "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword"
+        "test_case/test_login_case/test_login_api.py::TestE9LoginAPI::test_login_and_get_os_info"
     ]
 
     summary = ci_runner.write_summary(
@@ -477,7 +477,7 @@ def test_run_ci_tests_writes_count_fields_into_summary(tmp_path, monkeypatch):
         api_test_root=tmp_path,
         run_dir=tmp_path / "runtime" / "ci-runs" / "run-counts",
         retry_mode="module",
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
         clean=True,
     )
 
@@ -507,7 +507,7 @@ def test_run_ci_tests_writes_failure_summary_when_pytest_times_out(tmp_path, mon
         api_test_root=tmp_path,
         run_dir=tmp_path / "runtime" / "ci-runs" / "run-timeout",
         retry_mode="module",
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
         clean=True,
     )
 
@@ -541,7 +541,7 @@ def test_run_ci_tests_records_failed_allure_report_when_generation_times_out(tmp
         api_test_root=tmp_path,
         run_dir=tmp_path / "runtime" / "ci-runs" / "run-allure-timeout",
         retry_mode="module",
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
         clean=True,
     )
     calls = []
@@ -570,13 +570,13 @@ def test_run_ci_tests_records_failed_allure_report_when_generation_times_out(tmp
 
 
 def test_run_ci_tests_executes_pytest_and_writes_artifacts(tmp_path, monkeypatch):
-    nodeid = "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_species_search_by_keyword"
+    nodeid = "test_case/test_login_case/test_login_api.py::TestE9LoginAPI::test_login_and_get_os_info"
     write_lastfailed(tmp_path, {nodeid: True})
     request = ci_runner.RunRequest(
         api_test_root=tmp_path,
         run_dir=tmp_path / "runtime" / "ci-runs" / "run-1",
         retry_mode="selected",
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
         node_ids=[nodeid],
         clean=True,
     )
@@ -635,7 +635,7 @@ def test_run_ci_tests_ignores_shared_stale_lastfailed_after_current_pytest_run(t
         api_test_root=tmp_path,
         run_dir=tmp_path / "runtime" / "ci-runs" / "run-1",
         retry_mode="module",
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
         clean=True,
     )
 
@@ -658,7 +658,7 @@ def test_run_ci_tests_records_skipped_allure_report_when_cli_is_missing(tmp_path
         api_test_root=tmp_path,
         run_dir=tmp_path / "runtime" / "ci-runs" / "run-1",
         retry_mode="module",
-        case_path="test_case/test_gbif_case",
+        case_path="test_case/test_login_case",
         clean=True,
     )
 
@@ -975,7 +975,7 @@ def test_main_returns_success_for_pytest_failures_in_jenkins_env(tmp_path, monke
     """Jenkins 环境下 pytest 用例失败应只进入报告摘要，不应使 Pipeline stage 失败。"""
     env = {
         "CI_RUNNER_ENV": "jenkins",
-        "CASE_PATH": "test_case/test_gbif_case",
+        "CASE_PATH": "test_case/test_login_case",
         "RETRY_MODE": "module",
         "RUN_ID": "jenkins-demo-failed-tests",
     }
@@ -995,7 +995,7 @@ def test_main_returns_success_for_pytest_failures_in_jenkins_env(tmp_path, monke
             "status": "failed",
             "return_code": 1,
             "failed_nodeids": [
-                "test_case/test_gbif_case/test_gbif_api_module2.py::TestGbifAPI::test_intentional_failure"
+                "test_case/test_login_case/test_login_api.py::TestE9LoginAPI::test_login_and_get_os_info"
             ],
             "allure_report_status": "generated",
             "allure_report_message": "Allure HTML report generated successfully.",

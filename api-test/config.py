@@ -4,8 +4,9 @@ from urllib.parse import urlparse
 # Allure 报告中展示的网站名称；为空时会从 base_url 自动解析域名。
 website_name = ""
 
-# 被测系统基础地址，必须包含协议和域名，例如：https://api.gbif.org （可公开测试的接口）
-base_url = "https://api.gbif.org"
+# 被测系统基础地址，必须包含协议和域名。
+# base_url = "http://10.10.46.136:8080"
+base_url = "http://10.10.46.136:8080"  # E9测试环境
 
 # 是否使用 curl_cffi 模拟浏览器 TLS 指纹（绕过 Cloudflare 等 WAF）。
 # True: 使用 curl_cffi，需要安装 pip install curl_cffi
@@ -96,7 +97,7 @@ def validate_base_url(url=None):
     # urlparse 用于拆分协议、域名、路径等部分，避免手写字符串判断。
     parsed = urlparse(target)
     if not parsed.scheme or not parsed.netloc:
-        raise ValueError("base_url 必须包含协议和域名，例如：https://www.gbif.org")
+        raise ValueError("base_url 必须包含协议和域名，例如：http://10.10.46.136:8080")
 
     # 统一去掉末尾斜杠，避免后续拼接接口路径时出现重复斜杠。
     return target.rstrip("/")

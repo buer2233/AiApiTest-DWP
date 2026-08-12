@@ -8,10 +8,10 @@ from pathlib import Path
 import allure
 import pytest
 
-from page_api.E9.login_api.login_api import LoginAPI
+from page_api.login_api.login_api import LoginAPI
 
 
-ACCOUNT_FILE = Path(__file__).parents[2] / "page_api" / "E9" / "login_api" / "account.json"
+ACCOUNT_FILE = Path(__file__).parents[2] / "page_api" / "login_api" / "account.json"
 
 
 def load_account():

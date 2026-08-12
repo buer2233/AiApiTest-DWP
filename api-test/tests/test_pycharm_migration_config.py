@@ -24,7 +24,7 @@ def test_pycharm_run_configurations_use_api_test_working_directory():
     """兼容自定义 runpytest 与 PyCharm 原生 pytest 两种有效运行器。"""
     workspace = read_workspace_xml()
 
-    assert "$PROJECT_DIR$/api-test/test_case/test_gbif_case" in workspace
+    assert "$PROJECT_DIR$/api-test/test_case/test_login_case" in workspace
     assert (
         "$PROJECT_DIR$/api-test/runpytest.py" in workspace
         or '<configuration name="pytest' in workspace
