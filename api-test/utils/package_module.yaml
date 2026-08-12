@@ -2,3 +2,7 @@ test_login_case:
   module_name: 登录模块
   module_dev: 申友建
   module_test: 蒋于亭
+test_workflow_case:
+  module_name: 流程模块
+  module_dev: 陈序彪
+  module_test: 刘艳

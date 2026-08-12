@@ -5,9 +5,6 @@
 Session，以便自动接收并携带登录过程中由服务端下发的 Cookie。
 """
 
-import time
-from urllib.parse import urlparse
-
 import allure
 
 from page_api.public.base_api import BaseAPI
@@ -17,11 +14,6 @@ class LoginAPI(BaseAPI):
     """E9 人力登录及登录态校验接口。"""
 
     # --------------------------------通用方法--------------------------------------------------------------------------
-
-    @staticmethod
-    def _timestamp():
-        """生成毫秒级时间戳，匹配抓包中的 ts/__random__ 参数格式。"""
-        return time.time_ns() // 1_000_000
 
     @staticmethod
     def safe_login_fields(response):
@@ -37,21 +29,6 @@ class LoginAPI(BaseAPI):
             dict: 仅包含 msgcode、loginstatus、userid 的过滤结果。
         """
         return {field: response.get(field) for field in ("msgcode", "loginstatus", "userid")}
-
-    def _browser_headers(self, *, form=False, origin=False, accept="*/*"):
-        """按 HAR 约定构造可迁移的 Ajax 请求头。"""
-        parsed_base_url = urlparse(self.base_url)
-        origin_url = f"{parsed_base_url.scheme}://{parsed_base_url.netloc}"
-        headers = {
-            "Accept": accept,
-            "Referer": f"{self.base_url.rstrip('/')}/wui/index.html",
-            "X-Requested-With": "XMLHttpRequest",
-        }
-        if form:
-            headers["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
-        if origin:
-            headers["Origin"] = origin_url
-        return headers
 
     # --------------------------------接口方法--------------------------------------------------------------------------
 

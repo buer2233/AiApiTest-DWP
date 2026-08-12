@@ -2,7 +2,6 @@
 """E9 登录链路接口自动化用例。"""
 
 import allure
-import pytest
 
 from page_api.login_api.login_api import LoginAPI
 from utils.common_function import load_account
