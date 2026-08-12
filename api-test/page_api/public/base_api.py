@@ -23,6 +23,8 @@ class BaseAPI:
     def __init__(
         self,
         base_url=None,
+        session=None,
+        caller=None,
         headers=None,
         cookies=None,
         timeout=None,
@@ -32,6 +34,9 @@ class BaseAPI:
         """初始化接口请求上下文。
         Args:
             base_url: 被测系统基础地址；不传时使用 config.base_url。
+            session: 外部 requests.Session；传入时可跨 API 实例共享登录态。
+                     不传时自动懒加载创建独立 Session。
+            caller: 调用人标识（如 'sysadmin'），用于日志追踪。
             headers: 本接口类额外请求头，会与 config.default_headers 合并。
             cookies: 本接口类额外 cookies，会与 config.default_cookies 合并。
             timeout: 默认请求超时时间；不传时使用 config.timeout。
@@ -54,8 +59,14 @@ class BaseAPI:
         # proxies 允许显式传空字典关闭代理，因此使用 is not None 判断。
         self.proxies = proxies if proxies is not None else config.proxies
 
-        # requests.Session 延迟初始化，只有真正发送请求时才创建。
-        self.base_request = None
+        # session 参数允许外部注入已登录的 Session，实现跨 API 实例共享登录态。
+        # 不传时保持 None，由 get_base_request() 懒加载创建。
+        self.base_request = session
+
+        # 调用人标识，用于日志输出中区分不同账号的请求。
+        self._caller = caller or "unknown"
+
+    # --------------------------------接口自动化框架通用方法---------------------------------------
 
     @classmethod
     def http_timeout(
@@ -143,7 +154,7 @@ class BaseAPI:
 
         # 计算接口响应时间并打印通过信息，便于实时观察每次请求的耗时。
         elapsed = time.time() - start_time
-        print(f"--通过接口：--url:{url}; 响应时间：{elapsed:.2f}秒")
+        print(f"--通过接口：--user:{self._caller}; --url:{url}; 响应时间：{elapsed:.2f}秒")
 
         # error_msg 可由接口方法传入，用于让失败日志更贴近业务接口含义。
         message = error_msg or f"接口<{url}>请求失败"
@@ -238,3 +249,37 @@ class BaseAPI:
             if kwargs.get("msg"):
                 msg = f"{kwargs.get('msg')}:{msg}"
             raise AssertionError(msg) from exc
+
+    # --------------------------------其它通用方法---------------------------------------
+
+    @staticmethod
+    def _timestamp():
+        """生成毫秒级时间戳，匹配 E9 抓包中的 ts/__random__ 参数格式。"""
+        return time.time_ns() // 1_000_000
+
+    def _browser_headers(self, *, form=False, origin=False, accept="*/*"):
+        """按 HAR 约定构造可迁移的 Ajax 请求头。
+
+        E9 所有 Ajax 接口共用此请求头模板，各子类无需重复定义。
+        如需自定义 Accept 或添加额外头，可在调用时传入或在接口方法中合并。
+
+        Args:
+            form: 是否为表单请求，True 时自动添加 Content-Type。
+            origin: 是否添加 Origin 头。
+            accept: Accept 头值，默认 "*/*"。
+
+        Returns:
+            dict: 可传入 requests 的 headers 字典。
+        """
+        parsed_base_url = urlparse(self.base_url)
+        origin_url = f"{parsed_base_url.scheme}://{parsed_base_url.netloc}"
+        headers = {
+            "Accept": accept,
+            "Referer": f"{self.base_url.rstrip('/')}/wui/index.html",
+            "X-Requested-With": "XMLHttpRequest",
+        }
+        if form:
+            headers["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
+        if origin:
+            headers["Origin"] = origin_url
+        return headers
