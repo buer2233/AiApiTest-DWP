@@ -51,10 +51,15 @@ api-test/
 ├── test_case/                   # ★ pytest 接口用例层
 │   └── test_login_case/         #   登录模块用例（命名规范: test_模块名_case）
 │
-├── test_data/                   # 通用脱敏测试数据（按需添加）
+├── test_data/                   # 通用脱敏测试数据
+│   └── account.json             #   测试账号
 ├── tests/                       # api-test 框架自身单元测试
 ├── tools/                       # 可复用工具（ci_runner、nodeids、脱敏等）
-├── utils/                       # 通用辅助能力（超时适配器、环境/模块目录等）
+├── utils/                       # 通用辅助能力
+│   ├── common_function.py       #   全框架通用方法（如 load_account）
+│   ├── timeout_http_adapter.py  #   超时适配器
+│   ├── package_environment.yaml #   环境目录
+│   └── package_module.yaml      #   模块目录
 ├── report/                      # Allure 产物（不提交）
 ├── runtime/                     # CI 运行时产物（不提交）
 └── logs/                        # 日志（不提交）

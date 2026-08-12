@@ -34,7 +34,7 @@ python runpytest.py -m smoke
 
 E9 真实登录验收优先从 Jenkins Credentials 或进程环境变量读取私有凭据：
 `E9_LOGINID` 与 `E9_USERPASSWORD` 必须同时配置。仅在本地调试且明确使用抓包账号时，
-才回退读取 `page_api/login_api/account.json`；该文件已被 Git 忽略，不能提交真实值。
+才回退读取 `test_data/account.json`。
 
 ```powershell
 $env:E9_LOGINID = "<E9_LOGINID>"

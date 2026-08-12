@@ -154,13 +154,66 @@ python runpytest.py --case-path test_case/test_announce_case --open-report
 
 ## 二、接口封装类编码规范
 
-### 2.1 目录与文件
+### 2.1 文件结构：两大类方法
+
+每个接口封装文件按方法性质分为两个区域，使用注释分隔线明确区分：
+
+```python
+class SomeAPI(BaseAPI):
+    """模块接口封装。"""
+
+    # --------------------------------通用方法---------------------------------------
+
+    # 不包含接口请求的辅助方法：时间戳生成、数据过滤、headers 构造等
+
+    # --------------------------------接口方法---------------------------------------
+
+    # 包含接口请求的方法：每个方法对应一个后端接口
+```
+
+### 2.2 接口方法编写规范
+
+每个接口方法必须遵循以下模式（参考 `page_api/login_api/login_api.py` 的 `get_os_info`）：
+
+```python
+@allure.step("接口：功能描述")
+def method_name(self, param1, param2, status_code=200, **kwargs):
+    """方法功能说明。"""
+    # Author: 作者名
+    # Create Date: 创建日期
+    # IsAI: True/False
+    url = "/api/path/to/endpoint"          # ★ URL 单独提取为变量，方便后续扫描和分析
+    error_msg = kwargs.pop("error_msg", "中文错误说明")
+    # ... 构造请求参数 ...
+    return self.get(                       # 或 self.post / self.put / self.delete
+        url,                               # ★ 使用 url 变量，不硬编码字符串
+        status_code=status_code,
+        params=params,                     # GET 请求用 params
+        # data=form_data,                  # POST 表单用 data
+        # json=body,                       # POST JSON 用 json
+        headers=self._browser_headers(),
+        error_msg=error_msg,
+    )
+```
+
+**要点：**
+- `url` 变量必须单独提取到方法体顶部，方便 grep/扫描工具快速定位所有接口路径。
+- 每个接口方法必须包含 `# Author:`、`# Create Date:`、`# IsAI:` 三行元数据注释。
+- 接口方法内部按顺序：`url` → `error_msg` → 构造参数 → 调用 `self.get/post/put/delete`。
+
+### 2.3 通用方法规范
+
+- 不包含接口请求的辅助方法放在 `# ----通用方法----` 区域。
+- 包括但不限于：时间戳生成、响应字段过滤、headers 构造、数据转换等。
+- 使用 `@staticmethod` 或实例方法视是否需要访问 `self.base_url` 而定。
+
+### 2.4 目录与文件
 
 - 目录命名：`page_api/模块名_api/`，如 `page_api/login_api/`、`page_api/announce_api/`
 - 主文件命名：`模块名_api.py`，如 `login_api.py`、`announce_api.py`
 - 每个模块目录必须包含 `__init__.py`（可为空文件）
 
-### 2.2 类与方法
+### 2.5 类与方法
 
 - 继承 `page_api.public.base_api.BaseAPI`，不要自己创建 Session。
 - 类名使用 `模块名API`（PascalCase），如 `LoginAPI`、`AnnounceAPI`。
@@ -170,13 +223,13 @@ python runpytest.py --case-path test_case/test_announce_case --open-report
 - 敏感参数（如 password）通过 `**kwargs` 传入，不在方法签名中显式声明。
 - 如果接口需要特定的 headers（如 Content-Type、Referer），在方法内构造后通过 `headers=` 传入。
 
-### 2.3 返回值
+### 2.6 返回值
 
 - 默认返回 `response.json()`（dict 或 list），由 `BaseAPI.request()` 自动处理。
 - 需要返回原始 Response 对象时，传入 `return_response=True`。
 - 不要手动解析 JSON 或处理 Cookie，这些由 BaseAPI 统一管理。
 
-### 2.4 错误处理
+### 2.7 错误处理
 
 - `error_msg` 参数用于断言失败时提供中文错误说明，通过 `kwargs.pop("error_msg", "默认值")` 取出。
 - 不要在接口封装层做业务断言（如 `assert response["code"] == 0`），业务断言应放在测试用例层。
@@ -195,6 +248,16 @@ python runpytest.py --case-path test_case/test_announce_case --open-report
 
 - 测试类使用 `@allure.epic("E9-接口自动化")` 和 `@allure.feature("E9 模块名接口")`。
 - 测试类名使用 `Test模块名API`，如 `TestE9LoginAPI`、`TestAnnounceAPI`。
+- 测试类文档字符串必须包含三行元数据注释：
+  ```python
+  class TestSomeAPI:
+      """模块接口测试。
+
+      Author: dengwanpeng
+      Create Date: 2026-08-11
+      IsAI: True
+      """
+  ```
 - 测试方法名以 `test_` 开头，配合 `@allure.story` 描述测试场景。
 - 使用 `@allure.severity` 标注严重级别：`BLOCKER` > `CRITICAL` > `NORMAL` > `MINOR` > `TRIVIAL`。
 - 每个测试方法至少覆盖一个断言点，避免一个方法测所有逻辑。
@@ -203,7 +266,10 @@ python runpytest.py --case-path test_case/test_announce_case --open-report
 
 - 使用 `base_url` fixture 实例化接口类，不要硬编码 URL。
 - 每个测试方法独立创建接口类实例，保证 Session 隔离。
-- 私有凭据从环境变量读取（`E9_LOGINID` / `E9_USERPASSWORD`），回退到 `.gitignore` 的本地文件。
+- **测试账号**：统一通过 `utils/common_function.py` 的 `load_account(role)` 读取。
+  - `load_account("admin")` 获取管理员账号，用于大多数用例。
+  - `load_account("employee1")` 获取普通成员账号，用于流程/权限类用例。
+  - 账号文件位于 `test_data/account.json`，环境变量 `E9_LOGINID` / `E9_USERPASSWORD` 优先。
 - 公用测试数据放在 `test_data/` 目录，模块私有的测试数据放在模块目录内。
 
 ### 3.4 断言
@@ -221,12 +287,16 @@ python runpytest.py --case-path test_case/test_announce_case --open-report
 import allure
 import pytest
 from page_api.{模块名}_api.{模块名}_api import {模块名}API
+from utils.common_function import load_account
 
 
 @allure.epic("E9-接口自动化")
 @allure.feature("E9 {模块名}接口")
 class Test{模块名}API:
     """{模块名}接口测试。"""
+
+    def setup_method(self):
+        self.account = load_account("admin")
 
     @allure.story("{场景描述}")
     @allure.severity(allure.severity_level.CRITICAL)
