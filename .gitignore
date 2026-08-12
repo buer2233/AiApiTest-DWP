@@ -19,8 +19,6 @@ api-test/runtime/
 /.claude/
 docs/.hermes-tmp*/
 /server_acount.md
-# E9 本地真实账号，仅供接口自动化运行时读取，禁止进入 Git。
-api-test/page_api/E9/login_api/account.json
 /.playwright-mcp/
 /.superpowers/
 front-end/node_modules/
