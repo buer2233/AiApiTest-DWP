@@ -1,4 +1,4 @@
-gbif-public:
-  base_url: https://api.gbif.org
-  url_desc: GBIF public API test environment
-  url_name: GBIF Public API
+e9-test:
+  base_url: http://10.10.46.136:8080
+  url_desc: E9 测试环境
+  url_name: E9 测试环境

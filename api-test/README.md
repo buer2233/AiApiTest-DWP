@@ -1,20 +1,23 @@
-# api-test
+# api-test — E9 接口自动化测试框架
 
-`api-test` 是 AiApiTest-DWP 的接口自动化执行核心，负责封装接口方法、运行 pytest 用例、生成 Allure 结果、收集失败 pytest node id，并向 Jenkins 和后端提供统一的 CI 执行入口。
+`api-test` 是 **E9 系统专用**的接口自动化执行核心，负责封装 E9 接口方法、运行 pytest 用例、生成 Allure 结果、收集失败 pytest node id，并向 Jenkins 和后端提供统一的 CI 执行入口。
 
-本目录保持通用接口自动化框架定位，不绑定具体业务系统。不要提交真实账号、密码、token、cookie、租户密钥、生产地址或不可迁移的业务常量。
+本框架不包含 E9 以外的任何业务模块。不要提交真实账号、密码、token、cookie、租户密钥、生产地址或不可迁移的业务常量。
 
 ## 目录结构
 
 ```text
 api-test/
-├── config.py                    # 接口自动化通用配置
+├── config.py                    # 接口自动化通用配置（E9 测试环境）
 ├── conftest.py                  # pytest 命令行参数和公共 fixture
 ├── pytest.ini                   # pytest 发现规则
 ├── requirements.txt             # Python 依赖
 ├── runpytest.py                 # 本地手动执行入口
 ├── page_api/                    # 接口方法封装层
+│   ├── public/                  # 公共基类（BaseAPI）
+│   └── login_api/               # 登录模块接口封装
 ├── test_case/                   # pytest 接口用例层
+│   └── test_login_case/         # 登录模块用例
 ├── test_data/                   # 测试数据目录，按需添加
 ├── tests/                       # api-test 自身单元测试
 ├── tools/                       # CI、node id、失败重试等可复用工具
@@ -23,10 +26,19 @@ api-test/
 └── runtime/                     # 抓包、CI 执行和临时运行产物
 ```
 
+### 命名规范（与 E10 框架对齐）
+
+| 层级 | 命名规范 | 示例 |
+|------|---------|------|
+| 接口方法目录 | `page_api/模块名_api/` | `page_api/login_api/` |
+| 测试用例目录 | `test_case/test_模块名_case/` | `test_case/test_login_case/` |
+
+新增模块时按上述规范在对应位置创建目录即可。
+
 ## 安装依赖
 
 ```powershell
-cd D:\AI\AiApiTest-DWP\api-test
+cd D:\AI\Hermes\dev\workspace001\AiApiTest-DWP\api-test
 pip install -r requirements.txt
 ```
 
@@ -43,7 +55,7 @@ python runpytest.py
 运行指定模块：
 
 ```powershell
-python runpytest.py --case-path test_case/test_gbif_case --clean
+python runpytest.py --case-path test_case/test_login_case --clean
 ```
 
 按 marker 运行：
@@ -54,18 +66,18 @@ python runpytest.py -m smoke
 
 E9 真实登录验收优先从 Jenkins Credentials 或进程环境变量读取私有凭据：
 `E9_LOGINID` 与 `E9_USERPASSWORD` 必须同时配置。仅在本地调试且明确使用抓包账号时，
-才回退读取 `page_api/E9/login_api/account.json`；该文件已被 Git 忽略，不能提交真实值。
+才回退读取 `page_api/login_api/account.json`；该文件已被 Git 忽略，不能提交真实值。
 
 ```powershell
 $env:E9_LOGINID = "<E9_LOGINID>"
 $env:E9_USERPASSWORD = "<E9_USERPASSWORD>"
-python -m pytest -p no:base_url test_case/test_E9_login_case --base-url http://<E9_HOST>:<E9_PORT>
+python -m pytest -p no:base_url test_case/test_login_case --base-url http://<E9_HOST>:<E9_PORT>
 ```
 
 生成后打开 Allure 报告：
 
 ```powershell
-python runpytest.py --case-path test_case/test_gbif_case --open-report
+python runpytest.py --case-path test_case/test_login_case --open-report
 ```
 
 默认报告位置：
@@ -77,10 +89,8 @@ api-test/report/allure-report/<timestamp>/
 
 ## CI 执行器
 
-Stage 3 已提供统一执行器：
-
 ```powershell
-python -m tools.ci_runner --case-path test_case/test_gbif_case --retry-mode module --run-id local-demo --clean
+python -m tools.ci_runner --case-path test_case/test_login_case --retry-mode module --run-id local-demo --clean
 ```
 
 常用参数：
@@ -138,7 +148,7 @@ pytest node id 是失败重试的核心数据结构。
 ```powershell
 python -m tools.ci_runner `
   --retry-mode selected `
-  --node-id "test_case/test_gbif_case/test_gbif_api.py::TestGbifAPI::test_species_search_by_keyword" `
+  --node-id "test_case/test_login_case/test_login_api.py::TestE9LoginAPI::test_login_and_get_os_info" `
   --run-id retry-selected
 ```
 
@@ -151,13 +161,13 @@ python -m tools.ci_runner --retry-mode all-failed --run-id retry-all
 模块重试：
 
 ```powershell
-python -m tools.ci_runner --retry-mode module --case-path test_case/test_gbif_case --run-id retry-module
+python -m tools.ci_runner --retry-mode module --case-path test_case/test_login_case --run-id retry-module
 ```
 
 ## 开发约定
 
-- 接口方法放在 `page_api/`。
-- pytest 用例放在 `test_case/test_*_case/`。
+- 接口方法放在 `page_api/`，命名规范为 `模块名_api/`。
+- pytest 用例放在 `test_case/test_模块名_case/`。
 - 测试平台通过 `test_case/test_*_case/` 文件夹区分模块。
 - 多层取值优先用 `get_value()`，单层取值优先用 `.get()`。
 - 新增执行能力优先放在 `tools/`，供 Jenkins 和后端复用。
@@ -208,7 +218,7 @@ Step 5: get_os_info()      ──→  自动携带 Step2 的 Cookie ✓
 python -m pytest tests -v
 ```
 
-运行 Stage 3 执行器测试：
+运行执行器测试：
 
 ```powershell
 python -m pytest tests/test_pytest_nodeids.py tests/test_ci_runner.py -v

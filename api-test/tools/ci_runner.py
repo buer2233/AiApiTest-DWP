@@ -6,7 +6,7 @@ CI 运行器模块 - Jenkins CI/CD 测试执行核心
 
 执行命令：
     python -m tools.ci_runner --from-jenkins-env
-    python -m tools.ci_runner --case-path test_case/test_gbif_case
+    python -m tools.ci_runner --case-path test_case/test_login_case
     python -m tools.ci_runner --retry-mode all-failed --retry-count 3
 
 产物结构：
@@ -292,8 +292,8 @@ def build_run_request_from_jenkins_env(
         api_test_root=Path(api_test_root),
         run_dir=build_run_dir(Path(api_test_root), run_id),
         retry_mode=retry_mode,
-        case_path=source.get("CASE_PATH", "test_case/test_gbif_case").strip()
-        or "test_case/test_gbif_case",
+        case_path=source.get("CASE_PATH", "test_case").strip()
+        or "test_case",
         node_ids=parse_jenkins_node_ids(source.get("PYTEST_NODE_IDS")),
         retry_count=_parse_retry_count(source.get("RETRY_COUNT")),
         clean=_parse_bool(source.get("CLEAN_ALLURE"), True),
