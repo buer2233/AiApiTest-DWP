@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "skill_name": "svn-impact",
+  "cases": [
+    {"id": "positive-stage-a", "query": "分析 r349084 这笔提交的影响范围", "should_trigger": true},
+    {"id": "positive-stage-a-revision", "query": "Revision r349084 的定向回归方案", "should_trigger": true},
+    {"id": "positive-stage-a-skip-mcp", "query": "分析 r349084，但不要查 MCP 图谱", "should_trigger": true},
+    {"id": "positive-batch-range", "query": "分析 Revision r349181 到 Revision r349184，提交说明：no.4996246 解决流程导入不会更新明细表配置", "should_trigger": true},
+    {"id": "positive-batch-explicit", "query": "分析 Revision r349181、Revision r349184，提交说明：同一问题的多笔修复", "should_trigger": true},
+    {"id": "positive-batch-missing-message", "query": "分析 r349181 和 r349184", "should_trigger": true},
+    {"id": "positive-stage-b-new", "query": "按方案实现接口自动化，给 r349084 新增缺失的接口封装和用例", "should_trigger": true},
+    {"id": "positive-stage-b-reuse", "query": "实现 r349084 用例，接口已经封装请复用，不要重复建类", "should_trigger": true},
+    {"id": "positive-stage-c", "query": "复测 r349084 并生成 Allure 报告", "should_trigger": true},
+    {"id": "positive-quick-reuse", "query": "快速测试，使用当前已经配置的测试环境", "should_trigger": true},
+    {"id": "positive-quick-change", "query": "快速测试，我要换一个测试环境", "should_trigger": true},
+    {"id": "positive-report-failed", "query": "分析测试报告 r349084，里面有失败用例", "should_trigger": true},
+    {"id": "positive-report-clean", "query": "看看刚刚的测试报告有没有失败用例需要分析", "should_trigger": true},
+    {"id": "positive-coverage", "query": "对 r349084 做接口覆盖校验，找出未封装 URL", "should_trigger": true},
+    {"id": "positive-select-feature", "query": "按请假审批功能关键词选接口用例", "should_trigger": true},
+    {"id": "positive-select-revision", "query": "按 revision r349084 选出需要执行的 pytest 用例", "should_trigger": true},
+    {"id": "negative-head", "query": "分析 HEAD 最新代码会影响哪些模块", "should_trigger": false},
+    {"id": "negative-range", "query": "对比 r349000:r349084 的全部提交", "should_trigger": false},
+    {"id": "negative-ui", "query": "给登录页写一套 Selenium UI 自动化", "should_trigger": false},
+    {"id": "negative-frontend", "query": "优化 Vue 审批列表的虚拟滚动", "should_trigger": false},
+    {"id": "negative-unit", "query": "给日期解析函数补纯单元测试", "should_trigger": false},
+    {"id": "negative-migration", "query": "生成数据库字段迁移脚本", "should_trigger": false},
+    {"id": "negative-explain", "query": "pytest 的 fixture 是什么含义", "should_trigger": false},
+    {"id": "negative-style", "query": "把 Allure 报告的配色改得更现代", "should_trigger": false}
+  ]
+}

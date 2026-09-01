@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "skill_name": "functional-to-api-test",
+  "cases": [
+    {"id": "positive-func-case", "query": "把这段功能测试用例转成接口自动化：人员01创建并提交R1，人员02会签", "should_trigger": true},
+    {"id": "positive-countersign", "query": "这是一个会签审批流程的功能用例，帮我转成接口自动化测试用例", "should_trigger": true},
+    {"id": "positive-steps", "query": "按功能用例步骤写接口自动化：①人员01提交②人员02会签③人员03审批", "should_trigger": true},
+    {"id": "positive-approval-flow", "query": "把审批流的功能测试用例转换为接口自动化", "should_trigger": true},
+    {"id": "positive-business-flow", "query": "这个业务流程（创建、提交、会签、审批、流转）帮我落地为自动化用例", "should_trigger": true},
+    {"id": "positive-map-endpoint", "query": "把这个功能用例的功能步骤映射成后端接口，并写出接口自动化", "should_trigger": true},
+    {"id": "positive-func-to-auto", "query": "功能用例转接口自动化", "should_trigger": true},
+    {"id": "positive-data-reuse", "query": "把功能用例转成接口自动化，先查询并复用当前测试环境已有数据，只有为空才尝试通过接口造数", "should_trigger": true},
+    {"id": "positive-manual-automate", "query": "帮我把这段手工功能测试用例子转换成自动化测试", "should_trigger": true},
+    {"id": "positive-todo-done-check", "query": "功能用例里查人员待办含R1、已办含R1，帮我写成接口自动化断言", "should_trigger": true},
+    {"id": "positive-workflow-status", "query": "把'会签集齐后流转到审批3'这个功能点转成接口断言", "should_trigger": true},
+    {"id": "positive-e9-flow", "query": "E9 里这个提交审批功能，帮我按功能用例写接口自动化", "should_trigger": true},
+    {"id": "negative-ui", "query": "用 Playwright 给登录页写 UI 自动化", "should_trigger": false},
+    {"id": "negative-selenium", "query": "给审批列表写一套 Selenium 端到端 UI 测试", "should_trigger": false},
+    {"id": "negative-unit", "query": "给日期解析函数补纯 Python 单元测试", "should_trigger": false},
+    {"id": "negative-svn-analysis", "query": "分析 r349084 这笔提交的影响范围", "should_trigger": false},
+    {"id": "negative-config", "query": "帮我配置测试环境和账号", "should_trigger": false},
+    {"id": "negative-report", "query": "分析 Allure 报告里的失败用例", "should_trigger": false},
+    {"id": "negative-explain", "query": "pytest fixture 是什么含义，解释一下", "should_trigger": false},
+    {"id": "negative-not-e9", "query": "给另一个 Java 项目的订单功能写接口自动化", "should_trigger": false}
+  ]
+}

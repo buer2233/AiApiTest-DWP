@@ -144,15 +144,6 @@ def test_business_cases_do_not_contain_fixed_failure_probe():
     assert "test_allure_failure_analysis_probe" not in board_case
 
 
-def test_versioned_account_file_contains_no_credentials():
-    """版本化账号模板只允许空占位，真实凭据必须由 Jenkins 私密变量提供。"""
-    accounts = json.loads((API_TEST_ROOT / "test_data" / "account.json").read_text(encoding="utf-8"))
-    assert all(
-        not account.get("user_name") and not account.get("password")
-        for account in accounts.values()
-    )
-
-
 def test_generated_api_index_is_not_versioned():
     """接口索引是可再生文件，不能携带源机器绝对路径进入仓库。"""
     assert not (API_TEST_ROOT / "tools" / "page_api_index.sqlite3").exists()

@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E9 系统 AI 自动化需求方案</title>
+<style>
+  :root {
+    --bg: #f6f8fb;
+    --card: #ffffff;
+    --border: #e5eaf1;
+    --text: #1a2332;
+    --text-2: #5b6b82;
+    --primary: #2563eb;
+    --primary-soft: #eaf1ff;
+    --teal: #0d9488;
+    --teal-soft: #e6f7f5;
+    --amber: #d97706;
+    --amber-soft: #fef3e2;
+    --red: #dc2626;
+    --red-soft: #fdeaea;
+    --green: #16a34a;
+    --green-soft: #e7f6ec;
+    --purple: #7c3aed;
+    --purple-soft: #f0e9fd;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  /* 封面 */
+  .hero {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #0d9488 100%);
+    color: #fff;
+    border-radius: 18px;
+    padding: 46px 44px;
+    margin-bottom: 28px;
+    box-shadow: 0 10px 30px rgba(30,58,138,.22);
+  }
+  .hero .tag {
+    display: inline-block; font-size: 13px; letter-spacing: 1px;
+    background: rgba(255,255,255,.16); padding: 4px 14px; border-radius: 999px; margin-bottom: 16px;
+  }
+  .hero h1 { font-size: 30px; font-weight: 700; margin-bottom: 12px; }
+  .hero p { font-size: 15px; opacity: .92; max-width: 760px; }
+  .hero .meta { margin-top: 22px; display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; opacity: .85; }
+  .hero .meta b { font-weight: 600; }
+
+  /* 概览卡片 */
+  .overview {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 30px;
+  }
+  .ov-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 18px;
+  }
+  .ov-card .num { font-size: 30px; font-weight: 800; color: var(--primary); }
+  .ov-card .lbl { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+
+  /* 章节标题 */
+  .section { margin-bottom: 40px; }
+  .sec-title {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
+  }
+  .sec-title .idx {
+    width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 16px; color: #fff; background: var(--primary); flex: none;
+  }
+  .sec-title h2 { font-size: 21px; font-weight: 700; }
+  .sec-title .sub { font-size: 13px; color: var(--text-2); margin-left: 2px; }
+
+  /* 需求卡片 */
+  .req {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 26px 28px; margin-bottom: 20px;
+  }
+  .req-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 8px; }
+  .req-num {
+    flex: none; width: 44px; height: 44px; border-radius: 12px; font-weight: 800; font-size: 18px;
+    display: flex; align-items: center; justify-content: center; color: #fff;
+  }
+  .req-head .t h3 { font-size: 18px; font-weight: 700; }
+  .req-head .t .one-line { font-size: 13.5px; color: var(--teal); font-weight: 600; margin-top: 2px; }
+  .badge {
+    display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 600; margin-left: 6px;
+  }
+  .b-p1 { background: var(--red-soft); color: var(--red); }
+  .b-p2 { background: var(--amber-soft); color: var(--amber); }
+  .b-p3 { background: var(--green-soft); color: var(--green); }
+  .b-p4 { background: var(--purple-soft); color: var(--purple); }
+  .req .block { margin-top: 16px; }
+  .req .block h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
+  .req .block h4::before { content: ""; width: 4px; height: 15px; background: var(--primary); border-radius: 2px; display: inline-block; }
+  .req p, .req li { color: var(--text-2); font-size: 14px; }
+  .req ul, .req ol { padding-left: 22px; }
+  .req li { margin: 4px 0; }
+
+  /* 表格 */
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 8px 0; }
+  th, td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; vertical-align: top; }
+  th { background: #f1f5fb; font-weight: 700; color: var(--text); white-space: nowrap; }
+  td { color: var(--text-2); }
+  tr:nth-child(even) td { background: #fafcff; }
+  .ok { color: var(--green); font-weight: 700; }
+  .warn { color: var(--amber); font-weight: 700; }
+
+  /* 结论框 */
+  .concl {
+    background: var(--primary-soft); border-left: 4px solid var(--primary); border-radius: 10px;
+    padding: 14px 18px; margin-top: 16px; font-size: 14px;
+  }
+  .concl b { color: var(--primary); }
+  .concl.teal { background: var(--teal-soft); border-left-color: var(--teal); }
+  .concl.teal b { color: var(--teal); }
+
+  /* 代码块 */
+  pre {
+    background: #0f172a; color: #dbe7ff; border-radius: 10px; padding: 16px 18px; font-size: 12.5px;
+    line-height: 1.6; overflow-x: auto; margin: 10px 0; font-family: "JetBrains Mono", Consolas, monospace;
+  }
+  code.inline { background: #eef2f8; color: #1d4ed8; padding: 1px 6px; border-radius: 5px; font-size: 13px; font-family: Consolas, monospace; }
+
+  /* 时间线 */
+  .timeline { display: flex; flex-direction: column; gap: 0; margin: 12px 0; }
+  .tl-phase { position: relative; padding-left: 34px; padding-bottom: 26px; }
+  .tl-phase::before {
+    content: ""; position: absolute; left: 9px; top: 6px; bottom: 0; width: 2px; background: #cbd5e1;
+  }
+  .tl-phase:last-child::before { display: none; }
+  .tl-dot {
+    position: absolute; left: 0; top: 2px; width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 11px; color: #fff; font-weight: 700;
+  }
+  .tl-phase h4 { font-size: 15px; font-weight: 700; }
+  .tl-phase .tags { margin: 6px 0; }
+  .tl-chip {
+    display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 7px; margin-right: 6px; margin-bottom: 4px;
+    background: #f1f5fb; border: 1px solid var(--border); color: var(--text-2); font-weight: 600;
+  }
+  .tl-chip.c-p1 { background: var(--red-soft); color: var(--red); border-color: #f5c2c2; }
+  .tl-chip.c-p2 { background: var(--amber-soft); color: var(--amber); border-color: #f0d9ae; }
+  .tl-chip.c-p3 { background: var(--green-soft); color: var(--green); border-color: #b7e4c0; }
+  .tl-chip.c-p4 { background: var(--purple-soft); color: var(--purple); border-color: #d8c7f5; }
+
+  /* 架构 SVG 容器 */
+  .diagram { background: #fbfcfe; border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin: 12px 0; overflow-x: auto; }
+  .diagram svg { display: block; max-width: 100%; height: auto; }
+
+  /* 矩阵 */
+  .matrix { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-top: 10px; }
+  .m-cell { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: #fff; }
+  .m-cell .h { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .m-cell .d { font-size: 13px; color: var(--text-2); }
+
+  .footer { text-align: center; color: var(--text-2); font-size: 12.5px; margin-top: 20px; }
+  @media (max-width: 760px) {
+    .overview { grid-template-columns: 1fr; }
+    .matrix { grid-template-columns: 1fr; }
+    .hero { padding: 30px 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 封面 -->
+  <div class="hero">
+    <span class="tag">需求方案 v2.4 · 五期开发中 · 2026-08-26</span>
+    <h1>E9 系统 AI 自动化需求方案</h1>
+    <p>基于 E9 SVN 影响分析与接口自动化测试系统，将「影响分析 → 用例选取/生成 → 自动化测试 → 报告分析」全流程产品化，封装为 WorkBuddy 可直用的技能（Skill），并支持代码与知识图谱远端化部署。</p>
+    <div class="meta">
+      <span>需求来源：<b>领导新需求（9 项 · 2 拆 2a/2b）+ 五期专项</b></span>
+      <span>系统：<b>E9 企业版（约 29 万+ 文件）</b></span>
+      <span>载体：<b>WorkBuddy + Skill</b></span>
+      <span>文档日期：<b>2026-08-26</b>（五期开发中 — T5.2–T5.6 核心模块已交付）</span>
+    </div>
+  </div>
+
+  <!-- 架构速览 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">图</span><h2>整体架构速览</h2><span class="sub">本地批次编排 + 查询 MCP + 运维 MCP + 远端 E9 后端</span></div>
+    <div class="req">
+      <div class="diagram">
+        <img src="e9-remote-mcp-architecture.svg" alt="E9 当前架构图：本地 WorkBuddy 与 svn-impact 编排五期批次分析；codebase-memory 负责 E9 代码、调用链和实际 revision 集合只读查询；codebase-memory-ops 负责 SVN log/diff 与受控同步重建；远端保存 E9 SVN 工作副本和 Active 图谱" style="width:100%;border:1px solid var(--border);border-radius:12px;" />
+      </div>
+      <div class="concl"><b>关键边界：</b>本仓库只做 MCP <b>调用方</b>和接口测试资产管理；所有 E9 源码、调用链、SVN 提交历史和图谱事实都必须通过 MCP 获取，禁止本地读取 E9 code_repo、执行 SVN 或直连图谱。<code class="inline">codebase-memory</code> 提供代码/调用链和批次 revision 解析所需的只读信息，<code class="inline">codebase-memory-ops</code> 提供逐 revision log/diff、状态及需确认的同步/重建运维能力；区间 resolver 缺少读取 MCP 能力时不转用运维 MCP 或本地 SVN。五期在本地编排逐笔 facts/design、<code class="inline">aggregate_design</code>、多 revision marks 和 Allure 批次追踪。可编辑源文件见 <code class="inline">docs/e9-remote-mcp-architecture.drawio</code>。</div>
+    </div>
+  </div>
+
+  <!-- 概览 -->
+  <div class="overview">
+    <div class="ov-card"><div class="num">9</div><div class="lbl">需求项（2 拆 2a/2b）</div></div>
+    <div class="ov-card"><div class="num">5</div><div class="lbl">本地实施分期（一 / 二 / 三 / 四 / 五期）</div></div>
+    <div class="ov-card"><div class="num">1</div><div class="lbl">最终形态：嵌入式 Skill</div></div>
+  </div>
+
+  <!-- 执行摘要 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">总</span><h2>执行摘要</h2></div>
+    <div class="req">
+      <table>
+        <tr><th style="width:60px">#</th><th>需求</th><th style="width:170px">实现方式</th><th style="width:80px">分期</th></tr>
+        <tr><td><b>1</b></td><td>系统做成可导入的技能 / 流程 / Agent</td><td>嵌入式 Skill（合并 AGENTS.md，自包含）</td><td><span class="badge b-p1">一期</span></td></tr>
+        <tr><td><b>2a</b></td><td>接口覆盖校验：URL 是否已封装</td><td>参考 E10，脚本扫 URL 入 sqlite3，关系型关键字查询</td><td><span class="badge b-p2">二期</span></td></tr>
+        <tr><td><b>2b</b></td><td>功能覆盖与快速选用例 + 生成新用例</td><td>mcp 调用链 + revision mark + SVN 提交描述元数据</td><td><span class="badge b-p2">二期</span></td></tr>
+        <tr><td><b>3</b></td><td>输入环境/账号快速 AI 自动化测试</td><td>先读本地配置；复用确认或填写模板</td><td><span class="badge b-p1">一期</span></td></tr>
+        <tr><td><b>4</b></td><td>测试通过后询问是否提交用例仓库（Git）</td><td>GitLab 交付根含 WorkBuddy Skill；确认后提交</td><td><span class="badge b-p1">一期</span></td></tr>
+        <tr><td><b>5</b></td><td>输出测试报告 + 结果分析</td><td>最多 10 个只读子代理；主会话校验并回写 Allure</td><td><span class="badge b-p1">一期</span></td></tr>
+        <tr><td><b>6</b></td><td>历史用例 / 知识图谱远端部署</td><td>MCP 原生 MCP（二期本地已完成）+ 企业网关远端部署验收（归远端开发）；替代引擎先 PoC</td><td><span class="badge b-p2">二期本地</span><span class="badge b-p4">远端开发</span></td></tr>
+        <tr><td><b>7</b></td><td>Git 分支管理 Skill</td><td>skill-creator 新增 git-branch；默认分支可配置，新分支从主分支拉取</td><td><span class="badge b-p3">三期</span></td></tr>
+        <tr><td><b>8</b></td><td>工作区收敛到 api-test-E9</td><td>SKILL 提炼 + CLI 独立 + code_repo 走 MCP；提交真实 config.json</td><td><span class="badge b-p3">三期</span></td></tr>
+        <tr><td><b>9</b></td><td>MCP 与新增用例前置数据自动化</td><td>后端图谱 + 前端操作反查 + Network/HAR 证据 + 行为级断言 + SKILL 流程治理</td><td><span class="badge b-p4">四期本地</span></td></tr>
+        <tr><td><b>五期</b></td><td>多笔 SVN 提交联合影响分析与针对性接口用例</td><td>读取 E9 信息 MCP 解析实际集合；逐笔 attempt/事实/设计 → aggregate design → A+/A++ 审核 → 多 revision mark 用例</td><td><span class="badge b-p4">五期</span></td></tr>
+      </table>
+      <div class="concl"><b>核心结论：</b>系统最终形态为「<b>嵌入式 Skill + 外部 E9 MCP 调用</b>」——把工作流封装进 <code class="inline">.workbuddy/skills/</code> 并随 GitLab 项目分发；本仓库不部署 MCP、不保存 E9 图谱，只调用外部版本化 MCP 获取代码关系。四期聚焦端点、前端操作反查、前置数据自动化和行为级断言；五期新增多笔提交批次分析，详见 <code class="inline">docs/五期开发/E9五期需求分析.md</code> 与 <code class="inline">docs/五期开发/E9五期开发计划书.md</code>。外部 MCP 服务及其部署由“远端开发”负责，详见 <code class="inline">docs/远端开发/E9远端开发计划书.md</code>。</div>
+    </div>
+  </div>
+
+  <!-- 需求 1 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">1</span><h2>系统形态：做成 Skill / Agent / 流程？</h2><span class="sub">需求 1</span></div>
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--primary)">1</div>
+        <div class="t"><h3>把当前系统做成可导入的技能</h3><div class="one-line">结论：嵌入式 Skill（自包含），非 Agent、非裸 AGENTS.md</div></div>
+      </div>
+
+      <div class="block"><h4>三种方案对比</h4>
+      <table>
+        <tr><th>维度</th><th>Skill（嵌入式）</th><th>Agent</th><th>标准 AI 流程（AGENTS.md）</th></tr>
+        <tr><td>触发方式</td><td>关键词匹配（如「分析 r349084」）</td><td>独立运行、持续监听</td><td>靠项目通用指令</td></tr>
+        <tr><td>载体</td><td><code class="inline">.workbuddy/skills/&lt;name&gt;/SKILL.md</code></td><td>独立 Agent 定义</td><td>就是 AGENTS.md</td></tr>
+        <tr><td>自包含程度</td><td>较高（可含全部指令）</td><td>最高（自带工具集）</td><td>低（依赖项目上下文）</td></tr>
+        <tr><td>与 WorkBuddy 集成</td><td class="ok">原生</td><td>需额外配置</td><td>通用但无特化</td></tr>
+        <tr><td>团队分发</td><td class="ok">随 Git 仓库自带，clone 即生效</td><td>需单独管理</td><td>项目自带</td></tr>
+      </table>
+      </div>
+
+      <div class="block"><h4>推荐理由</h4>
+      <ul>
+        <li><b>原生扩展机制</b>：WorkBuddy 自动加载 <code class="inline">.workbuddy/skills/</code> 下的所有技能，无需额外安装。</li>
+        <li><b>随仓库分发</b>：把 Skill 放进测试框架 Git 仓库的 <code class="inline">.workbuddy/</code>，用户 clone 后打开 WorkBuddy 即自动可用。</li>
+        <li><b>触发精准</b>：<code class="inline">description</code> 字段控制触发词，说「分析 r349084」才激活，说「帮我写请假流程」不误触发。</li>
+      </ul>
+      </div>
+
+      <div class="block"><h4>Evals 设计（参考 E10 <code class="inline">api-test-dwp</code>）</h4>
+      <p><code class="inline">svn-impact</code> 必须由 <code class="inline">skill-creator</code> 创建与维护，不得手改 <code class="inline">SKILL.md</code> 后不登记；并强制配套两层 eval：</p>
+      <table>
+        <tr><th>层级</th><th>文件</th><th>评估什么</th><th>是否调模型</th></tr>
+        <tr><td>触发层</td><td><code class="inline">trigger_eval_set.json</code></td><td>query 是否触发 svn-impact（正例/负例）</td><td>是</td></tr>
+        <tr><td>工作流契约层</td><td><code class="inline">workflow_eval_set.json</code></td><td>触发后是否正确分流、读必读文档、产预期交付物、无禁止副作用</td><td>否</td></tr>
+        <tr><td>静态校验</td><td><code class="inline">validate_eval_set.py</code></td><td>JSON schema、ID 唯一、必读文档存在、分支齐全</td><td>否</td></tr>
+        <tr><td>Git 审计</td><td><code class="inline">git_readiness_check.py</code></td><td>只读检查提交阻断项（明文账号、运行时产物、不规范技能名），不打印凭据</td><td>否</td></tr>
+      </table>
+      <p>触发层正例分支须覆盖：阶段 A（标准 / skip-update）、阶段 B（新建封装 / 复用）、阶段 C（复测）、快速测试（复用 / 换环境）、报告分析（有失败 / 无失败）、接口覆盖校验、用例选取（按功能关键词 / 按 revision）；负例须覆盖：HEAD/范围/多版本、UI 自动化、前端代码、纯单元测试、数据库迁移、解释性提问、报告样式。Windows runner 需兼容 <code class="inline">select()</code> 限制，支持 checkpoint 续跑，超时/无信号标 <code class="inline">INCONCLUSIVE</code> 不折算为不触发。</p>
+      </div>
+
+      <div class="concl"><b>落地：</b>用 <code class="inline">skill-creator</code> 重做 <code class="inline">svn-impact</code>，将 AGENTS.md 全部内容合并进 <code class="inline">SKILL.md</code> 使其自包含、成为唯一入口，核对去除对 AGENTS.md 的依赖；同时落出 <code class="inline">evals/</code> 两层 eval 与静态校验/Git 审计脚本。验收：静态校验通过、Git 审计在干净工作副本返回 0、触发 eval 有基线成功率。</div>
+    </div>
+  </div>
+
+  <!-- 需求 2（拆为 2a / 2b） -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">2</span><h2>变更快速选用例 + 接口覆盖校验</h2><span class="sub">需求 2 · 二期（拆为 2a sqlite3 + 2b mcp）</span></div>
+
+    <!-- 2a -->
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--purple)">2a</div>
+        <div class="t"><h3>接口覆盖校验：URL 是否已封装</h3><div class="one-line">结论：参考 E10，脚本扫 URL 入 sqlite3，关系型关键字查询</div></div>
+      </div>
+
+      <div class="block"><h4>当前问题</h4>
+      <p><code class="inline">inventory.py</code> 用正则 <code class="inline">url\s*=\s*['"]([^'"]+)['"]</code> 扫 URL 字面量，结果只写 <code class="inline">output/_inventory.json</code>，不持久化、不跨 revision 复用、不抽 HTTP method/docstring/注释元数据，查询靠 JSON 字符串匹配。对「URL 是否已封装」这类确定性问题，mcp 图谱查询属于杀鸡用牛刀。</p>
+      </div>
+
+      <div class="block"><h4>E9 专用简化扫描器（参考 E10 架构，规则按 E9 模板规范大幅简化）</h4>
+      <p>E9 接口方法由 AI 按 <code class="inline">api-test-E9/docs/api_test_case_spec.md</code> 模板规范编写，格式固定（<code class="inline">url</code> 单独提取为变量、<code class="inline">self.post/get</code> 统一调用、三行元数据注释），扫描规则比 E10 简单很多，<b>不照搬 E10 规则集</b>：</p>
+      <table>
+        <tr><th>维度</th><th>E10（历史存量，写法多样）</th><th>E9（强制模板，规则简化）</th></tr>
+        <tr><td>URL 提取</td><td>4 条规则（quoted_http_url / concat_http_url_path / url_assignment_path_literal / url_assignment_format_path_bare_query）</td><td><b>1 条</b>：<code class="inline">url\s*=\s*['"](/[^'"]+)['"]</code>，限定 <code class="inline">/</code> 开头绝对路径</td></tr>
+        <tr><td>HTTP method</td><td>3 条（requests.request / requests.get|post / .send_msg）</td><td><b>1 条</b>：<code class="inline">self\.(get|post|put|delete)\s*\(</code>，BaseAPI 统一入口</td></tr>
+        <tr><td>元数据注释</td><td># Author / # Create Date / # Update Date</td><td># Author / # Create Date / <b># IsAI</b>（标识 AI 编写，非 Update Date）</td></tr>
+        <tr><td>docstring 描述</td><td>抽 <code class="inline">desc:</code> 前缀行</td><td>抽 docstring 首行非空行</td></tr>
+      </table>
+      <ul>
+        <li><b>扫描器位置</b>：<code class="inline">api-test-E9/tools/scan_page_api.py</code>；索引库 <code class="inline">api-test-E9/tools/page_api_index.sqlite3</code>；DB 工具 <code class="inline">api-test-E9/skill_utils/api_index_db.py</code>（参考 E10 <code class="inline">api-test-dwp</code> 的 <code class="inline">skill_utils/</code> 但规则集重写）。</li>
+        <li><b>双模式</b>：空库走全量替换（id 从 1 起）；非空库走增量追加，<code class="inline">(api_url, http_method)</code> 做存在性 diff。</li>
+        <li><b>AST 优于正则</b>：拿 ClassDef→FunctionDef 结构稳定挂「URL 属于哪个类的哪个方法」。E9 虽格式固定纯正则也能稳定，AST 仍用于方法归属与 <code class="inline">@allure.step</code> 装饰器提取。</li>
+        <li><b>UTF-8 强制</b>：<code class="inline">sys.stdout.reconfigure</code> 避免 Windows cp936 崩溃。</li>
+      </ul>
+      </div>
+
+      <div class="block"><h4>E9 适配：表结构与覆盖判定</h4>
+      <table>
+        <tr><th>表</th><th>字段</th><th>说明</th></tr>
+        <tr><td><b>api_methods</b>（主表）</td><td>id, api_url, http_method, api_name, api_desc, class_name, class_bases, file, line, author, create_date, is_ai, mtime</td><td><code class="inline">(api_url, http_method)</code> 唯一；api_url 归一化（去 query、补前导 /、去尾 /）；is_ai 取自 <code class="inline"># IsAI:</code> 注释</td></tr>
+        <tr><td><b>index_metadata</b></td><td>generated_at, repo_root, scanner_version, scanned_files, total_methods, unique_paths, scan_mode</td><td>扫描元信息</td></tr>
+      </table>
+      <pre>覆盖判定（阶段 A 产出 endpoints 后，对每个 endpoint）：
+SELECT api_name, class_name, file, line, http_method
+FROM api_methods
+WHERE api_url = ? AND (http_method = ? OR http_method = '')
+命中 → has_wrapper=true，复用封装；未命中 → 阶段 B 新建</pre>
+      <ul>
+        <li>位置：<code class="inline">api-test-E9/tools/page_api_index.sqlite3</code>，随仓库版本管理。</li>
+        <li><code class="inline">output/_inventory.json</code> 降级为给 AI 读的脱敏快照；判定走 sqlite3。</li>
+        <li>刷新时机：阶段 B 写入封装后、阶段 C 复测后、独立 <code class="inline">python -m svn_analyse inventory --refresh-index</code>。</li>
+        <li>sqlite3 管 URL 字面量，mcp 管调用链与符号（见 2b），不互斥不重叠。</li>
+      </ul>
+      </div>
+
+      <div class="concl"><b>验收：</b>阶段 A 报告的「已实现/未实现」判定可在 sqlite3 等值查询复现；增量扫描后 <code class="inline">(api_url, http_method)</code> 唯一无重复；扫描器不写绝对路径；Windows + 中文路径不崩。</div>
+    </div>
+
+    <!-- 2b -->
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--purple)">2b</div>
+        <div class="t"><h3>功能覆盖与快速选用例 + 生成新用例</h3><div class="one-line">结论：mcp 调用链 + revision mark + SVN 提交描述元数据</div></div>
+      </div>
+
+      <div class="block"><h4>核心判断</h4>
+      <p>用例的<b>功能覆盖</b>不能靠 URL 关键字。用例标题、步骤描述是自然语言；一个用例可能调用多个接口方法覆盖一个功能点；同一 URL 可被多个用例以不同断言覆盖。原方案「双索引交叉分析」只解决 URL 维度，功能维度必须走 mcp 调用链 + 用例语义元数据。</p>
+      </div>
+
+      <div class="block"><h4>mcp 调用链反向查选用例</h4>
+      <pre>变更符号（来自 facts.json，如 WfForceOver）
+  → 外部 MCP impact(version, WfForceOver) → 受影响 Action / HTTP 端点
+  → 对每个受影响符号，在 E9 外部图谱反向查 callers
+    → 命中的 test_xxx 即「已有用例覆盖该符号」
+  → 结合 docstring 标题 + 步骤描述判定测试点
+  → 输出：已覆盖测试点 + 未覆盖测试点（需新建用例）</pre>
+      <ul>
+        <li>MCP 初始化、同步和版本切换由外部 E9 MCP 服务负责，调用方不执行 <code class="inline">mcp init/sync</code>。</li>
+        <li>调用方只保存 MCP URL、版本和认证材料引用，不保存 E9 图谱数据库或本地 MCP 运行时。</li>
+        <li>阶段 B/C 只消费外部 MCP 的调用链结果，再与本地 sqlite3 用例索引关联。</li>
+      </ul>
+      </div>
+
+      <div class="block"><h4>关键新增：revision mark + SVN 提交描述作为选取/执行元数据</h4>
+      <p>用例编辑提交时打 <code class="inline">@pytest.mark.r349094</code>，并备注 SVN 提交描述如 <code class="inline">no.4952725 优化等保分保的功能</code>。这两部分是<b>选取与执行的关键</b>：revision mark 回答「用例因哪个提交而生」，commit 描述回答「该提交改了什么功能」，从而支持「按功能关键词反查 revision → 按 mark 选例 → 执行」。</p>
+      <table>
+        <tr><th>元数据</th><th>来源</th><th>本轮需求</th></tr>
+        <tr><td>revision mark</td><td>用例文件内 <code class="inline">@pytest.mark.r349094</code></td><td>继续采集（已有 <code class="inline">_MARK_RE</code>），并入 sqlite3</td></tr>
+        <tr><td>SVN 提交描述</td><td><code class="inline">svn log -r REV</code> commit message</td><td><b>新增采集</b>，并入 sqlite3，与 mark 关联</td></tr>
+        <tr><td>用例标题</td><td>测试函数 docstring 首行</td><td>继续采集</td></tr>
+      </table>
+      <table>
+        <tr><th>关联表</th><th>字段</th><th>说明</th></tr>
+        <tr><td><b>revision_meta</b></td><td>revision, commit_msg, commit_author, commit_date, functional_keywords, analyzed_at, report_path</td><td>commit 描述与功能关键词，支持模糊匹配反查 revision</td></tr>
+        <tr><td><b>test_methods</b></td><td>id, test_name, file, marks, title, calls, line</td><td>用例与 revision mark 关联</td></tr>
+      </table>
+      </div>
+
+      <div class="block"><h4>选取流程</h4>
+      <div class="diagram">
+        <svg viewBox="0 0 960 210" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+          <rect x="15" y="60" width="180" height="70" rx="10" fill="#fef3e2" stroke="#d97706" stroke-width="1.5"/>
+          <text x="105" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">用户输入</text>
+          <text x="105" y="106" text-anchor="middle" font-size="12" fill="#5b6b82">功能关键词</text>
+          <text x="105" y="122" text-anchor="middle" font-size="12" fill="#5b6b82">如『等保分保』</text>
+
+          <rect x="245" y="60" width="240" height="70" rx="10" fill="#eaf1ff" stroke="#2563eb" stroke-width="1.5"/>
+          <text x="365" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">sqlite3 关联查询</text>
+          <text x="365" y="106" text-anchor="middle" font-size="12" fill="#5b6b82">revision_meta.commit_msg LIKE</text>
+          <text x="365" y="122" text-anchor="middle" font-size="12" fill="#5b6b82">→ join test_methods by mark</text>
+
+          <rect x="535" y="60" width="180" height="70" rx="10" fill="#f0e9fd" stroke="#7c3aed" stroke-width="1.5"/>
+          <text x="625" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">用例清单</text>
+          <text x="625" y="106" text-anchor="middle" font-size="12" fill="#5b6b82">test_xxx + 标题</text>
+          <text x="625" y="122" text-anchor="middle" font-size="12" fill="#5b6b82">命中 r349094</text>
+
+          <rect x="765" y="60" width="180" height="70" rx="10" fill="#e6f7f5" stroke="#0d9488" stroke-width="1.5"/>
+          <text x="855" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">执行</text>
+          <text x="855" y="106" text-anchor="middle" font-size="12" fill="#5b6b82">pytest -m r349094</text>
+          <text x="855" y="122" text-anchor="middle" font-size="12" fill="#5b6b82">--clean</text>
+
+          <path d="M 195 95 L 245 95" stroke="#0d9488" stroke-width="2" fill="none" marker-end="url(#arrB)"/>
+          <path d="M 485 95 L 535 95" stroke="#0d9488" stroke-width="2" fill="none" marker-end="url(#arrB)"/>
+          <path d="M 715 95 L 765 95" stroke="#0d9488" stroke-width="2" fill="none" marker-end="url(#arrB)"/>
+
+          <rect x="245" y="160" width="700" height="38" rx="8" fill="#fdeaea" stroke="#dc2626" stroke-width="1.2"/>
+          <text x="595" y="184" text-anchor="middle" font-size="12" font-weight="600" fill="#991b1b">辅助验证：外部 MCP callers(版本, 符号) 反查，结果应与 mark 关联一致</text>
+
+          <defs><marker id="arrB" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0d9488"/></marker></defs>
+        </svg>
+      </div>
+      <pre>用户: 跑一下等保分保相关的用例
+  → revision_meta.commit_msg LIKE '%等保分保%' → 命中 r349094
+  → 用 mark r349094 查 test_methods → 用例清单
+  → pytest -m r349094 执行
+
+用户: r349094 改了什么，有没有用例覆盖
+  → revision_meta 查 commit_msg
+  → facts.json 查受影响符号
+  → 外部 MCP callers 反查 E9 图谱 → 已有用例
+  → sqlite3 test_methods 补 docstring 标题
+  → 输出：已有 N 个用例覆盖 X 测试点；未覆盖 Y 测试点</pre>
+      </div>
+
+      <div class="block"><h4>与 2a 的边界</h4>
+      <ul>
+        <li>2a 回答「URL 有没有封装」→ 阶段 B 是否新建 <code class="inline">page_api</code> 方法。</li>
+        <li>2b 回答「功能点有没有用例覆盖」→ 阶段 B 是否新建 <code class="inline">test_case</code> 用例。</li>
+        <li>两者在阶段 A 的 <code class="inline">design.json</code> 同时产出，互为补充。</li>
+      </ul>
+      </div>
+
+      <div class="concl"><b>验收：</b>给定 commit 描述关键词能在 <code class="inline">revision_meta</code> 模糊查到 revision；给定 revision 能用 mark 在 <code class="inline">test_methods</code> 查到全部关联用例；mcp callers 反查结果与 mark 关联结果一致（差异需说明）。</div>
+    </div>
+  </div>
+
+  <!-- 需求 3 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">3</span><h2>快速测试：一键 AI 自动化</h2><span class="sub">需求 3 · 一期</span></div>
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--teal)">3</div>
+        <div class="t"><h3>先确认本地配置，再快速启动测试</h3><div class="one-line">结论：本地配置可用则复用确认；不可用或换环境则一次填写模板</div></div>
+      </div>
+
+      <div class="block"><h4>对话流</h4>
+      <pre>用户: 快速测试
+AI:   只读 config.json，绝不显示密码
+      配置完整 → "是否复用环境 xxx、管理员 xxx、2 个普通成员？"
+      配置缺失/用户要换环境 → 返回填写模板并等待：
+
+      测试环境地址: XXX
+      管理员账号: XXX
+      管理员账号密码: XXX
+      普通成员一账号: XXX
+      普通成员一密码: XXX
+
+用户: 确认复用，r349084
+AI:   分析 → 用例实现 → 测试 → 并行报告分析 → 重建 Allure</pre>
+      </div>
+      <div class="concl teal"><b>要点：</b>完整条件是合法 HTTP(S) 地址、完整管理员账号和至多 5 组完整普通成员账号。复用时只显示脱敏摘要；提交模板后才原子写入配置，未提供的成员槽清空。确认配置后再收集单一 revision，底层复用「阶段 A→B→C」。</div>
+    </div>
+  </div>
+
+  <!-- 需求 4 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">4</span><h2>测试通过后提交用例仓库（Git）</h2><span class="sub">需求 4 · 一期</span></div>
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--amber)">4</div>
+        <div class="t"><h3>通过后提交公司 GitLab 测试资产</h3><div class="one-line">结论：api-test-E9 是独立 Git 仓库（已 git init），大部分开发在其内完成</div></div>
+      </div>
+
+      <div class="block"><h4>流程</h4>
+      <pre>全部用例通过！
+本次新增/修改的文件：
+  - api-test-E9/test_case/test_workflow_case/test_force_over_case.py
+  - api-test-E9/page_api/workflow_api/workflow_base_api.py
+
+是否需要提交到测试用例仓库？(Y/N)
+
+# 用户确认后（在 api-test-E9 目录，它是独立 Git 仓库）
+cd api-test-E9
+git add page_api/ test_case/ tools/ docs/ .workbuddy/ skill_utils/
+git commit -m "test: add regression tests for r349084"
+git push</pre>
+      </div>
+      <div class="concl"><b>边界：</b><code class="inline">api-test-E9/</code> 是独立 Git 仓库（已执行 <code class="inline">git init</code>），<b>大部分开发（接口封装、用例、扫描器、skill_utils、Evals）都在其内完成</b>，不依赖项目根目录。仓库根的 <code class="inline">svn_analyse/</code>、<code class="inline">docs/</code>、<code class="inline">code_repo/</code> 仅作分析与源码引用，不入 <code class="inline">api-test-E9</code> 的 Git。WorkBuddy Skill 随 <code class="inline">api-test-E9/.workbuddy/skills/</code> 分发，clone <code class="inline">api-test-E9</code> 即得 skill。向公司内部 GitLab <b>提交真实 <code class="inline">config.json</code> 与 <code class="inline">test_data/account.json</code></b>（同事 clone 即用真实配置快速测试）；仍通过 <code class="inline">.gitignore</code> 排除 <code class="inline">report/</code>、<code class="inline">runtime/</code>、<code class="inline">logs/</code>、<code class="inline">.mcp/</code>、<code class="inline">__pycache__/</code> 和会话记忆，但不排除凭据与账号文件。</div>
+    </div>
+  </div>
+
+  <!-- 需求 5 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">5</span><h2>测试报告 + 结果分析</h2><span class="sub">需求 5 · 一期</span></div>
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--red)">5</div>
+        <div class="t"><h3>并行分析失败原因并回写 Allure</h3><div class="one-line">结论：最多 10 个只读子代理；主会话是唯一校验与写入者</div></div>
+      </div>
+
+      <div class="block"><h4>设计思路</h4>
+      <p>先冻结指定运行的 <code class="inline">allure-results/*-result.json</code> 清单和 SHA-256，再按规范化失败指纹去重、分片。主会话按 <code class="inline">min(10, 唯一失败数, 可用并发)</code> 调度子代理；没有失败时不启动子代理。</p>
+      <p>每个子代理只读脱敏、截断的输入 JSON，不能读配置、执行命令或写文件。所有输出由主会话校验后回写为受管 <code class="inline">AI 分析</code> attachment，随后重新生成 Allure HTML。</p>
+      </div>
+
+      <div class="block"><h4>规则分类器</h4>
+      <pre>pytest → 冻结 manifest（UUID + SHA-256 + 脱敏错误）
+       → 按 fingerprint 去重，最多 10 个只读子代理
+       → 主会话校验 schema、hash、分类和敏感信息
+       → 原子替换 result.json，追加/替换一个 AI 分析附件
+       → allure generate → summary.json
+
+分类：environment / credentials_config / dependency /
+      test_data / test_code / product_defect / unknown</pre>
+      </div>
+
+      <div class="block"><h4>输出格式</h4>
+      <pre>=== 测试结果 ===
+版本: r349084 | 总计: 5 | 通过: 4 | 失败: 1 | 唯一失败类型: 1
+
+失败用例分析：
+✗ test_force_over_removed_from_todo
+  → 测试环境连接超时；先确认环境可访问且已部署目标版本。
+
+Allure: 每条失败结果内可查看「AI 分析」附件</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 需求 6 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">6</span><h2>远端架构：知识图谱 / 用例远程化</h2><span class="sub">需求 6 · 二期完成本地能力，远端部署验收归远端开发</span></div>
+
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--teal)">6.1</div>
+        <div class="t"><h3>两套图谱的远端能力与选型</h3><div class="one-line">结论：MCP 已有原生 stdio MCP；生产仍需企业网关与 SVN 更新作业</div></div>
+      </div>
+      <div class="block">
+        <p>现有 E9 索引由 <b>MCP 1.5.0</b> 构建，已支持 <code class="inline">mcp serve --mcp</code>、<code class="inline">sync</code> 与 JSON 查询；因此不应从零开发查询型 MCP。其原生 MCP 是本地 stdio，不是带认证的远程 HTTP 服务。</p>
+        <p><b>codebase-memory-mcp</b> 提供更广的 Java Hybrid LSP、语义检索和 15 个 MCP 工具，但同样只有 stdio transport，且 watcher/detect_changes 只支持 Git；它不能自行更新 SVN 工作副本。推荐保留 MCP 生产索引，另把替代引擎放入真实 E9 revision 的 PoC。</p>
+        <pre>WorkBuddy → 企业 HTTPS MCP Gateway（认证 / ACL / 审计）
+          → MCP 原生 MCP / SDK 查询池
+          → 异步更新作业：锁 → svn update → graph sync → 验证 → 原子激活
+
+只允许 request_refresh(repo_id, revision?)，禁止任意 shell、路径、SVN URL 和凭据参数。</pre>
+      </div>
+    </div>
+
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--teal)">6.2</div>
+        <div class="t"><h3>整体架构方案（已评估可行）</h3><div class="one-line">远端放代码+索引+MCP，本地 clone 测试框架跑 pytest</div></div>
+      </div>
+      <div class="block"><h4>架构图</h4>
+      <div class="diagram">
+        <svg viewBox="0 0 960 430" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+          <!-- 远端 -->
+          <rect x="20" y="20" width="920" height="200" rx="16" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/>
+          <text x="480" y="48" text-anchor="middle" font-size="16" font-weight="700" fill="#0c4a6e">远端服务器</text>
+
+          <rect x="44" y="68" width="300" height="130" rx="10" fill="#fff" stroke="#bae6fd"/>
+          <text x="194" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#0c4a6e">/data/e9-code/（多版本）</text>
+          <text x="194" y="116" text-anchor="middle" font-size="12" fill="#5b6b82">v10.0/ (src + .mcp)</text>
+          <text x="194" y="136" text-anchor="middle" font-size="12" fill="#5b6b82">v10.1/ (src + .mcp)</text>
+          <text x="194" y="162" text-anchor="middle" font-size="12" font-weight="600" fill="#0d9488">standby 更新作业（拉取+sync+校验）</text>
+          <text x="194" y="182" text-anchor="middle" font-size="11" fill="#94a3b8">验证成功后原子切换 active generation</text>
+
+          <rect x="364" y="68" width="280" height="130" rx="10" fill="#fff" stroke="#bae6fd"/>
+          <text x="504" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#0c4a6e">企业 HTTPS MCP Gateway</text>
+          <text x="504" y="118" text-anchor="middle" font-size="12" fill="#5b6b82">tool: impact(version, symbol)</text>
+          <text x="504" y="138" text-anchor="middle" font-size="12" fill="#5b6b82">tool: callers(version, symbol)</text>
+          <text x="504" y="158" text-anchor="middle" font-size="12" fill="#5b6b82">job: request_refresh(repo_id, revision?)</text>
+          <text x="504" y="182" text-anchor="middle" font-size="11" fill="#94a3b8">认证、ACL、审计、多版本路由</text>
+
+          <rect x="664" y="68" width="252" height="130" rx="10" fill="#fff" stroke="#bae6fd"/>
+          <text x="790" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#0c4a6e">测试框架 Git 仓库</text>
+          <text x="790" y="118" text-anchor="middle" font-size="12" fill="#5b6b82">.workbuddy/skills/（Skill 嵌入）</text>
+          <text x="790" y="138" text-anchor="middle" font-size="12" fill="#5b6b82">page_api/ + test_case/</text>
+          <text x="790" y="158" text-anchor="middle" font-size="12" fill="#5b6b82">tools/（分析/分类器）</text>
+          <text x="790" y="182" text-anchor="middle" font-size="11" fill="#94a3b8">用例随 Git 版本管理</text>
+
+          <!-- MCP 双向箭头 -->
+          <path d="M 600 300 L 600 220" stroke="#0d9488" stroke-width="2" stroke-dasharray="5,4"/>
+          <text x="614" y="262" font-size="12" fill="#0f766e" font-weight="600">认证后的 MCP 协议</text>
+
+          <!-- 本地 -->
+          <rect x="20" y="300" width="920" height="110" rx="16" fill="#f6f8fb" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="480" y="326" text-anchor="middle" font-size="16" font-weight="700" fill="#1a2332">用户本地</text>
+
+          <rect x="44" y="342" width="430" height="52" rx="9" fill="#fff" stroke="#cbd5e1"/>
+          <text x="259" y="364" text-anchor="middle" font-size="13" font-weight="700" fill="#1a2332">D:\e9-test-framework\（git clone）</text>
+          <text x="259" y="384" text-anchor="middle" font-size="12" fill="#5b6b82">.workbuddy/skills + svn_analyse/ + api-test-E9/ + config.json</text>
+
+          <rect x="504" y="342" width="412" height="52" rx="9" fill="#fff" stroke="#cbd5e1"/>
+          <text x="710" y="364" text-anchor="middle" font-size="13" font-weight="700" fill="#1a2332">WorkBuddy 对话完成全部操作</text>
+          <text x="710" y="384" text-anchor="middle" font-size="12" fill="#5b6b82">分析→MCP 查影响 → 本地写用例 → pytest → 报告 → Git 提交</text>
+        </svg>
+      </div>
+      <p>完整的可编辑架构图见 <code class="inline">docs/e9-remote-mcp-architecture.drawio</code>；详细调研、比较、状态机和验收项见 <code class="inline">E9_快速测试_报告并行分析_远端图谱优化方案.md</code>。</p>
+      </div>
+
+      <div class="block"><h4>可行性结论</h4>
+      <table>
+        <tr><th>层面</th><th>结论</th></tr>
+        <tr><td>Skill 分发</td><td class="ok">技能放 Git 仓库 .workbuddy/ 下，clone 即生效，非常优雅</td></tr>
+        <tr><td>多版本索引</td><td class="ok">不同分支建不同 .mcp/ 目录，或用环境变量切换</td></tr>
+        <tr><td>自动构建</td><td class="ok">服务器 build_all.sh：svn checkout + mcp init</td></tr>
+        <tr><td>测试执行</td><td class="ok">本地 clone 后直接跑 pytest，无需远端参与</td></tr>
+        <tr><td>用例开发</td><td class="ok">WorkBuddy + Skill 指导，AI 读分析结果→生成用例→写本地</td></tr>
+        <tr><td>团队协作</td><td class="ok">用例 Git 推送，他人 pull 即得最新用例</td></tr>
+      </table>
+      </div>
+    </div>
+
+    <div class="req">
+      <div class="concl"><b>路线说明（2026-08-26）：</b>四期本地优化聚焦 MCP 端点提取、代码反查证据和新增接口用例前置数据自动化；五期在此基础上正式开启多笔 SVN 提交联合影响分析与批次用例，见 <code class="inline">docs/五期开发/E9五期开发计划书.md</code>。远端网关、受控刷新和多版本 generation 仍由独立的“远端开发”路线管理。</div>
+    </div>
+  </div>
+
+  <!-- 需求 9：四期本地优化 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">9</span><h2>MCP 与新增接口用例前置数据自动化</h2><span class="sub">需求 9 · 四期本地开发与优化</span></div>
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--orange)">9.1</div>
+        <div class="t"><h3>从 SVN 变更到可验证测试证据</h3><div class="one-line">端点提取、后端调用链、前端操作到接口映射、前置数据和行为断言形成闭环</div></div>
+      </div>
+      <ul>
+        <li>MCP 端点提取失败必须输出诊断、候选入口和人工复核标记，不能静默空数组。</li>
+        <li>前端反查覆盖页面/路由、按钮/表单、事件处理器、Ajax/fetch/axios、URL/方法/参数、响应效果；静态结果需与 Network/HAR 运行证据合并。</li>
+        <li>新增用例前按“用户动作 → 接口 → 后端变更 → 行为结果”生成前置数据计划，缺少确认级证据时降低置信度并阻止伪精确用例。</li>
+        <li>前置数据构建必须幂等、可复用、可清理；状态文件只保存业务标识，不保存凭据或完整响应。</li>
+        <li>完整需求、MCP 可行性结论和替代方案见 <a href="四期开发/E9四期需求分析报告.html">E9四期需求分析报告.html</a>；执行流程见 <a href="../../.workbuddy/skills/svn-impact/flow.md">svn-impact flow.md</a>。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 五期开发：批次影响分析 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">5</span><h2>多笔 SVN 提交联合影响分析与接口用例</h2><span class="sub">五期专项 · 开启批次能力，单笔流程继续兼容</span></div>
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--purple)">5</div>
+        <div class="t"><h3>一次处理 2–10 笔关联提交</h3><div class="one-line">读取 E9 信息 MCP 解析实际提交集合，逐笔 attempt 后聚合 design，再经人工定稿生成批次用例</div></div>
+      </div>
+      <div class="block"><h4>输入模板与边界</h4>
+      <ul>
+        <li>连续区间模板：<code class="inline">分析 Revision r349181 到 Revision r349184，提交说明：no.4996246 解决了流程导入不会更新明细表配置的问题</code>；区间语义始终是闭区间，但是否存在中间 revision 必须由读取 MCP 实际查询确认。</li>
+        <li>显式集合模板：<code class="inline">分析 Revision r349181、Revision r349184，提交说明：...</code>；只分析用户列出的 revision，不推断中间编号，也不要求连续。</li>
+        <li>快速测试模板：<code class="inline">快速测试 Revision r349181 到 Revision r349184，提交说明：...</code>；配置确认后按阶段 A → A+ 功能用例 → A++ 人工定稿 → B → C → 报告分析执行，任一门禁失败即停止后续写入。</li>
+        <li>批次为 2–10 笔；区间数字跨度必须满足 <code class="inline">B-A &lt;= 10</code>。读取 E9 信息 MCP 对 A、B 各查询左右最多 10 笔，合并去重后过滤闭区间；端点无效、缺少边界完整性证据、实际超过 10 笔或只找到一笔时提示修改。A=B 继续走单笔流程。</li>
+        <li>批次必须提供总结性 <code class="inline">batch_message</code>；SVN 原始提交说明逐笔保留。单笔提示词继续兼容，不强制批次说明。</li>
+      </ul>
+      </div>
+      <div class="block"><h4>分析与产物</h4>
+      <ul>
+        <li>每笔 revision 以完整分析 attempt 为单位最多重试 3 次，成功项不重复查询；最终失败记录真实 MCP 工具、阶段、attempt、错误和建议，任一关键事实缺失则阻断阶段 B。</li>
+        <li>先写入 <code class="inline">revisions/r&lt;revision&gt;/facts.json</code> 与 <code class="inline">design.json</code>，再生成批次 <code class="inline">aggregate_design</code>，保留 <code class="inline">source_revisions</code>、resolver 证据和跨提交结论。部分报告不得进入阶段 B。</li>
+        <li>批次目录为 <code class="inline">output/batch_r349181_r349184/</code>，包含批次 facts/design/reverse_lookup、报告和逐笔子目录。</li>
+      </ul>
+      </div>
+      <div class="block"><h4>状态与阶段 B 门禁</h4>
+      <ul>
+        <li>区间 resolver 先对 A、B 各取左右最多 10 笔并校验边界完整性；状态不是 <code class="inline">accepted</code> 时停止，不进入阶段 A。</li>
+        <li>逐 revision 的一次 attempt 覆盖全部关键查询，最多 3 次；失败后允许输出部分审计报告，但 <code class="inline">stage_b_gate=false</code>，不写接口代码。</li>
+        <li>完整批次还必须完成 A+ 功能用例设计和 A++ 人工定稿，才能进入阶段 B；A=B 仍按单笔流程。</li>
+      </ul>
+      </div>
+      <div class="block"><h4>公共能力复用与 SKILL 方案</h4>
+      <ul>
+        <li>单笔和批次共用一个 <code class="inline">svn-impact</code> SKILL；不新建第二个顶层批次 SKILL，避免 MCP 安全、功能用例、前置数据、阶段门禁和报告规则分叉。</li>
+        <li>公共规则集中在 <code class="inline">references/common-analysis-contract.md</code>；功能用例设计统一遵守 <code class="inline">references/functional-case-design.md</code>，批次先合并影响模块再按同一规范设计。</li>
+        <li>代码抽取公共 <code class="inline">analysis_worker</code>：单笔入口和批次逐 revision 都调用同一事实/反查逻辑；批次只新增 resolver、调度、聚合、<code class="inline">batch_id</code> 和多 mark。</li>
+      </ul>
+      </div>
+      <div class="block"><h4>多标记执行</h4>
+      <pre>@pytest.mark.r349181
+@pytest.mark.r349182
+@pytest.mark.r349183
+@pytest.mark.r349184</pre>
+        <p>每条批次接口用例同时挂全部 revision mark。执行四个 mark 中任意一个，均运行该批次完整接口用例；也支持生成经校验的 <code class="inline">r349181 or r349182 or r349183 or r349184</code> 表达式。<code class="inline">batch_id</code> 和 <code class="inline">analysis_run_id</code> 用于 Allure、inventory、summary 和报告追踪，不作为 pytest marker。</p>
+      </div>
+      <div class="block"><h4>验收重点</h4>
+      <ul>
+        <li>示例 r349181–r349184 能由读取 MCP 实际解析，逐笔分析并合并为 no.4996246 的联合影响面。</li>
+        <li>区间解析不按数字连续性猜测；显式集合不展开；读取 MCP 不可用或无边界证据时阻断，不转用运维 MCP、本地 SVN 或数字补齐；单笔流程不回归。</li>
+        <li>阶段 B 同时要求完整批次、aggregate design 和 A+/A++ 功能用例人工定稿；缺失事实经过三次 attempt 仍失败时输出真实阻断原因，不生成伪精确用例。</li>
+      </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 需求 7 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">7</span><h2>Git 分支管理 Skill</h2><span class="sub">需求 7 · 三期</span></div>
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--green)">7</div>
+        <div class="t"><h3>自然语言切换 / 新建分支，默认从主分支拉取</h3><div class="one-line">结论：skill-creator 新增 git-branch 技能；默认分支可配置，新分支一律从主分支拉取</div></div>
+      </div>
+
+      <div class="block"><h4>决策树</h4>
+      <pre>解析分支名（省略 → config.json 的 git.default_branch = master）
+  ├─ git branch --list 已存在 → git checkout
+  └─ 不存在 → 询问「是否从主分支新建」
+       ├─ 确认 → git fetch → git checkout -b &lt;name&gt; &lt;default_branch&gt;
+       └─ 否定 → 终止，零改动</pre>
+      </div>
+
+      <div class="block"><h4>安全边界</h4>
+      <ul>
+        <li>切换 / 新建前 <code class="inline">git status --porcelain</code> 非空 → 先询问（stash / 放弃 / 取消），不静默丢弃。</li>
+        <li>分支名按 <code class="inline">git check-ref-format</code> 校验，拒绝非法名。</li>
+        <li>只读操作零副作用；切换失败回滚到原分支。</li>
+        <li>只读 <code class="inline">git</code> 配置块，不读取 / 输出账号密码。</li>
+      </ul>
+      </div>
+
+      <div class="block"><h4>Evals 验收</h4>
+      <ul>
+        <li>首批重点测 <b>自然语言触发词的触发成功率</b>（正例命中 / 负例不误触）。</li>
+        <li>正向：切换已有分支；新建分支落 master；省略名回退默认；拒绝新建零改动。</li>
+        <li>负向：非法分支名被拒；有未提交变更不得静默切换。</li>
+      </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 需求 8 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">8</span><h2>工作区收敛到 api-test-E9</h2><span class="sub">需求 8 · 三期</span></div>
+    <div class="req">
+      <div class="req-head">
+        <div class="req-num" style="background:var(--green)">8</div>
+        <div class="t"><h3>有用内容全部迁入 api-test-E9，code_repo 走 MCP</h3><div class="one-line">结论：workbook 唯一入口 = api-test-E9；SKILL 提炼 + CLI 独立包 + 文档入 E9_svn_analyse</div></div>
+      </div>
+
+      <div class="block"><h4>三类分流</h4>
+      <ul>
+        <li>可提炼为 SKILL（文字 + 脚本）→ <code class="inline">api-test-E9/.workbuddy/skills/</code>。</li>
+        <li>不可提炼、需单独执行（CLI / 脚本）+ 独立文档 → <code class="inline">api-test-E9/E9_svn_analyse/</code>。</li>
+        <li>框架自身（page_api / test_case / tests / tools / utils）原地不动。</li>
+      </ul>
+      </div>
+
+      <div class="block"><h4>分析 CLI 归属（实证定案）</h4>
+      <p><code class="inline">svn_analyse</code> 不是 SKILL 私有——被单元测试套件模块级 import、命令行人工入口使用、二期还要扩展 select/check-consistency，故保持独立 Python 包，落位 <code class="inline">E9_svn_analyse/svn_analyse/</code>；SKILL 只带 SKILL 私有脚本。</p>
+      </div>
+
+      <div class="block"><h4>config.json 与凭据</h4>
+      <pre>{
+  "_usage": "E9 测试环境与 Git 分支配置。字段顺序：base_url、git、admin、employee1~5。",
+  "base_url": "https://test.example",
+  "git": { "default_branch": "master", "remote_name": "origin" },
+  "admin": { "user_name": "…", "password": "…" },
+  "employee1": { "user_name": "…", "password": "…" }
+}</pre>
+      <p>真实 <code class="inline">config.json</code> 与 <code class="inline">test_data/account.json</code> 改为<b>提交公司内部 GitLab</b>，同事 clone 即用。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 实施路线 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">路</span><h2>实施路线</h2></div>
+    <div class="req">
+      <div class="timeline">
+        <div class="tl-phase">
+          <div class="tl-dot" style="background:var(--red)">1</div>
+          <h4>一期：打通核心闭环</h4>
+          <div class="tags">
+            <span class="tl-chip c-p1">需求 1 · SKILL 自包含 + Evals</span>
+            <span class="tl-chip c-p1">需求 3 · 快速测试</span>
+            <span class="tl-chip c-p1">需求 5 · 报告并行分析</span>
+            <span class="tl-chip c-p1">需求 4 · Git 提交</span>
+          </div>
+          <ul>
+            <li>用 <code class="inline">skill-creator</code> 重做 <code class="inline">svn-impact</code>，核对 <code class="inline">SKILL.md</code> 完全自包含、去 AGENTS.md 依赖（小）</li>
+            <li>配套两层 eval（触发集 + 工作流契约集）与静态校验/Git 审计脚本（中）</li>
+            <li>实现配置完整性检查、脱敏摘要与模板式「快速测试」入口（小）</li>
+            <li>实现 manifest、子代理分片、Allure 原子回写和报告重建（中）</li>
+            <li>配置 <code class="inline">api-test-E9</code> 独立 Git 仓库的 <code class="inline">.gitignore</code>、<code class="inline">config.example.json</code> 和远端 <code class="inline">origin</code>（<code class="inline">git init</code> 已完成）（小）</li>
+          </ul>
+        </div>
+        <div class="tl-phase">
+          <div class="tl-dot" style="background:var(--amber)">2</div>
+          <h4>二期：覆盖分析 + 本地图谱能力</h4>
+          <div class="tags">
+            <span class="tl-chip c-p2">需求 2a · sqlite3 接口覆盖</span>
+            <span class="tl-chip c-p2">需求 2b · mcp + commit 元数据</span>
+            <span class="tl-chip c-p2">需求 6.1 · MCP 本地 MCP</span>
+          </div>
+          <ul>
+            <li>实现 sqlite3 URL 索引扫描器（参考 E10），覆盖判定走等值查询（中）</li>
+            <li>对 api-test-E9 建 MCP 索引，反向 callers 查选用例（中）</li>
+            <li>采集 SVN 提交描述建 revision_meta/test_methods 关联表，支持按功能关键词选用例（中）</li>
+            <li>接入 MCP 原生只读 MCP，修复 CLI 版本兼容（小）</li>
+            <li>以真实 E9 revision 对 codebase-memory-mcp 做准确率与资源 PoC（中）</li>
+            <li>需求 6.2 网关 / SVN 更新作业 / 多版本 generation 本地实现与自动化验证（远端部署验收归远端开发）</li>
+          </ul>
+        </div>
+        <div class="tl-phase">
+          <div class="tl-dot" style="background:var(--green)">3</div>
+          <h4>三期：分支管理 + 工作区收敛</h4>
+          <div class="tags">
+            <span class="tl-chip c-p3">需求 7 · Git 分支管理 SKILL</span>
+            <span class="tl-chip c-p3">需求 8 · 工作区收敛</span>
+          </div>
+          <ul>
+            <li>用 <code class="inline">skill-creator</code> 新增 <code class="inline">git-branch</code> 技能，配套首批触发成功率 evals（小）</li>
+            <li>工作区收敛到 <code class="inline">api-test-E9</code>；分析 CLI 独立包迁入 <code class="inline">E9_svn_analyse/</code>（中）</li>
+            <li>重写 35 条 CLI 测试；更新 README（面向测试人员）与分层 AGENTS.md（中）</li>
+          </ul>
+        </div>
+        <div class="tl-phase">
+          <div class="tl-dot" style="background:var(--orange)">4</div>
+          <h4>四期：本地 MCP 与用例数据优化</h4>
+          <div class="tags">
+            <span class="tl-chip c-p4">需求 9.1 · MCP 端点诊断</span>
+            <span class="tl-chip c-p4">需求 9.2 · 前端操作反查</span>
+            <span class="tl-chip c-p4">需求 9.3 · 前置数据自动构建</span>
+            <span class="tl-chip c-p4">需求 9.4 · SKILL 流程与行为断言</span>
+          </div>
+          <ul>
+            <li>扩展端点提取诊断，并将后端调用链与前端页面操作、请求 URL、参数和响应效果合并为可审计证据（中）</li>
+            <li>把反查证据接入新增接口用例流程，自动生成查询 → 创建 → 配置 → 验证的数据计划（中）</li>
+            <li>幂等构建并回收模块测试数据，补齐批量探针、版本对比、行为级断言和 Trace（中）</li>
+            <li>以 r349155/r349149 为基线完成“分析 → 反查 → 数据构建 → 执行 → 报告”验收（中）</li>
+          </ul>
+        </div>
+        <div class="tl-phase">
+          <div class="tl-dot" style="background:var(--purple)">5</div>
+          <h4>五期：多笔提交批次影响分析</h4>
+          <div class="tags">
+            <span class="tl-chip c-p4">批次输入与实际 revision 解析</span>
+            <span class="tl-chip c-p4">逐笔事实 / design 与联合 design</span>
+            <span class="tl-chip c-p4">多 revision mark 与批次报告</span>
+          </div>
+          <ul>
+            <li>支持闭区间和显式 revision 集合，批次最多 10 笔；区间跨度不超过 10，由读取 E9 信息 MCP 实际解析 A/B 之间的提交。</li>
+            <li>每笔提交最多 3 次完整 attempt，关键事实最终缺失时阻断阶段 B；完整批次并完成 A+/A++ 人工定稿后才进入接口封装和用例实现。</li>
+            <li>逐笔调用单笔分析 worker 后聚合联合 design；每条批次用例挂全部 revision mark，执行任一 mark 或 OR 表达式均覆盖完整批次。</li>
+            <li>单笔与批次共用 <code class="inline">common-analysis-contract.md</code>、<code class="inline">functional-case-design.md</code>、前置数据、Allure 和报告分析规则，不建设平行流程。</li>
+            <li>按 <code class="inline">skill-creator</code> 规范更新 <code class="inline">svn-impact</code> SKILL、flow、evals，并同步 AGENTS、README、runner 和需求文档。</li>
+          </ul>
+        </div>
+        <div class="tl-phase">
+          <div class="tl-dot" style="background:var(--purple)">远</div>
+          <h4>远端开发：企业图谱服务部署验收（独立路线）</h4>
+          <div class="tags">
+            <span class="tl-chip c-p4">需求 6.2 · HTTPS MCP 网关</span>
+            <span class="tl-chip c-p4">SVN 更新作业与 generation</span>
+            <span class="tl-chip c-p4">远端 diff/log 与 r349149 复核</span>
+          </div>
+          <ul>
+            <li>本地四期、五期需求和调用方适配完成后，结合企业环境启动远端网关、受控刷新、多版本 generation 和远端 diff/log 验收。</li>
+            <li>详细任务见 <code class="inline">docs/远端开发/E9远端开发计划书.md</code>，不与本地四期任务混用。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 优先级/工作量矩阵 -->
+  <div class="section">
+    <div class="sec-title"><span class="idx">矩</span><h2>优先级 × 工作量矩阵</h2></div>
+    <div class="req">
+      <div class="matrix">
+        <div class="m-cell" style="border-top:3px solid var(--red)"><div class="h">需求 1 · SKILL 自包含 <span class="badge b-p1">一期</span></div><div class="d">工作量小 · 价值高 · 是后续所有能力的分发载体，优先落地。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--red)"><div class="h">需求 5 · 报告并行分析 <span class="badge b-p1">一期</span></div><div class="d">工作量中 · 最多 10 个只读子代理加速，主会话保证 Allure 单写和幂等。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--amber)"><div class="h">需求 3 · 快速测试 <span class="badge b-p1">一期</span></div><div class="d">工作量小 · 先确认脱敏的本地配置，缺失时使用一次填写模板。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--amber)"><div class="h">需求 4 · Git 提交 <span class="badge b-p1">一期</span></div><div class="d">工作量中 · 打通用例资产沉淀与团队协作。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--purple)"><div class="h">需求 2a · sqlite3 接口覆盖 <span class="badge b-p2">二期</span></div><div class="d">工作量中 · URL 是否已封装走关系型等值查询，确定、可自动化、零语义。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--purple)"><div class="h">需求 2b · mcp 功能覆盖 <span class="badge b-p2">二期</span></div><div class="d">工作量中 · 调用链反查 + revision mark + SVN 提交描述，支持按功能关键词选用例。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--purple)"><div class="h">需求 6 · 远端架构 <span class="badge b-p2">二期本地</span><span class="badge b-p4">远端开发</span></div><div class="d">工作量大 · 二期已完成本地能力（原生 MCP 与三项远端实现的自动化验证）；解耦本地代码依赖，支持多版本环境与团队共享，远端部署验收在本地四期优化完成后执行。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--green)"><div class="h">需求 7 · Git 分支管理 <span class="badge b-p3">三期</span></div><div class="d">工作量小 · 自然语言切换 / 新建分支，默认从主分支拉取，配套触发成功率 evals。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--green)"><div class="h">需求 8 · 工作区收敛 <span class="badge b-p3">三期</span></div><div class="d">工作量中 · 迁入 api-test-E9，CLI 独立 + code_repo 走 MCP，重写测试与文档。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--orange)"><div class="h">需求 9 · MCP 与前置数据 <span class="badge b-p4">四期本地</span></div><div class="d">工作量大 · 后端图谱、前端操作反查、运行证据、幂等数据构建和行为级断言共同降低假阴性。</div></div>
+        <div class="m-cell" style="border-top:3px solid var(--purple)"><div class="h">五期专项 · 批次影响分析 <span class="badge b-p4">五期</span></div><div class="d">工作量大 · 读取 MCP 解析实际 revision，逐笔重试和证据留存，联合 design 驱动多标记接口用例。</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">E9 系统 AI 自动化需求方案 · 2026-08-26 · 五期批次影响分析开发中 · 基于 WorkBuddy + 嵌入式 Skill</div>
+</div>
+</body>
+</html>

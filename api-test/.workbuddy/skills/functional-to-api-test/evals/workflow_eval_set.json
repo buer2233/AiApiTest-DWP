@@ -1,0 +1,292 @@
+{
+  "schema_version": 1,
+  "skill_name": "functional-to-api-test",
+  "cases": [
+    {
+      "id": "WF-MAP-ENDPOINT",
+      "category": "map_endpoint",
+      "branch": "standard",
+      "prompt": "把这段功能测试用例转成接口自动化：人员01创建并提交R1，R1到审批2（人员02、人员03会签待办）",
+      "expected_trigger": true,
+      "expected_stage": "map",
+      "must_read": [
+        "SKILL.md",
+        "references/mcp-query-guide.md",
+        "references/workflow-pa-service.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "query codebase-memory MCP with project e9",
+        "map functional verbs to endpoints",
+        "identify class-level @Path prefix"
+      ],
+      "must_not": [
+        "use Grep or Read on E9 source",
+        "run local svn commands"
+      ]
+    },
+    {
+      "id": "WF-WRAP-NEW",
+      "category": "wrap",
+      "branch": "new_wrapper",
+      "prompt": "按功能用例转接口自动化，需要新增 /api/workflow/paService/submitRequest 的封装",
+      "expected_trigger": true,
+      "expected_stage": "wrap",
+      "must_read": [
+        "SKILL.md",
+        "docs/api_test_case_spec.md"
+      ],
+      "expected_outputs": [
+        "page_api"
+      ],
+      "must": [
+        "put new method into existing WorkflowAPI class",
+        "keep url variable top and three metadata lines"
+      ],
+      "must_not": [
+        "create duplicate wrapper class",
+        "hardcode host IP or domain"
+      ]
+    },
+    {
+      "id": "WF-WRAP-REUSE",
+      "category": "wrap",
+      "branch": "reuse_wrapper",
+      "prompt": "功能用例转接口自动化，submitRequest 已有封装要复用不要重复建",
+      "expected_trigger": true,
+      "expected_stage": "wrap",
+      "must_read": [
+        "SKILL.md",
+        "docs/api_test_case_spec.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "reuse existing URL wrapper"
+      ],
+      "must_not": [
+        "create duplicate wrapper"
+      ]
+    },
+    {
+      "id": "WF-CASE-COUNTERSIGN",
+      "category": "case",
+      "branch": "countersign_flow",
+      "prompt": "按功能用例写接口自动化：审批2会签，人员02、人员03各提交一次后流转审批3",
+      "expected_trigger": true,
+      "expected_stage": "case",
+      "must_read": [
+        "SKILL.md",
+        "references/workflow-pa-service.md"
+      ],
+      "expected_outputs": [
+        "test_case"
+      ],
+      "must": [
+        "assert current node via getRequestStatus not submit return code",
+        "organize list check before submit and after submit"
+      ],
+      "must_not": [
+        "assert countersign completion by submit return code only"
+      ]
+    },
+    {
+      "id": "WF-FALLBACK-WORKFLOW",
+      "category": "fallback",
+      "branch": "dynamic_workflow_id",
+      "prompt": "功能用例转接口自动化，流程模板 workflowId 通过运行时动态查找，找不到就跳过",
+      "expected_trigger": true,
+      "expected_stage": "fallback",
+      "must_read": [
+        "SKILL.md",
+        "references/runtime-fallback.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "locate workflowId via env var or create workflow list keyword",
+        "pytest.skip when not found"
+      ],
+      "must_not": [
+        "hardcode a fixed workflowId",
+        "weaken assertion instead of skipping"
+      ]
+    },
+    {
+      "id": "WF-FALLBACK-ACCOUNT",
+      "category": "fallback",
+      "branch": "account_skip",
+      "prompt": "功能用例转接口自动化，人员02会签账号在 config.json 里是空的",
+      "expected_trigger": true,
+      "expected_stage": "fallback",
+      "must_read": [
+        "SKILL.md",
+        "references/runtime-fallback.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "rely on login_employee auto skip when credential empty"
+      ],
+      "must_not": [
+        "write password into test code"
+      ]
+    },
+    {
+      "id": "WF-DATA-REUSE-ALL-MODULES",
+      "category": "fallback",
+      "branch": "reuse_existing_business_data",
+      "prompt": "按功能用例写接口自动化，先查询当前测试环境已有流程数据并复用，不能重复造数；这条规则也适用于文档、邮件和看板模块",
+      "expected_trigger": true,
+      "expected_stage": "fallback",
+      "must_read": [
+        "SKILL.md",
+        "references/test-data-reuse.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "query current environment through existing API wrappers before creating data",
+        "reuse matching business IDs and anchor subsequent calls to returned IDs",
+        "apply the same rule to every module"
+      ],
+      "must_not": [
+        "duplicate-create data when a matching record exists",
+        "hardcode an internal ID from another environment"
+      ]
+    },
+    {
+      "id": "WF-DATA-CREATION-BLOCK-REPORT",
+      "category": "fallback",
+      "branch": "creation_failed_four_part_report",
+      "prompt": "环境里没有目标流程数据，已经查询并反查创建接口但造数失败，请说明缺失数据、已做尝试、真实失败原因和需要人工准备的数据后再继续写用例",
+      "expected_trigger": true,
+      "expected_stage": "fallback",
+      "must_read": [
+        "SKILL.md",
+        "references/test-data-reuse.md",
+        "references/runtime-fallback.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "block executable automation for the dependent case",
+        "report missing data, attempts, real cause, and human assistance with continuation condition",
+        "do not hide unfinished creation work behind pytest.skip"
+      ],
+      "must_not": [
+        "invent test data or API contracts",
+        "weaken assertions to make the case pass"
+      ]
+    },
+    {
+      "id": "WF-DATA-CREATION-AFTER-EMPTY",
+      "category": "fallback",
+      "branch": "create_only_after_live_query_empty",
+      "prompt": "功能用例转接口自动化：查询当前环境没有符合条件的文档数据，请先用 MCP 反查创建、关联、发布接口并尝试完整造数链路，成功后再写目标接口断言",
+      "expected_trigger": true,
+      "expected_stage": "fallback",
+      "must_read": [
+        "SKILL.md",
+        "references/test-data-reuse.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "confirm live query is empty before creating",
+        "use MCP to inspect creation dependencies and execute all feasible steps",
+        "continue to target assertions only after creation and verification succeed"
+      ],
+      "must_not": [
+        "create data before querying",
+        "stop at a vague provide-data step without attempting available APIs"
+      ]
+    },
+    {
+      "id": "WF-EXEC-COLLECT",
+      "category": "execute",
+      "branch": "collect_only",
+      "prompt": "功能用例转接口自动化写完了，先收集一下用例确认能跑",
+      "expected_trigger": true,
+      "expected_stage": "execute",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "run pytest --collect-only with venv python"
+      ],
+      "must_not": [
+        "use runpytest.py --clean which triggers sandbox bulk delete"
+      ]
+    },
+    {
+      "id": "WF-NEGATIVE-UI",
+      "category": "negative",
+      "branch": "out_of_scope_ui",
+      "prompt": "用 Playwright 写审批页的 UI 自动化",
+      "expected_trigger": false,
+      "expected_stage": "none",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "do not apply workflow"
+      ],
+      "must_not": [
+        "query E9 graph"
+      ]
+    },
+    {
+      "id": "WF-NEGATIVE-NON-E9",
+      "category": "negative",
+      "branch": "out_of_scope_project",
+      "prompt": "给一个非 E9 的 Java 项目订单功能写接口自动化",
+      "expected_trigger": false,
+      "expected_stage": "none",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "do not apply workflow"
+      ],
+      "must_not": [
+        "run SVN analysis"
+      ]
+    },
+    {
+      "id": "WF-NEGATIVE-SVN",
+      "category": "negative",
+      "branch": "out_of_scope_svn",
+      "prompt": "分析 r349084 这笔提交的影响范围",
+      "expected_trigger": false,
+      "expected_stage": "none",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "refer to svn-impact skill instead"
+      ],
+      "must_not": [
+        "run functional-to-api workflow"
+      ]
+    },
+    {
+      "id": "WF-MAP-COUNT",
+      "category": "map_endpoint",
+      "branch": "list_view_scope",
+      "prompt": "功能用例里查人员待办应含R1、已办应含R1，帮我转成接口自动化",
+      "expected_trigger": true,
+      "expected_stage": "map",
+      "must_read": [
+        "SKILL.md",
+        "references/workflow-pa-service.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "use viewScope doing for todo and done for handled",
+        "map to splitPageKey plus EC table datas"
+      ],
+      "must_not": [
+        "hardcode request ids into assertions"
+      ]
+    }
+  ]
+}

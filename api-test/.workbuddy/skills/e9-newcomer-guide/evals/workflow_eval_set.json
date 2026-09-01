@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "skill_name": "e9-newcomer-guide",
+  "cases": [
+    {"id":"首次无记忆","category":"memory_first","branch":"feature/demo","prompt":"首次使用","expected_trigger":true,"must_read":[".workbuddy/memory"],"expected_outputs":["询问是否进行新人引导"],"must":["按当前日期读取记忆"],"must_not":["假设已完成引导"]},
+    {"id":"完成记忆","category":"memory_completed","branch":"feature/demo","prompt":"继续工作","expected_trigger":false,"must_read":[".workbuddy/memory"],"expected_outputs":["不再次询问新人引导"],"must":["读取 completed 状态"],"must_not":["重复 G0 询问"]},
+    {"id":"跳过记忆","category":"memory_skipped","branch":"feature/demo","prompt":"直接使用项目","expected_trigger":true,"must_read":[".workbuddy/memory"],"expected_outputs":["写入 skipped"],"must":["保存当天状态"],"must_not":["记录凭据"]},
+    {"id":"跨日记忆","category":"memory_expired","branch":"feature/demo","prompt":"今天首次使用","expected_trigger":true,"must_read":[".workbuddy/memory"],"expected_outputs":["重新确认入口"],"must":["校验日期"],"must_not":["复用旧日期"]},
+    {"id":"MCP固定配置","category":"mcp_probe","branch":"feature/demo","prompt":"进行新人引导流程","expected_trigger":true,"must_read":[".workbuddy/mcp/codebase-memory.json",".workbuddy/mcp/codebase-memory-ops.json"],"expected_outputs":["两个 MCP 只读探针"],"must":["使用项目配置"],"must_not":["要求用户自行配置 MCP"]},
+    {"id":"MCP不可用","category":"mcp_unavailable","branch":"feature/demo","prompt":"进行新人引导流程","expected_trigger":true,"must_read":[".workbuddy/mcp/codebase-memory.json",".workbuddy/mcp/codebase-memory-ops.json"],"expected_outputs":["联系开发人员处理 MCP"],"must":["停止依赖 MCP 的分析"],"must_not":["本地扫描 SVN"]},
+    {"id":"master门禁","category":"master_guard","branch":"master","prompt":"我在 master 上直接提交并推送","expected_trigger":false,"must_read":["config.json"],"expected_outputs":["拒绝 master 写入"],"must":["要求切换非 master"],"must_not":["执行 push"]},
+    {"id":"依赖失败","category":"dependency_failure","branch":"feature/demo","prompt":"pip 安装失败了","expected_trigger":true,"must_read":["requirements.txt"],"expected_outputs":["指出失败依赖"],"must":["暂停后续阶段"],"must_not":["伪造安装成功"]},
+    {"id":"脏工作区","category":"dirty_workdir","branch":"feature/demo","prompt":"工作区有未提交改动，继续引导","expected_trigger":true,"must_read":[".workbuddy/RULES.md"],"expected_outputs":["列出改动并询问保留方式"],"must":["不擅自 stash/reset"],"must_not":["覆盖用户修改"]},
+    {"id":"配置拒绝","category":"config_rejected","branch":"feature/demo","prompt":"不使用当前测试账号","expected_trigger":true,"must_read":["config.json"],"expected_outputs":["询问新配置或暂停"],"must":["保留用户选择"],"must_not":["强制复用账号"]},
+    {"id":"非法版本","category":"invalid_revision","branch":"feature/demo","prompt":"分析 HEAD","expected_trigger":true,"must_read":[".workbuddy/skills/svn-impact/SKILL.md"],"expected_outputs":["要求合法 r<正整数>"],"must":["拒绝 HEAD"],"must_not":["调用分析"]},
+    {"id":"未审核设计","category":"design_gate","branch":"feature/demo","prompt":"还没确认设计就写用例","expected_trigger":true,"must_read":[".workbuddy/skills/functional-to-api-test/SKILL.md"],"expected_outputs":["等待确认定稿"],"must":["停止代码修改"],"must_not":["直接生成用例"]},
+    {"id":"造数失败","category":"data_block","branch":"feature/demo","prompt":"前置数据接口失败","expected_trigger":true,"must_read":[".workbuddy/skills/functional-to-api-test/references/test-data-reuse.md"],"expected_outputs":["四项阻断事实"],"must":["阻断用例"],"must_not":["静默 skip"]},
+    {"id":"测试失败","category":"test_failure","branch":"feature/demo","prompt":"复测失败了","expected_trigger":false,"must_read":["docs/runner_spec.md"],"expected_outputs":["声明部署版本差异并分析指纹"],"must":["提供报告路径"],"must_not":["直接定性产品缺陷"]},
+    {"id":"push确认","category":"push_confirmation","branch":"feature/demo","prompt":"用例完成了，推送代码","expected_trigger":false,"must_read":[".workbuddy/skills/svn-impact/evals/git_readiness_check.py"],"expected_outputs":["展示 readiness 并请求明确确认"],"must":["确认后才 push"],"must_not":["无确认远程写入"]},
+    {"id":"revision演练","category":"revision_run","branch":"feature/demo","prompt":"带我跑通 r349185","expected_trigger":true,"must_read":[".workbuddy/skills/svn-impact/SKILL.md"],"expected_outputs":["分析、用例、pytest、Allure"],"must":["阶段交接"],"must_not":["绕过 MCP"]}
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "_usage": "E9 测试环境与 Git 分支配置。本文件含真实账号，仅存于公司内部 GitLab，勿外传。字段顺序：base_url、git、admin、employee1~employee5。",
+  "base_url": "http://10.12.21.27:8080/",
+  "git": {
+    "default_branch": "master",
+    "remote_name": "origin"
+  },
+  "admin": {
+    "user_name": "sysadmin",
+    "password": "111aaa###"
+  },
+  "employee1": {
+    "user_name": "AutoTest001",
+    "password": "AutoTest001"
+  },
+  "employee2": {
+    "user_name": "AutoTest002",
+    "password": "AutoTest002"
+  },
+  "employee3": {
+    "user_name": "",
+    "password": ""
+  },
+  "employee4": {
+    "user_name": "",
+    "password": ""
+  },
+  "employee5": {
+    "user_name": "",
+    "password": ""
+  }
+}
