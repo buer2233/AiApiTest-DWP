@@ -1,0 +1,3 @@
+display_name: "E9新人引导"
+short_description: "从权限、环境到首条接口用例的完整对话式引导"
+default_prompt: "进行新人引导流程，带我从环境检查到跑通一条 E9 提交分析用例。"

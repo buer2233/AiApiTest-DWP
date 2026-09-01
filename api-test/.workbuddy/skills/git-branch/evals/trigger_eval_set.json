@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "skill_name": "git-branch",
+  "description": "git-branch 技能触发评估集：正例覆盖 7 类触发词及同义说法，负例覆盖相邻技能与易混淆说法。",
+  "cases": [
+    { "id": "TR-01", "query": "切分支", "should_trigger": true },
+    { "id": "TR-02", "query": "切换分支", "should_trigger": true },
+    { "id": "TR-03", "query": "切换分支到 feature/r349149", "should_trigger": true },
+    { "id": "TR-04", "query": "切到 hotfix-login", "should_trigger": true },
+    { "id": "TR-05", "query": "新建分支 feature/board", "should_trigger": true },
+    { "id": "TR-06", "query": "创建分支 test/demo", "should_trigger": true },
+    { "id": "TR-07", "query": "git 分支", "should_trigger": true },
+    { "id": "TR-08", "query": "帮我切换到 master 分支", "should_trigger": true },
+    { "id": "TR-09", "query": "拉一个新分支 dev/local", "should_trigger": true },
+    { "id": "TR-10", "query": "回到主分支", "should_trigger": true },
+    { "id": "TR-11", "query": "我想换一个分支干活", "should_trigger": true },
+    { "id": "TR-12", "query": "从 master 给我建个新分支叫 feature/xxx", "should_trigger": true },
+    { "id": "TR-13", "query": "我现在在哪个分支上", "should_trigger": true },
+    { "id": "TR-14", "query": "分析 r349084", "should_trigger": false },
+    { "id": "TR-15", "query": "快速测试", "should_trigger": false },
+    { "id": "TR-16", "query": "分析测试报告 r349149", "should_trigger": false },
+    { "id": "TR-17", "query": "按方案实现接口自动化", "should_trigger": false },
+    { "id": "TR-18", "query": "切换测试环境到 http://10.10.46.136:8080", "should_trigger": false },
+    { "id": "TR-19", "query": "帮我新写一条登录接口的用例", "should_trigger": false },
+    { "id": "TR-20", "query": "更新代码", "should_trigger": false },
+    { "id": "TR-21", "query": "切换管理员账号", "should_trigger": false },
+    { "id": "TR-22", "query": "把这次改动提交到 GitLab", "should_trigger": false }
+  ]
+}

@@ -29,3 +29,6 @@ front-end/tests/evidence/playwright-report/
 /.planning/
 **/evidence/
 /.pytest_tmp*/
+/api-test/.workbuddy/memory/
+/api-test/E9_svn_analyse/output/
+/api-test/E9_svn_analyse/tests/

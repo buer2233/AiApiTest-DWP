@@ -12,8 +12,9 @@ from pathlib import Path
 
 import pytest
 
-# 账号文件路径：test_data/account.json（兜底回退）
-ACCOUNT_FILE = Path(__file__).parents[1] / "test_data" / "account.json"
+# api-test/config.json（统一配置入口）：本地开发机从此读取测试账号，
+# 无需把账号写死在代码里；CI 凭据由环境变量注入，优先级更高。
+_ROOT_CONFIG = Path(__file__).resolve().parents[1] / "config.json"
 
 
 def _environment_account(role: str) -> dict[str, str] | None:
@@ -54,13 +55,34 @@ def _environment_account(role: str) -> dict[str, str] | None:
         return {"user_name": loginid, "password": password}
     return None
 
+def _config_account(role: str) -> dict[str, str] | None:
+    """从 api-test/config.json 读取指定角色账号；未配置时返回 ``None``。
+
+    角色名沿用 config.json 顶层键：admin、employee1~employee5。
+    账号或密码缺失（含空占位）时返回 None，交由调用方按角色语义处理，
+    普通成员空凭据仍交由 login_employee fixture 跳过。
+    """
+    if not _ROOT_CONFIG.exists():
+        return None
+    try:
+        cfg = json.loads(_ROOT_CONFIG.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    account = cfg.get(role) if isinstance(cfg, dict) else None
+    if not isinstance(account, dict):
+        return None
+    if account.get("user_name") and account.get("password"):
+        return {"user_name": account["user_name"], "password": account["password"]}
+    return None
+
+
 def load_account(role="admin"):
     """读取 E9 测试账号信息。
 
     优先级：
     1. Jenkins Secret Text 注入的 E9_ACCOUNTS_JSON 角色映射。
     2. CI 环境变量 E9_LOGINID / E9_USERPASSWORD 或员工角色变量。
-    3. 本地 test_data/account.json 中指定 role 的账号（仅兼容本地占位模板）。
+    3. api-test/config.json 中指定 role 的账号（本地统一配置入口）。
 
     Args:
         role: 账号角色，默认 "admin"。可选 "employee1"、"employee2" 等。
@@ -77,28 +99,17 @@ def load_account(role="admin"):
     if environment_account is not None:
         return environment_account
 
-    # 开发机回退到本地账号文件。
-    if not ACCOUNT_FILE.exists():
-        pytest.fail(
-            "缺少 E9 私有凭据：请配置 E9_LOGINID/E9_USERPASSWORD，"
-            "或在本地提供 test_data/account.json"
-        )
-    with ACCOUNT_FILE.open(encoding="utf-8") as account_file:
-        accounts = json.load(account_file)
+    # 开发机从 api-test/config.json 读取（统一配置入口，优先级高于账号文件）。
+    config_account = _config_account(role)
+    if config_account is not None:
+        return config_account
 
-    if role not in accounts:
-        pytest.fail(
-            f"account.json 中不存在角色 '{role}'，"
-            f"可用角色: {list(accounts.keys())}"
-        )
-    account = accounts[role]
-    if not account.get("user_name") or not account.get("password"):
-        # 普通成员是按需登录的；模板为空时交由 login_employee fixture skip，
-        # 管理员仍必须配置完整凭据，避免整次会话静默跳过。
-        if role != "admin":
-            return {"user_name": "", "password": ""}
-        pytest.fail(
-            f"{role} 的账号或密码为空，请填写后重试！"
-        )
-    return account
+    # 未配置任何凭据来源时：普通成员返回空凭据，交由 login_employee fixture
+    # 静默跳过；管理员必须配置完整凭据，避免整次会话静默跳过。
+    if role != "admin":
+        return {"user_name": "", "password": ""}
+    pytest.fail(
+        f"缺少 '{role}' 账号凭据：请配置 E9 环境变量，"
+        "或在 api-test/config.json 中填写账号信息"
+    )
 

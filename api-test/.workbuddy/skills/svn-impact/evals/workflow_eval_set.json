@@ -1,0 +1,567 @@
+{
+  "schema_version": 1,
+  "skill_name": "svn-impact",
+  "cases": [
+    {
+      "id": "WF-A-ANALYSE",
+      "category": "stage_a",
+      "branch": "standard",
+      "prompt": "分析 r349084",
+      "expected_trigger": true,
+      "expected_stage": "A",
+      "must_read": [
+        "SKILL.md",
+        "E9_svn_analyse/output/r349084/facts.json",
+        "E9_svn_analyse/output/r349084/design.json"
+      ],
+      "expected_outputs": [
+        "output/r349084/report.html",
+        "output/r349084/report.md"
+      ],
+      "must": [
+        "accept one revision",
+        "complete design fields",
+        "render report",
+        "wait for implementation confirmation"
+      ],
+      "must_not": [
+        "modify page_api",
+        "modify test_case",
+        "expose credentials"
+      ]
+    },
+    {
+      "id": "WF-A-SKIP-MCP",
+      "category": "stage_a",
+      "branch": "skip_mcp",
+      "prompt": "分析 r349084，跳过 MCP 图谱查询",
+      "expected_trigger": true,
+      "expected_stage": "A",
+      "must_read": [
+        "SKILL.md",
+        "E9_svn_analyse/output/r349084/facts.json"
+      ],
+      "expected_outputs": [
+        "output/r349084/report.html"
+      ],
+      "must": [
+        "use skip-mcp only",
+        "keep scope focused"
+      ],
+      "must_not": [
+        "accept HEAD",
+        "write tests"
+      ]
+    },
+    {
+      "id": "WF-B-NEW",
+      "category": "stage_b",
+      "branch": "new_wrapper",
+      "prompt": "按方案实现接口自动化",
+      "expected_trigger": true,
+      "expected_stage": "B",
+      "must_read": [
+        "SKILL.md",
+        "docs/api_test_case_spec.md",
+        "E9_svn_analyse/output/r349084/design.json",
+        "E9_svn_analyse/output/_inventory.json"
+      ],
+      "expected_outputs": [
+        "page_api",
+        "test_case",
+        "output/_inventory.json"
+      ],
+      "must": [
+        "add revision mark",
+        "run targeted test"
+      ],
+      "must_not": [
+        "duplicate existing wrapper",
+        "hardcode host"
+      ]
+    },
+    {
+      "id": "WF-FC-DESIGN",
+      "category": "stage_a_plus",
+      "branch": "functional_case_design",
+      "prompt": "分析 r349084 后生成功能测试用例清单",
+      "expected_trigger": true,
+      "expected_stage": "A+",
+      "must_read": [
+        "SKILL.md",
+        "references/functional-case-design.md",
+        "E9_svn_analyse/output/r349084/facts.json",
+        "E9_svn_analyse/output/r349084/design.json"
+      ],
+      "expected_outputs": [
+        "E9_svn_analyse/output/r349084/functional_test_cases.md"
+      ],
+      "must": [
+        "cover crud boundary equivalence exception combination",
+        "group impact path into functional modules and cover every affected module with at least one scenario core case",
+        "auto-analyze prerequisite data and write concrete creatable steps instead of defaulting to manual",
+        "split prerequisite into multi-step chain and mark only truly uncreatable part as manual with reason",
+        "write functional_test_cases.md without automation code",
+        "wait for human review"
+      ],
+      "must_not": [
+        "modify page_api",
+        "modify test_case",
+        "proceed to stage B before confirmation"
+      ]
+    },
+    {
+      "id": "WF-FC-REVIEW",
+      "category": "stage_a_plus",
+      "branch": "human_review",
+      "prompt": "审核 r349084 的功能测试用例，补充边界场景后确认",
+      "expected_trigger": true,
+      "expected_stage": "A++",
+      "must_read": [
+        "SKILL.md",
+        "references/functional-case-design.md"
+      ],
+      "expected_outputs": [
+        "E9_svn_analyse/output/r349084/functional_test_cases.md"
+      ],
+      "must": [
+        "present full list for review",
+        "revise in place per feedback",
+        "wait for explicit finalize before stage B"
+      ],
+      "must_not": [
+        "start stage B without human confirmation"
+      ]
+    },
+    {
+      "id": "WF-B-REUSE",
+      "category": "stage_b",
+      "branch": "reuse_wrapper",
+      "prompt": "实现 r349084 用例，已有 URL 必须复用",
+      "expected_trigger": true,
+      "expected_stage": "B",
+      "must_read": [
+        "SKILL.md",
+        "docs/api_test_case_spec.md",
+        "E9_svn_analyse/output/r349084/design.json",
+        "E9_svn_analyse/output/_inventory.json"
+      ],
+      "expected_outputs": [
+        "test_case",
+        "output/_inventory.json"
+      ],
+      "must": [
+        "reuse wrapper",
+        "preserve old marks",
+        "add revision mark"
+      ],
+      "must_not": [
+        "create duplicate wrapper"
+      ]
+    },
+    {
+      "id": "WF-C-RETEST",
+      "category": "stage_c",
+      "branch": "targeted_retest",
+      "prompt": "复测 r349084",
+      "expected_trigger": true,
+      "expected_stage": "C",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [
+        "report/allure-results"
+      ],
+      "must": [
+        "execute only revision mark",
+        "state environment revision assumption on failure"
+      ],
+      "must_not": [
+        "reanalyze commit",
+        "change business code"
+      ]
+    },
+    {
+      "id": "WF-QUICK-REUSE",
+      "category": "quick_test",
+      "branch": "reuse_config",
+      "prompt": "快速测试",
+      "expected_trigger": true,
+      "expected_stage": "quick_test",
+      "must_read": [
+        "SKILL.md",
+        "config.json"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "read config only",
+        "show redacted summary",
+        "wait for confirmation"
+      ],
+      "must_not": [
+        "show password",
+        "run test before confirmation"
+      ]
+    },
+    {
+      "id": "WF-QUICK-TEMPLATE",
+      "category": "quick_test",
+      "branch": "replace_config",
+      "prompt": "快速测试，换测试环境",
+      "expected_trigger": true,
+      "expected_stage": "quick_test",
+      "must_read": [
+        "SKILL.md",
+        "config.json"
+      ],
+      "expected_outputs": [
+        "config.json"
+      ],
+      "must": [
+        "return fixed template",
+        "use atomic replace after input"
+      ],
+      "must_not": [
+        "ask one-by-one questions",
+        "echo password"
+      ]
+    },
+    {
+      "id": "WF-REPORT-FAILED",
+      "category": "report_analysis",
+      "branch": "failed",
+      "prompt": "分析测试报告 r349084 里的失败用例",
+      "expected_trigger": true,
+      "expected_stage": "report_analysis",
+      "must_read": [
+        "SKILL.md",
+        "references/allure-analysis.md"
+      ],
+      "expected_outputs": [
+        "analysis-manifest.json",
+        "ai-analysis-summary.json",
+        "report/allure-report"
+      ],
+      "must": [
+        "freeze manifest",
+        "deduplicate fingerprints",
+        "replace one managed attachment",
+        "rebuild Allure"
+      ],
+      "must_not": [
+        "read configuration in shard",
+        "call network",
+        "write duplicate attachment"
+      ]
+    },
+    {
+      "id": "WF-REPORT-CLEAN",
+      "category": "report_analysis",
+      "branch": "no_failures",
+      "prompt": "看看测试报告里报错，没有失败也要告诉我",
+      "expected_trigger": true,
+      "expected_stage": "report_analysis",
+      "must_read": [
+        "SKILL.md",
+        "references/allure-analysis.md"
+      ],
+      "expected_outputs": [
+        "analysis-manifest.json"
+      ],
+      "must": [
+        "reply no failure",
+        "do not start analysis shards"
+      ],
+      "must_not": [
+        "write AI attachment"
+      ]
+    },
+    {
+      "id": "WF-REPORT-VIEW-HTTP",
+      "category": "report_analysis",
+      "branch": "serve_report_http",
+      "prompt": "测试跑完了，把 Allure 报告打开给我看",
+      "expected_trigger": true,
+      "expected_stage": "report_analysis",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [
+        "report/allure-report"
+      ],
+      "must": [
+        "serve report directory over local HTTP",
+        "deliver an http URL instead of a file path"
+      ],
+      "must_not": [
+        "hand over a file:// link to the Allure SPA",
+        "ask user to double-click index.html"
+      ]
+    },
+    {
+      "id": "WF-COVERAGE",
+      "category": "coverage",
+      "branch": "inventory",
+      "prompt": "校验 r349084 的接口覆盖情况",
+      "expected_trigger": true,
+      "expected_stage": "coverage",
+      "must_read": [
+        "SKILL.md",
+        "E9_svn_analyse/output/_inventory.json"
+      ],
+      "expected_outputs": [
+        "output/_inventory.json"
+      ],
+      "must": [
+        "report wrapper and test gaps",
+        "reuse existing URL"
+      ],
+      "must_not": [
+        "initialize graph without confirmation"
+      ]
+    },
+    {
+      "id": "WF-SELECT-FEATURE",
+      "category": "test_selection",
+      "branch": "feature_keyword",
+      "prompt": "按流程审批关键词选择接口回归用例",
+      "expected_trigger": true,
+      "expected_stage": "test_selection",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "return node ids with reasons"
+      ],
+      "must_not": [
+        "select UI tests"
+      ]
+    },
+    {
+      "id": "WF-SELECT-REVISION",
+      "category": "test_selection",
+      "branch": "revision_mark",
+      "prompt": "按 r349084 选测试",
+      "expected_trigger": true,
+      "expected_stage": "test_selection",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "select matching pytest mark"
+      ],
+      "must_not": [
+        "mix adjacent revisions"
+      ]
+    },
+    {
+      "id": "WF-NEGATIVE-HEAD",
+      "category": "negative",
+      "branch": "invalid_revision",
+      "prompt": "分析 HEAD",
+      "expected_trigger": false,
+      "expected_stage": "none",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "reject non-positive single revision"
+      ],
+      "must_not": [
+        "run analysis"
+      ]
+    },
+    {
+      "id": "WF-NEGATIVE-UI",
+      "category": "negative",
+      "branch": "out_of_scope",
+      "prompt": "用 Playwright 写 UI 自动化",
+      "expected_trigger": false,
+      "expected_stage": "none",
+      "must_read": [
+        "SKILL.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "do not apply workflow"
+      ],
+      "must_not": [
+        "run SVN analysis"
+      ]
+    },
+    {
+      "id": "WF-B-DATA",
+      "category": "stage_b",
+      "branch": "prepare_data_reuse",
+      "prompt": "按方案实现接口自动化，实现 r349149 用例",
+      "expected_trigger": true,
+      "expected_stage": "B",
+      "must_read": [
+        "SKILL.md",
+        "references/prepare-data.md",
+        "tools/test_data_runner.py",
+        "test_data/board/board_data_plan.json"
+      ],
+      "expected_outputs": [
+        "test_data/board/board_test_data.json"
+      ],
+      "must": [
+        "read reverse_lookup evidence before data decision",
+        "reuse existing state baseline via test_data_runner status",
+        "add revision mark"
+      ],
+      "must_not": [
+        "ask user for internal ids such as widget or board id",
+        "recreate existing board objects"
+      ]
+    },
+    {
+      "id": "WF-B-DATA-BLOCK",
+      "category": "stage_b",
+      "branch": "prepare_data_missing",
+      "prompt": "按方案实现接口自动化，该用例依赖的业务前置数据在环境中不存在",
+      "expected_trigger": true,
+      "expected_stage": "B",
+      "must_read": [
+        "SKILL.md",
+        "references/prepare-data.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "attempt idempotent build via test_data_runner",
+        "give actionable block with failed step endpoint and suggestion"
+      ],
+      "must_not": [
+        "ask user for internal ids",
+        "fabricate data identifiers"
+      ]
+    },
+    {
+      "id": "WF-B-FRONTEND-NO-DATA",
+      "category": "stage_b",
+      "branch": "pure_frontend_no_build",
+      "prompt": "按方案实现接口自动化，本提交是纯前端改动",
+      "expected_trigger": true,
+      "expected_stage": "B",
+      "must_read": [
+        "SKILL.md",
+        "references/prepare-data.md"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "respect pure_frontend flag with empty api_cases"
+      ],
+      "must_not": [
+        "trigger prepare data build",
+        "run test_data_runner build"
+      ]
+    },
+    {
+      "id": "WF-A-FRONTEND-CONTRACT",
+      "category": "stage_a",
+      "branch": "pure_frontend_contract",
+      "prompt": "分析 r349137，本提交是纯前端改动但改变了密级接口的取值方式",
+      "expected_trigger": true,
+      "expected_stage": "A",
+      "must_read": [
+        "SKILL.md",
+        "references/pure-frontend-contract.md",
+        "E9_svn_analyse/output/r349137/facts.json",
+        "E9_svn_analyse/output/_inventory.json"
+      ],
+      "expected_outputs": [],
+      "must": [
+        "locate the depended endpoint and verify its contract",
+        "add a read-only contract regression case if the frontend changes consumption",
+        "keep impact summary as pure frontend with contract note"
+      ],
+      "must_not": [
+        "fabricate response structure without calling the endpoint",
+        "classify as backend change"
+      ]
+    }
+    ,{
+      "id": "WF-BATCH-A-COMMON-WORKER",
+      "category": "batch_stage_a",
+      "branch": "range_complete",
+      "prompt": "分析 Revision r349181 到 Revision r349184，提交说明：no.4996246 解决流程导入不会更新明细表配置",
+      "expected_trigger": true,
+      "expected_stage": "batch_A",
+      "must_read": [
+        "SKILL.md",
+        "references/common-analysis-contract.md",
+        "references/functional-case-design.md"
+      ],
+      "expected_outputs": [
+        "E9_svn_analyse/output/batch_r349181_r349184/revisions/r349181/facts.json",
+        "E9_svn_analyse/output/batch_r349181_r349184/design.json"
+      ],
+      "must": [
+        "resolve actual revisions through the read E9 MCP",
+        "invoke the same single-revision analysis worker for each revision",
+        "aggregate facts and design while preserving source_revisions",
+        "continue to A+ functional case design and A++ human review before B"
+      ],
+      "must_not": [
+        "create a second top-level skill",
+        "copy a parallel functional-case-design rule",
+        "write page_api or test_case before human finalization"
+      ]
+    },
+    {
+      "id": "WF-BATCH-BLOCKED",
+      "category": "batch_stage_a",
+      "branch": "missing_key_fact_after_retry",
+      "prompt": "分析 Revision r349181 到 Revision r349184，提交说明：同一问题修复，其中一笔 MCP 事实不可用",
+      "expected_trigger": true,
+      "expected_stage": "batch_A_blocked",
+      "must_read": [
+        "SKILL.md",
+        "references/common-analysis-contract.md"
+      ],
+      "expected_outputs": [
+        "partial audit report",
+        "stage_b_gate=false"
+      ],
+      "must": [
+        "retry only the failed revision up to three complete attempts",
+        "record the real tool, phase, attempt and sanitized reason",
+        "preserve successful revision artifacts",
+        "block interface code until key facts are complete"
+      ],
+      "must_not": [
+        "retry successful revisions",
+        "fabricate endpoint or behavior facts",
+        "enter stage B"
+      ]
+    },
+    {
+      "id": "WF-BATCH-C-MARKS",
+      "category": "batch_stage_c",
+      "branch": "multi_revision_marks",
+      "prompt": "复测批次 r349181、r349182、r349183、r349184",
+      "expected_trigger": true,
+      "expected_stage": "C",
+      "must_read": [
+        "SKILL.md",
+        "references/common-analysis-contract.md"
+      ],
+      "expected_outputs": [
+        "report/allure-results"
+      ],
+      "must": [
+        "allow any associated revision mark to select the complete batch tests",
+        "support a validated OR marker expression",
+        "record batch_id, analysis_run_id and the actual expression",
+        "reuse the single-test Allure and failure-analysis workflow"
+      ],
+      "must_not": [
+        "create a batch-name pytest marker",
+        "duplicate failure-analysis rules"
+      ]
+    }
+  ]
+}

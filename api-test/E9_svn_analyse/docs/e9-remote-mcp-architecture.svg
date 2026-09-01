@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 930" role="img" aria-labelledby="title desc" font-family="PingFang SC, Microsoft YaHei, Segoe UI, sans-serif">
+  <title id="title">E9 MCP 当前架构：本地批次分析、代码查询 MCP 与运维 MCP</title>
+  <desc id="desc">本地 api-test-E9 通过独立的 codebase-memory 查询 MCP、读取 E9 信息的 revision resolver 和 codebase-memory-ops 运维 MCP 访问远端 E9 图谱与 SVN 服务。所有 E9 源码和提交历史查询均禁止本地读取。</desc>
+  <defs>
+    <marker id="arrow-blue" markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#2563eb"/></marker>
+    <marker id="arrow-orange" markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#d97706"/></marker>
+    <marker id="arrow-gray" markerWidth="9" markerHeight="9" refX="8" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#64748b"/></marker>
+    <style>
+      .lane-title{font-size:15px;font-weight:700;fill:#172554}
+      .title-purple{fill:#4c1d95}.title-gray{fill:#334155}
+      .box-title{font-size:13px;font-weight:700;fill:#1f2937}
+      .box-text{font-size:11px;fill:#475569}
+      .small{font-size:10px;fill:#475569}
+      .edge-label{font-size:10px;fill:#1f2937}
+      .lane{stroke-width:1.5}
+      .edge{fill:none;stroke-width:1.6}
+    </style>
+  </defs>
+
+  <rect width="1200" height="930" fill="#f6f8fb"/>
+
+  <!-- 本地工作区 -->
+  <rect x="30" y="20" width="1140" height="350" rx="9" fill="#dae8fc" stroke="#6c8ebf" class="lane"/>
+  <rect x="30" y="20" width="1140" height="34" rx="9" fill="#6c8ebf" opacity=".16"/>
+  <text x="600" y="43" text-anchor="middle" class="lane-title">本地工作区 · api-test-E9（MCP 调用方）</text>
+
+  <g>
+    <rect x="60" y="75" width="210" height="82" rx="7" fill="#fff" stroke="#6c8ebf"/>
+    <text x="165" y="99" text-anchor="middle" class="box-title">WorkBuddy 统一入口</text>
+    <text x="165" y="119" text-anchor="middle" class="box-text">AGENTS.md + README</text>
+    <text x="165" y="137" text-anchor="middle" class="box-text">规范提示词 / 安全红线</text>
+  </g>
+  <g>
+    <rect x="300" y="75" width="220" height="82" rx="7" fill="#fff" stroke="#6c8ebf"/>
+    <text x="410" y="99" text-anchor="middle" class="box-title">svn-impact Skill</text>
+    <text x="410" y="119" text-anchor="middle" class="box-text">A 分析 → B 用例 → C 执行</text>
+    <text x="410" y="137" text-anchor="middle" class="box-text">flow + references + evals</text>
+  </g>
+  <g>
+    <rect x="550" y="75" width="260" height="82" rx="7" fill="#e1d5e7" stroke="#9673a6"/>
+    <text x="680" y="99" text-anchor="middle" class="box-title">svn_analyse 批次编排</text>
+    <text x="680" y="119" text-anchor="middle" class="box-text">resolve_revision_set（1–10 笔）</text>
+    <text x="680" y="137" text-anchor="middle" class="box-text">逐 revision 分析 / 最多重试 3 次</text>
+  </g>
+  <g>
+    <rect x="840" y="75" width="300" height="82" rx="7" fill="#fff2cc" stroke="#d6b656"/>
+    <text x="990" y="99" text-anchor="middle" class="box-title">批次证据与设计</text>
+    <text x="990" y="119" text-anchor="middle" class="box-text">revisions/r&lt;rev&gt;/facts + design</text>
+    <text x="990" y="137" text-anchor="middle" class="box-text">aggregate_design + batch_id</text>
+    <text x="990" y="151" text-anchor="middle" class="small">关键事实缺失 → 阻断阶段 B</text>
+  </g>
+  <g>
+    <rect x="140" y="205" width="260" height="86" rx="7" fill="#d5e8d4" stroke="#82b366"/>
+    <text x="270" y="230" text-anchor="middle" class="box-title">接口测试资产</text>
+    <text x="270" y="250" text-anchor="middle" class="box-text">page_api/ + test_case/</text>
+    <text x="270" y="270" text-anchor="middle" class="box-text">每条批次用例挂全部 revision marks</text>
+  </g>
+  <g>
+    <rect x="455" y="200" width="250" height="96" rx="5" fill="#fff2cc" stroke="#d6b656"/>
+    <ellipse cx="580" cy="200" rx="125" ry="10" fill="#fff2cc" stroke="#d6b656"/>
+    <ellipse cx="580" cy="296" rx="125" ry="10" fill="#fff2cc" stroke="#d6b656"/>
+    <text x="580" y="238" text-anchor="middle" class="box-title">本地库存与测试数据</text>
+    <text x="580" y="258" text-anchor="middle" class="box-text">page_api_index.sqlite3</text>
+    <text x="580" y="277" text-anchor="middle" class="box-text">revision_meta + test_methods</text>
+    <text x="580" y="291" text-anchor="middle" class="small">test_data/&lt;module&gt;/</text>
+  </g>
+  <g>
+    <rect x="760" y="205" width="290" height="86" rx="7" fill="#d5e8d4" stroke="#82b366"/>
+    <text x="905" y="230" text-anchor="middle" class="box-title">pytest + Allure</text>
+    <text x="905" y="250" text-anchor="middle" class="box-text">任一 revision mark → 完整批次用例</text>
+    <text x="905" y="270" text-anchor="middle" class="box-text">summary 记录 batch_id / marks</text>
+  </g>
+  <rect x="150" y="315" width="840" height="38" rx="6" fill="#f8cecc" stroke="#b85450"/>
+  <text x="570" y="338" text-anchor="middle" font-size="11" font-weight="700" fill="#7f1d1d">E9 源码、调用链、SVN 提交历史和知识图谱只能经 MCP 查询；本地禁止 Read / Grep / Glob / SVN / 图谱 CLI</text>
+
+  <!-- MCP 服务面 -->
+  <rect x="30" y="410" width="1140" height="260" rx="9" fill="#e1d5e7" stroke="#9673a6" class="lane"/>
+  <rect x="30" y="410" width="1140" height="34" rx="9" fill="#9673a6" opacity=".16"/>
+  <text x="600" y="433" text-anchor="middle" class="lane-title title-purple">外部 E9 MCP 服务面（查询与运维分离）</text>
+
+  <rect x="385" y="462" width="430" height="46" rx="7" fill="#f5f5f5" stroke="#666" stroke-dasharray="6 4"/>
+  <text x="600" y="481" text-anchor="middle" class="box-title">企业网关（远端开发）</text>
+  <text x="600" y="497" text-anchor="middle" class="small">HTTPS · OIDC/mTLS · RBAC · repo ACL · 审计</text>
+
+  <g>
+    <rect x="75" y="545" width="320" height="110" rx="7" fill="#dae8fc" stroke="#6c8ebf"/>
+    <text x="235" y="570" text-anchor="middle" class="box-title">codebase-memory</text>
+    <text x="235" y="589" text-anchor="middle" class="box-text">E9 查询 / 读取 MCP（只读）</text>
+    <text x="235" y="607" text-anchor="middle" class="box-text">提交列表与 revision 邻域解析</text>
+    <text x="235" y="625" text-anchor="middle" class="small">search_graph · trace_path · get_code_snippet</text>
+    <text x="235" y="642" text-anchor="middle" class="small">coverage；图外路径明确降级</text>
+  </g>
+  <g>
+    <rect x="430" y="545" width="270" height="110" rx="7" fill="#fff" stroke="#9673a6"/>
+    <text x="565" y="570" text-anchor="middle" class="box-title">查询结果适配层</text>
+    <text x="565" y="589" text-anchor="middle" class="box-text">resolved / skipped revisions</text>
+    <text x="565" y="607" text-anchor="middle" class="box-text">符号 · 调用链 · 源码片段</text>
+    <text x="565" y="625" text-anchor="middle" class="box-text">图外路径明确降级</text>
+  </g>
+  <g>
+    <rect x="735" y="545" width="360" height="110" rx="7" fill="#ffe6cc" stroke="#d79b00"/>
+    <text x="915" y="570" text-anchor="middle" class="box-title">codebase-memory-ops（e9-ops）</text>
+    <text x="915" y="589" text-anchor="middle" class="box-text">只读：status / svn_log / svn_diff</text>
+    <text x="915" y="607" text-anchor="middle" class="box-text">写入：svn_update / reindex / sync</text>
+    <text x="915" y="625" text-anchor="middle" class="small">写入必须 confirm=&quot;e9-sync&quot;</text>
+  </g>
+
+  <!-- 远端后端 -->
+  <rect x="30" y="710" width="1140" height="190" rx="9" fill="#f5f5f5" stroke="#666" class="lane"/>
+  <rect x="30" y="710" width="1140" height="34" rx="9" fill="#64748b" opacity=".14"/>
+  <text x="600" y="733" text-anchor="middle" class="lane-title title-gray">远端 E9 数据与图谱后端（调用方不可直接访问）</text>
+
+  <g>
+    <rect x="65" y="780" width="185" height="78" rx="7" fill="#fff" stroke="#666" stroke-dasharray="6 4"/>
+    <text x="157" y="806" text-anchor="middle" class="box-title">E9 SVN 仓库</text>
+    <text x="157" y="826" text-anchor="middle" class="box-text">提交历史 / 源码</text>
+  </g>
+  <g>
+    <rect x="285" y="780" width="210" height="78" rx="7" fill="#fff" stroke="#666"/>
+    <text x="390" y="806" text-anchor="middle" class="box-title">图谱主机工作副本</text>
+    <text x="390" y="826" text-anchor="middle" class="box-text">历史 log/diff 查询基线</text>
+  </g>
+  <g>
+    <ellipse cx="605" cy="770" rx="102" ry="10" fill="#d5e8d4" stroke="#82b366"/>
+    <rect x="503" y="770" width="205" height="96" rx="5" fill="#d5e8d4" stroke="#82b366"/>
+    <ellipse cx="605" cy="866" rx="102" ry="10" fill="#d5e8d4" stroke="#82b366"/>
+    <text x="605" y="807" text-anchor="middle" class="box-title">Active 源码 + CBM 图谱</text>
+    <text x="605" y="827" text-anchor="middle" class="box-text">当前只读查询代次</text>
+    <text x="605" y="847" text-anchor="middle" class="small">source_revision = graph_revision</text>
+  </g>
+  <g>
+    <rect x="750" y="770" width="220" height="96" rx="7" fill="#fff2cc" stroke="#d6b656"/>
+    <text x="860" y="797" text-anchor="middle" class="box-title">受控运维 Worker</text>
+    <text x="860" y="817" text-anchor="middle" class="box-text">lock · update · reindex · verify</text>
+    <text x="860" y="837" text-anchor="middle" class="box-text">Standby 校验后原子激活</text>
+  </g>
+  <g>
+    <rect x="1010" y="780" width="105" height="78" rx="7" fill="#e1d5e7" stroke="#9673a6"/>
+    <text x="1062" y="806" text-anchor="middle" class="box-title">Secret</text>
+    <text x="1062" y="826" text-anchor="middle" class="box-text">Manager</text>
+  </g>
+
+  <!-- edges -->
+  <path class="edge" d="M270 116 L300 116" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="284" y="108" text-anchor="middle" class="edge-label">自然语言</text>
+  <path class="edge" d="M520 116 L550 116" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="535" y="108" text-anchor="middle" class="edge-label">编排</text>
+  <path class="edge" d="M810 116 L840 116" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="825" y="108" text-anchor="middle" class="edge-label">逐笔事实 → 联合设计</text>
+  <path class="edge" d="M990 157 L990 178 L270 178 L270 205" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="970" y="173" text-anchor="end" class="edge-label">complete 门禁</text>
+  <path class="edge" d="M400 248 L455 248" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="427" y="240" text-anchor="middle" class="edge-label">库存 / 数据计划</text>
+  <path class="edge" d="M705 248 L760 248" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="732" y="240" text-anchor="middle" class="edge-label">多 revision marks</text>
+
+  <path class="edge" d="M680 157 L680 390 L235 390 L235 545" stroke="#2563eb" marker-end="url(#arrow-blue)"/>
+  <rect x="370" y="379" width="245" height="16" fill="#fff" opacity=".92"/>
+  <text x="492" y="391" text-anchor="middle" class="edge-label">实际提交集合 + E9 代码/调用链（只读）</text>
+  <path class="edge" d="M720 157 L720 410 L915 410 L915 545" stroke="#d97706" marker-end="url(#arrow-orange)"/>
+  <rect x="742" y="399" width="225" height="16" fill="#fff" opacity=".92"/>
+  <text x="854" y="411" text-anchor="middle" class="edge-label">逐 revision log / diff / status</text>
+  <path class="edge" d="M395 600 L430 600" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="412" y="591" text-anchor="middle" class="edge-label">标准化证据</text>
+  <path class="edge" d="M565 545 L565 390 L990 390 L990 157" stroke="#9673a6" stroke-dasharray="6 4" marker-end="url(#arrow-gray)"/>
+  <text x="780" y="382" text-anchor="middle" class="edge-label">返回 facts / resolver 结果</text>
+
+  <path class="edge" d="M235 655 L235 690 L605 690 L605 770" stroke="#2563eb" marker-end="url(#arrow-blue)"/>
+  <rect x="285" y="680" width="190" height="16" fill="#fff" opacity=".92"/>
+  <text x="380" y="692" text-anchor="middle" class="edge-label">查询当前源码 / 图谱</text>
+  <path class="edge" d="M915 655 L915 690 L390 690 L390 780" stroke="#d97706" marker-end="url(#arrow-orange)"/>
+  <rect x="570" y="680" width="120" height="16" fill="#fff" opacity=".92"/>
+  <text x="630" y="692" text-anchor="middle" class="edge-label">历史 log / diff</text>
+  <path class="edge" d="M915 655 L915 720 L860 720 L860 770" stroke="#d97706" marker-end="url(#arrow-orange)"/>
+  <text x="950" y="710" text-anchor="middle" class="edge-label">受控写入（需确认）</text>
+  <path class="edge" d="M250 819 L285 819" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="267" y="811" text-anchor="middle" class="edge-label">svn</text>
+  <path class="edge" d="M750 818 L708 818" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="730" y="810" text-anchor="middle" class="edge-label">原子激活</text>
+  <path class="edge" d="M970 818 L1010 818" stroke="#64748b" marker-end="url(#arrow-gray)"/>
+  <text x="990" y="810" text-anchor="middle" class="edge-label">凭据</text>
+
+  <!-- 图例 -->
+  <g transform="translate(45,910)">
+    <rect x="0" y="0" width="1110" height="16" fill="none"/>
+    <circle cx="8" cy="8" r="6" fill="#dae8fc" stroke="#6c8ebf"/><text x="20" y="12" class="small">本地 / 查询</text>
+    <circle cx="112" cy="8" r="6" fill="#ffe6cc" stroke="#d79b00"/><text x="124" y="12" class="small">运维 / 网关</text>
+    <circle cx="220" cy="8" r="6" fill="#d5e8d4" stroke="#82b366"/><text x="232" y="12" class="small">稳定数据 / 测试</text>
+    <circle cx="350" cy="8" r="6" fill="#f8cecc" stroke="#b85450"/><text x="362" y="12" class="small">安全阻断</text>
+    <text x="1110" y="12" text-anchor="end" class="small">架构图更新时间：2026-08-25 · 五期批次分析版</text>
+  </g>
+</svg>

@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "skill_name": "git-branch",
+  "description": "git-branch 工作流契约集：覆盖决策树四分支与安全边界（未提交变更、非法分支名、只读查询、负例）。",
+  "cases": [
+    {
+      "id": "WF-01",
+      "category": "switch_existing",
+      "branch": "分支已存在则直接切换",
+      "prompt": "切换分支到 feature/r349149",
+      "expected_trigger": true,
+      "expected_stage": "checkout_existing",
+      "must_read": ["config.json", ".workbuddy/skills/git-branch/SKILL.md"],
+      "expected_outputs": ["当前分支变更为目标分支或明确说明已在该分支"],
+      "must": [
+        "先执行 git status --porcelain 检查未提交变更",
+        "读取 config.json 的 git 配置块确定默认分支与远端名",
+        "分支已存在时执行 git checkout 目标分支",
+        "切换失败时回滚到原分支并说明原因"
+      ],
+      "must_not": [
+        "静默丢弃未提交变更",
+        "执行 push、merge、rebase 或 reset",
+        "输出任何账号密码"
+      ]
+    },
+    {
+      "id": "WF-02",
+      "category": "create_new",
+      "branch": "分支不存在且用户确认后从默认分支新建",
+      "prompt": "新建分支 feature/board-eval",
+      "expected_trigger": true,
+      "expected_stage": "confirm_then_create",
+      "must_read": ["config.json", ".workbuddy/skills/git-branch/SKILL.md"],
+      "expected_outputs": ["询问是否从默认分支新建", "确认后新分支被创建并切换"],
+      "must": [
+        "分支不存在时先询问用户是否从默认分支新建",
+        "确认后执行 git fetch 再 git checkout -b 目标分支 默认分支",
+        "新分支基底固定为 config.json 的 git.default_branch"
+      ],
+      "must_not": [
+        "未经确认直接创建分支",
+        "从默认分支以外的分支拉取新分支",
+        "静默丢弃未提交变更"
+      ]
+    },
+    {
+      "id": "WF-03",
+      "category": "default_fallback",
+      "branch": "省略分支名时回退默认分支",
+      "prompt": "切分支",
+      "expected_trigger": true,
+      "expected_stage": "fallback_to_default",
+      "must_read": ["config.json", ".workbuddy/skills/git-branch/SKILL.md"],
+      "expected_outputs": ["目标分支回退为 git.default_branch"],
+      "must": [
+        "省略分支名时读取 config.json 的 git.default_branch",
+        "config.json 缺少 git 块时回退 master"
+      ],
+      "must_not": [
+        "猜测或编造分支名",
+        "要求用户必须提供分支名才能继续"
+      ]
+    },
+    {
+      "id": "WF-04",
+      "category": "refuse_no_change",
+      "branch": "用户拒绝新建时零改动",
+      "prompt": "新建分支 temp/eval-probe（随后用户回答：不用了）",
+      "expected_trigger": true,
+      "expected_stage": "refuse_zero_change",
+      "must_read": [".workbuddy/skills/git-branch/SKILL.md"],
+      "expected_outputs": ["确认询问后用户否定", "仓库保持零改动"],
+      "must": [
+        "用户否定后立即终止",
+        "终止后工作区与分支状态与操作前完全一致"
+      ],
+      "must_not": [
+        "用户否定后仍创建分支",
+        "留下 stash 或暂存残留"
+      ]
+    },
+    {
+      "id": "WF-05",
+      "category": "dirty_workdir",
+      "branch": "存在未提交变更时先询问处理方式",
+      "prompt": "切到 master（工作区存在未提交变更）",
+      "expected_trigger": true,
+      "expected_stage": "ask_before_switch",
+      "must_read": [".workbuddy/skills/git-branch/SKILL.md"],
+      "expected_outputs": ["列出未提交变更并询问 stash / 放弃 / 取消"],
+      "must": [
+        "git status --porcelain 非空时先询问处理方式",
+        "提供 stash、放弃、取消三种选项",
+        "用户未答复前不切换分支"
+      ],
+      "must_not": [
+        "静默切换分支",
+        "静默丢弃或覆盖未提交变更"
+      ]
+    },
+    {
+      "id": "WF-06",
+      "category": "invalid_name",
+      "branch": "非法分支名被拒绝",
+      "prompt": "新建分支 bad name with spaces",
+      "expected_trigger": true,
+      "expected_stage": "reject_invalid_name",
+      "must_read": [".workbuddy/skills/git-branch/SKILL.md"],
+      "expected_outputs": ["拒绝并给出合法命名建议"],
+      "must": [
+        "用 git check-ref-format --branch 或等价规则校验分支名",
+        "拒绝含空格、中文或非法字符的分支名",
+        "拒绝时保持零改动"
+      ],
+      "must_not": [
+        "创建含空格或非法字符的分支",
+        "静默改写用户给的分支名后直接创建"
+      ]
+    },
+    {
+      "id": "WF-07",
+      "category": "query_only",
+      "branch": "只读查询零副作用",
+      "prompt": "我现在在哪个分支上",
+      "expected_trigger": true,
+      "expected_stage": "read_only_query",
+      "must_read": [".workbuddy/skills/git-branch/SKILL.md"],
+      "expected_outputs": ["回复当前分支名"],
+      "must": [
+        "使用 git branch --show-current 或等价只读命令",
+        "查询不改变工作区与分支状态"
+      ],
+      "must_not": [
+        "查询时执行 checkout、fetch 或任何写操作"
+      ]
+    },
+    {
+      "id": "WF-08",
+      "category": "negative",
+      "branch": "非分支请求不触发",
+      "prompt": "分析 r349084",
+      "expected_trigger": false,
+      "expected_stage": "not_triggered",
+      "must_read": [".workbuddy/skills/git-branch/SKILL.md"],
+      "expected_outputs": ["交由 svn-impact 或相应流程处理"],
+      "must": [
+        "识别为提交分析请求而非分支操作"
+      ],
+      "must_not": [
+        "触发 git-branch 技能",
+        "执行任何 git 分支命令"
+      ]
+    }
+  ]
+}

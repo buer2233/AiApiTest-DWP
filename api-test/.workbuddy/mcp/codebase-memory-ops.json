@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "codebase-memory-ops": {
+      "url": "http://10.20.62.239:9750/servers/e9-ops/mcp"
+    }
+  }
+}

@@ -1,4 +1,6 @@
+import json
 import os
+from pathlib import Path
 from urllib.parse import urlparse
 
 # Allure 报告中展示的网站名称；为空时会从 base_url 自动解析域名。
@@ -11,17 +13,32 @@ website_name = ""
 #   3. 版本化环境目录中的默认地址
 # ──────────────────────────────────────────────────────────────────────────────
 
-# 与版本化环境目录保持一致的默认测试入口；CI 可通过 E9_BASE_URL 或
-# Jenkins 的 --base-url 覆盖，避免把环境选择写死在接口方法中。
-_fallback_base_url = "http://10.10.46.136:8080"
+# api-test/config.json（与本文件同目录，统一配置入口）：修改它即可切换
+# 测试环境和测试账号，无需改动本文件或接口方法中的任何代码。
+_ROOT_CONFIG = Path(__file__).resolve().parent / "config.json"
+
+# 未配置 config.json 且无环境变量覆盖时的兜底值。保持为空，交由
+# validate_base_url 抛出明确错误，避免把某个 IP/域名写死在代码里。
+_fallback_base_url = ""
 
 
 def _load_root_base_url() -> str:
-    """读取 CI 环境覆盖地址；未提供时返回默认测试环境。"""
-    # Jenkins 参数标准名为 TARGET_BASE_URL，保留 E9_BASE_URL 兼容本地调用。
+    """按优先级读取测试环境地址。
+    1. 环境变量 TARGET_BASE_URL（Jenkins 参数覆盖）
+    2. 环境变量 E9_BASE_URL（CI 覆盖）
+    3. config.json 中的 base_url（统一配置入口）
+    4. 空值（由 validate_base_url 提示调用方配置环境）
+    """
     env_url = os.getenv("TARGET_BASE_URL") or os.getenv("E9_BASE_URL")
     if env_url:
         return env_url
+    try:
+        cfg = json.loads(_ROOT_CONFIG.read_text(encoding="utf-8"))
+        url = (cfg.get("base_url") or "").strip()
+        if url:
+            return url
+    except Exception:
+        pass
     return _fallback_base_url
 
 

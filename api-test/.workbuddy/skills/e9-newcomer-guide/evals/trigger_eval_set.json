@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "skill_name": "e9-newcomer-guide",
+  "cases": [
+    {"id":"新人引导","query":"进行新人引导流程","should_trigger":true},
+    {"id":"首次使用","query":"第一次使用这个项目","should_trigger":true},
+    {"id":"从零开始","query":"从0开始教我怎么跑接口测试","should_trigger":true},
+    {"id":"跑通提交","query":"带我跑通一条 E9 提交","should_trigger":true},
+    {"id":"新手学习","query":"我是新用户，请指导我完成前期配置","should_trigger":true},
+    {"id":"引导流程确认","query":"是否进行新人引导流程","should_trigger":true},
+    {"id":"完整演练","query":"帮我完成从克隆到 Allure 的新人课程","should_trigger":true},
+    {"id":"首次配置","query":"第一次打开 WorkBuddy，怎么配置环境","should_trigger":true},
+    {"id":"学习平台","query":"我想学习如何使用 E9 自动化平台","should_trigger":true},
+    {"id":"首条用例","query":"带新同事跑通第一条接口用例","should_trigger":true},
+    {"id":"引导恢复","query":"继续新人引导","should_trigger":true},
+    {"id":"单笔分析","query":"分析 r349084","should_trigger":false},
+    {"id":"分支切换","query":"切到 master_dwp 分支","should_trigger":false},
+    {"id":"执行测试","query":"跑一下登录模块用例","should_trigger":false},
+    {"id":"报告分析","query":"分析测试报告 r349084","should_trigger":false},
+    {"id":"图谱状态","query":"查看 E9 图谱状态","should_trigger":false},
+    {"id":"实现用例","query":"按方案实现接口自动化","should_trigger":false},
+    {"id":"配置修改","query":"把 base_url 改成测试地址","should_trigger":false}
+  ]
+}
