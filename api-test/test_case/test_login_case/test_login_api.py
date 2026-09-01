@@ -24,8 +24,8 @@ class TestE9LoginAPI:
     @allure.severity(allure.severity_level.BLOCKER)
     def test_login_and_get_os_info(self, base_url):
         """按真实抓包顺序完成登录，并断言登录后系统配置响应。"""
-        # Author: dengwanpeng
-        # Create Date: 2026-08-11
+        # Author:dengwanpeng
+        # Create Date:2026-08-11
         # IsAI: True
         api = LoginAPI(base_url=base_url)
 

@@ -1,0 +1,18 @@
+{
+  "_module": "formmode",
+  "_description": "r349152 表单建模布局（layoutBase）前置测试数据。role_limited 三字段用于验证「角色受范围限制权限绑定布局生效」这一深层行为，需在测试环境人工准备一组（角色 + 范围限制权限 + 绑定布局 + 对应单据）后填写，或通过环境变量 E9_R349152_* 注入；未配置时相关用例安全跳过，不影响结构级用例执行。",
+  "mode_id": "1001",
+  "form_id": "-7",
+  "billid": "13",
+  "role_limited_mode_id": "1001",
+  "role_limited_form_id": "-7",
+  "role_limited_billid": "13",
+  "role_limited_expected_layoutid": "531",
+  "_right_id": "",
+  "_member_id": "3562",
+  "_role_id": "4561",
+  "_employee_uid": "748",
+  "_view_layout": "530",
+  "_edit_layout": "531",
+  "_right_ids": "11535"
+}

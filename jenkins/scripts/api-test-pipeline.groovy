@@ -124,6 +124,7 @@ def call(Map config = [:]) {
     def pytestNodeIds = includeNodeIds ? (params.PYTEST_NODE_IDS ?: '') : ''
     def emptyNodeIdsMessage = config.get('emptyNodeIdsMessage', 'PYTEST_NODE_IDS is required for failed rerun')
     def emptyCasePathMessage = config.get('emptyCasePathMessage', 'CASE_PATH is required for this Jenkins job')
+    def e9CredentialsId = env.JENKINS_API_TEST_E9_CREDENTIALS_ID?.trim()
 
     if (config.get('requireNodeIds', false) && !pytestNodeIds.trim()) {
         // 失败重试必须显式传入平台选中的失败用例，避免误跑整个模块。
@@ -156,14 +157,26 @@ def call(Map config = [:]) {
 
         def primaryFailure = null
         try {
-            stage('Run API Tests') {
-                // 动态参数只通过 withEnv 传入，命令本身保持固定，避免 shell 二次解释。
-                timeout(time: 60, unit: 'MINUTES') {
-                    runCommand(
-                        "python3 jenkins/scripts/api_runner_cli.py execute",
-                        $/python jenkins\scripts\api_runner_cli.py execute/$
-                    )
+            def runApiStage = {
+                stage('Run API Tests') {
+                    // 动态参数只通过 withEnv 传入，命令本身保持固定，避免 shell 二次解释。
+                    timeout(time: 60, unit: 'MINUTES') {
+                        runCommand(
+                            "python3 jenkins/scripts/api_runner_cli.py execute",
+                            $/python jenkins\scripts\api_runner_cli.py execute/$
+                        )
+                    }
                 }
+            }
+            if (e9CredentialsId) {
+                // Secret Text 内容应为 {"admin": {"user_name": "...", "password": "..."}, ...}。
+                // withCredentials 负责脱敏；api_runner_cli 仅把该变量透传到隔离容器。
+                withCredentials([string(credentialsId: e9CredentialsId, variable: 'E9_ACCOUNTS_JSON')]) {
+                    runApiStage()
+                }
+            } else {
+                // 兼容本地 Jenkins 已通过环境变量直接注入 E9_* 的场景。
+                runApiStage()
             }
         } catch (Throwable failure) {
             primaryFailure = failure

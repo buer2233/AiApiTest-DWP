@@ -28,8 +28,8 @@ class EcAPI(BaseAPI):
         Returns:
             dict: 包含 columns（列定义）、datas（数据行）、rootMap、status 等字段。
         """
-        # Author: dengwanpeng
-        # Create Date: 2026-08-12
+        # Author:dengwanpeng
+        # Create Date:2026-08-12
         # IsAI: True
         url = "/api/ec/dev/table/datas"
         error_msg = kwargs.pop("error_msg", "获取 EC 表格数据")
@@ -59,8 +59,8 @@ class EcAPI(BaseAPI):
         Returns:
             dict: 包含 count（数据总数）、status 等字段。
         """
-        # Author: dengwanpeng
-        # Create Date: 2026-08-12
+        # Author:dengwanpeng
+        # Create Date:2026-08-12
         # IsAI: True
         url = "/api/ec/dev/table/counts"
         error_msg = kwargs.pop("error_msg", "获取 EC 表格数据总数")

@@ -287,6 +287,13 @@ def test_cli_context_uses_git_commit_verbatim_and_only_runner_whitelist(tmp_path
         "OPEN_REPORT": "true",
         "CI_RUN_RETENTION_DAYS": "45",
         "CI_RUNNER_ENV": "wrong",
+        "TARGET_BASE_URL": "https://registered.example.invalid/e9",
+        "E9_BASE_URL": "https://legacy.example.invalid/e9",
+        "E9_LOGINID": "admin-placeholder",
+        "E9_USERPASSWORD": "password-placeholder",
+        "E9_EMPLOYEE1_LOGINID": "employee-one-placeholder",
+        "E9_EMPLOYEE1_PASSWORD": "employee-password-placeholder",
+        "E9_ACCOUNTS_JSON": '{"admin":{"user_name":"admin-placeholder","password":"password-placeholder"}}',
         "JENKINS_API_TOKEN": "must-not-pass",
         "MYSQL_ROOT_PASSWORD": "must-not-pass",
     }
@@ -307,10 +314,46 @@ def test_cli_context_uses_git_commit_verbatim_and_only_runner_whitelist(tmp_path
         "OPEN_REPORT",
         "CI_RUN_RETENTION_DAYS",
         "CI_RUNNER_ENV",
+        "TARGET_BASE_URL",
+        "E9_BASE_URL",
+        "E9_LOGINID",
+        "E9_USERPASSWORD",
+        "E9_EMPLOYEE1_LOGINID",
+        "E9_EMPLOYEE1_PASSWORD",
+        "E9_EMPLOYEE2_LOGINID",
+        "E9_EMPLOYEE2_PASSWORD",
+        "E9_EMPLOYEE3_LOGINID",
+        "E9_EMPLOYEE3_PASSWORD",
+        "E9_EMPLOYEE4_LOGINID",
+        "E9_EMPLOYEE4_PASSWORD",
+        "E9_EMPLOYEE5_LOGINID",
+        "E9_EMPLOYEE5_PASSWORD",
+        "E9_ACCOUNTS_JSON",
     }
     assert passed["OPEN_REPORT"] == "false"
     assert passed["CI_RUNNER_ENV"] == "jenkins"
     assert "must-not-pass" not in repr(context)
+
+
+def test_cli_context_keeps_target_and_e9_credentials_for_isolated_runner(tmp_path):
+    """隔离 runner 必须透传目标地址和账号变量，但不放行无关 Jenkins 密钥。"""
+    context = api_runner_cli.build_context(
+        {
+            "TARGET_BASE_URL": "https://registered.example.invalid/e9",
+            "E9_LOGINID": "admin-placeholder",
+            "E9_USERPASSWORD": "password-placeholder",
+            "E9_EMPLOYEE2_LOGINID": "employee-two-placeholder",
+            "E9_EMPLOYEE2_PASSWORD": "employee-two-password-placeholder",
+            "JENKINS_API_TOKEN": "must-not-pass",
+        },
+        cwd=tmp_path,
+    )
+
+    passed = dict(context.runner_environment)
+    assert passed["TARGET_BASE_URL"] == "https://registered.example.invalid/e9"
+    assert passed["E9_LOGINID"] == "admin-placeholder"
+    assert passed["E9_EMPLOYEE2_LOGINID"] == "employee-two-placeholder"
+    assert "JENKINS_API_TOKEN" not in passed
 
 
 def test_cli_context_uses_unknown_without_dirty_revision_fallback(tmp_path):

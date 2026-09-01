@@ -134,3 +134,9 @@ BaseAPI.request()
 - 不把重试逻辑复制到 Jenkins Groovy、DRF 后端或 Vue 前端。
 - 不提交 `runtime/`、`report/allure-results/`、`report/allure-report/`、`logs/`、`.pytest_cache/`、`__pycache__/` 等产物。
 - 不在 `page_api/` 和 `test_case/` 中硬编码 IP 地址或域名，统一使用 `config.base_url` 或 `base_url` fixture。
+
+## 八、平台环境唯一入口
+
+- 平台环境唯一入口是 `scripts/trigger-platform-bootstrap.ps1` 和 `scripts/trigger-platform-bootstrap.sh`；AI 禁止直接执行 `docker compose up/restart/stop/down`、`docker build`、`pip install`、`npm install/npm ci`、Django `runserver` 或 Vite。
+- MySQL 与 Jenkins 由主人/平台运维负责启动和维护；环境变更通过固定 Job 幂等创建或修复，完成后重新构建并读取结构化诊断。
+- 禁止 `down -v`、volume 删除或绕过固定 Job 执行 migration；应用重建、依赖安装和环境验收均回到统一平台入口。

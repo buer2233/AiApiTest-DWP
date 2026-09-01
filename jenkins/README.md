@@ -115,6 +115,8 @@ Stage13 的旧分模块 Daily Job 删除开关与一次性删除分支已经退�
 
 环境目录同步 Job 不读取 MySQL、不写开发挂载工作区，也不运行接口测试。它使用私有 `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL` 与 branch 建立干净 checkout，在写入前校验目标 YAML 的 Git blob SHA；仅在快进推送成功后回调固定的 backend 内部 API 路径。checkout、push 和服务调用分别使用 `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID`、`JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID`、`JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID`。最后一项在 Jenkins 中保存的令牌必须与 backend 注入的私有 `ENVIRONMENT_CATALOG_SERVICE_TOKEN` 相同；启用同步时 Preflight 会检查该闭环所需配置。凭据、远端地址及令牌均不能写入模板、Pipeline 或日志。
 
+业务 API Job 可通过私有 `JENKINS_API_TEST_E9_CREDENTIALS_ID` 绑定 Jenkins Secret Text 凭据。凭据内容为账号映射 JSON（至少包含 `admin`，可选 `employee1` 至 `employee5`，字段为 `user_name` 与 `password`）；Pipeline 使用 `withCredentials` 注入 `E9_ACCOUNTS_JSON`，隔离 runner 再将其透传给 `api-test`。目标环境由 `TARGET_BASE_URL` 参数传递并在 `api-test` 中校验，凭据值不会写入仓库或构建日志。
+
 ### 业务参数摘要
 
 | Pipeline | 必填或关键参数 | 说明 |

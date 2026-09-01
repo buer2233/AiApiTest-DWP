@@ -273,7 +273,7 @@ def build_run_request_from_jenkins_env(
 ) -> RunRequest:
     """从 Jenkins 环境变量构建 CI 运行请求。
     支持的环境变量：RETRY_MODE、RUN_ID/BUILD_TAG/BUILD_NUMBER、
-    CASE_PATH、PYTEST_NODE_IDS、RETRY_COUNT、CLEAN_ALLURE、OPEN_REPORT、TARGET_BASE_URL
+    CASE_PATH、PYTEST_NODE_IDS、RETRY_COUNT、CLEAN_ALLURE、OPEN_REPORT、TARGET_BASE_URL/E9_BASE_URL
     Args:
         env: 环境变量字典，默认读取 os.environ
         api_test_root: api-test 根目录路径
@@ -300,7 +300,9 @@ def build_run_request_from_jenkins_env(
         # Jenkins 非交互环境不能执行 allure open，否则 Allure Web server 会常驻并卡住 Pipeline。
         open_report=False,
         retention_days=_parse_retention_days(source.get("CI_RUN_RETENTION_DAYS")),
-        base_url=_validate_jenkins_target_base_url(source.get("TARGET_BASE_URL"), Path(api_test_root)),
+        base_url=_validate_jenkins_target_base_url(
+            source.get("TARGET_BASE_URL") or source.get("E9_BASE_URL"), Path(api_test_root)
+        ),
     )
 
 
@@ -709,34 +711,34 @@ def build_run_dir(api_test_root: Path, run_id: str | None = None) -> Path:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="Run api-test pytest cases for CI.")
+    parser = argparse.ArgumentParser(description="为持续集成执行 api-test pytest 用例。")
     parser.add_argument(
         "--from-jenkins-env",
         action="store_true",
-        help="read Jenkins parameters from environment variables",
+        help="从环境变量读取 Jenkins 参数",
     )
-    parser.add_argument("--case-path", default="test_case", help="pytest module or case path")
-    parser.add_argument("--node-id", action="append", default=[], help="pytest node id, repeatable")
+    parser.add_argument("--case-path", default="test_case", help="pytest 模块或用例路径")
+    parser.add_argument("--node-id", action="append", default=[], help="pytest node id，可重复指定")
     parser.add_argument(
         "--retry-mode",
         choices=sorted(VALID_RETRY_MODES),
         default="none",
-        help="retry mode: none, selected, all-failed or module",
+        help="重试模式：none、selected、all-failed 或 module",
     )
-    parser.add_argument("--retry-count", type=int, default=0, help="pytest-rerunfailures retry count")
-    parser.add_argument("--run-id", default=None, help="external run id for runtime/ci-runs")
-    parser.add_argument("--base-url", default=None, help="override config.base_url for this CI run")
+    parser.add_argument("--retry-count", type=int, default=0, help="pytest-rerunfailures 重试次数")
+    parser.add_argument("--run-id", default=None, help="runtime/ci-runs 的外部运行 ID")
+    parser.add_argument("--base-url", default=None, help="覆盖本次持续集成运行的 config.base_url")
     parser.add_argument(
         "--clean",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="pass --clean-alluredir to pytest",
+        help="向 pytest 传递 --clean-alluredir",
     )
     parser.add_argument(
         "--open-report",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="open generated Allure HTML report when Allure CLI is installed",
+        help="安装 Allure CLI 时打开生成的 Allure HTML 报告",
     )
     return parser.parse_args(argv)
 

@@ -1,0 +1,39 @@
+{
+  "schema_version": "t4.3-v1",
+  "module": "doc_func",
+  "revision": 349155,
+  "prepare_tool": "tools/prepare_doc_func_test_data.py",
+  "state_file": "test_data/doc_func/doc_func_test_data.json",
+  "steps": [
+    {
+      "id": "login_admin",
+      "kind": "query",
+      "description": "登录管理员取得 Cookie 会话（只用于上传/下载/删除，不写入状态文件）",
+      "endpoint": "POST /api/hrm/login/*",
+      "depends_on": [],
+      "object_key": ""
+    },
+    {
+      "id": "upload_noext_doc",
+      "kind": "create",
+      "description": "uploadFile2Doc 上传无后缀文件，生成文档与附件（文件名前缀 E9R349155NOEXT）",
+      "endpoint": "POST /api/doc/upload/uploadFile2Doc",
+      "depends_on": ["login_admin"],
+      "object_key": "doc_id"
+    },
+    {
+      "id": "probe_download",
+      "kind": "verify",
+      "description": "generateDocZip 按 docIds 触发下载探测环境部署：code=1 记 env_deployed_fixed=true，否则按版本差异假设处理",
+      "endpoint": "POST /api/yd/doc/func/generateDocZip",
+      "depends_on": ["upload_noext_doc"],
+      "object_key": "env_deployed_fixed"
+    }
+  ],
+  "cleanup": {
+    "policy": "state_file_only",
+    "flag": "--cleanup"
+  },
+  "owner": "tools/prepare_doc_func_test_data.py",
+  "tag": "r349155"
+}

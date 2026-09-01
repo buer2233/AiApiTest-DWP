@@ -1,6 +1,6 @@
 """按需安装 requirements.txt 中尚未满足的依赖。
 
-Jenkins 每次构建都会复用 api-test 下的虚拟环境；本脚本先读取当前虚拟环境已安装包，
+    Jenkins 每次构建都会复用 api-test 下的虚拟环境；本脚本先读取当前虚拟环境已安装包，
 再和 requirements.txt 对比，只安装缺失或固定版本不一致的依赖，减少重复安装耗时。
 """
 
@@ -137,13 +137,13 @@ def install_missing_requirements(requirements_file: Path) -> list[str]:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Install only missing requirements.")
+    parser = argparse.ArgumentParser(description="仅安装缺失的依赖。")
     parser.add_argument(
         "requirements_file",
         nargs="?",
         default="requirements.txt",
         type=Path,
-        help="requirements.txt path, relative to current working directory by default",
+        help="requirements.txt 路径，默认相对当前工作目录",
     )
     return parser.parse_args(argv)
 
