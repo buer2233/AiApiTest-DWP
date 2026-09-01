@@ -138,6 +138,16 @@ def test_pipeline_delegates_pytest_execution_to_ci_runner():
     assert "allure" in combined
 
 
+def test_pipeline_binds_e9_accounts_secret_for_api_runner():
+    """业务 Pipeline 必须从 Jenkins Secret Text 凭据向隔离 runner 注入账号 JSON。"""
+    pipeline = read_pipeline_files()["api-test-pipeline.groovy"]
+
+    assert "JENKINS_API_TEST_E9_CREDENTIALS_ID" in pipeline
+    assert "withCredentials" in pipeline
+    assert "credentialsId: e9CredentialsId" in pipeline
+    assert "variable: 'E9_ACCOUNTS_JSON'" in pipeline
+
+
 def test_pipeline_preserves_artifacts_when_pytest_fails():
     """pytest 用例失败时 Run API Tests 不应把 Jenkins stage 标记为失败。"""
     files = read_pipeline_files()

@@ -35,8 +35,8 @@ class LoginAPI(BaseAPI):
     @allure.step("接口：获取 E9 RSA 登录配置")
     def get_rsa_info(self, status_code=200, ts=None, **kwargs):
         """获取 E9 登录页 RSA 配置。"""
-        # Author: dengwanpeng
-        # Create Date: 2026-08-11
+        # Author:dengwanpeng
+        # Create Date:2026-08-11
         # IsAI: True
         url = "/rsa/weaver.rsa.GetRsaInfo"
         error_msg = kwargs.pop("error_msg", "获取 E9 RSA 登录配置")
@@ -57,8 +57,8 @@ class LoginAPI(BaseAPI):
         E9 当前抓包显示密码以明文表单字段传输；调用方应从本地私有账号文件
         读取，不得将账号或密码写入代码、日志或 Allure 附件。
         """
-        # Author: dengwanpeng
-        # Create Date: 2026-08-11
+        # Author:dengwanpeng
+        # Create Date:2026-08-11
         # IsAI: True
         url = "/api/hrm/login/checkLogin"
         error_msg = kwargs.pop("error_msg", "E9 账号密码登录")
@@ -89,8 +89,8 @@ class LoginAPI(BaseAPI):
     @allure.step("接口：E9 登录提醒")
     def remind_login(self, status_code=200, **kwargs):
         """确认登录提醒状态。"""
-        # Author: dengwanpeng
-        # Create Date: 2026-08-11
+        # Author:dengwanpeng
+        # Create Date:2026-08-11
         # IsAI: True
         url = "/api/hrm/login/remindLogin"
         error_msg = kwargs.pop("error_msg", "E9 登录提醒")
@@ -107,8 +107,8 @@ class LoginAPI(BaseAPI):
     @allure.step("接口：E9 检查弱密码")
     def is_weak_password(self, password, status_code=200, **kwargs):
         """检查登录密码是否为弱口令。"""
-        # Author: dengwanpeng
-        # Create Date: 2026-08-11
+        # Author:dengwanpeng
+        # Create Date:2026-08-11
         # IsAI: True
         url = "/api/hrm/password/isWeakPassword"
         error_msg = kwargs.pop("error_msg", "E9 检查弱密码")
@@ -125,8 +125,8 @@ class LoginAPI(BaseAPI):
     @allure.step("接口：获取 E9 登录后系统信息")
     def get_os_info(self, status_code=200, random_value=None, **kwargs):
         """获取登录后系统信息并携带动态随机参数。"""
-        # Author: dengwanpeng
-        # Create Date: 2026-08-11
+        # Author:dengwanpeng
+        # Create Date:2026-08-11
         # IsAI: True
         url = "/api/system/info/getOSinfo"
         error_msg = kwargs.pop("error_msg", "获取 E9 登录后系统信息")

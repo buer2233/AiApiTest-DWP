@@ -1,0 +1,79 @@
+{
+  "schema_version": "t4.3-v1",
+  "module": "board",
+  "revision": 349149,
+  "prepare_tool": "tools/prepare_board_test_data.py",
+  "state_file": "test_data/board/board_test_data.json",
+  "steps": [
+    {
+      "id": "login_admin",
+      "kind": "query",
+      "description": "按框架 fixture 同等步骤登录管理员，取得共享会话上下文",
+      "endpoint": "POST /api/hrm/login/*",
+      "depends_on": [],
+      "object_key": ""
+    },
+    {
+      "id": "query_data_model",
+      "kind": "query",
+      "description": "dm/listAll 选择数据模型（默认第一个分组的第一项，可用 --dm-id 指定）",
+      "endpoint": "POST /api/yd/board/dm/listAll",
+      "depends_on": ["login_admin"],
+      "object_key": "dm_id"
+    },
+    {
+      "id": "query_table_meta",
+      "kind": "query",
+      "description": "dm/tableMeta/list 选择模型首表的 CHAR 类字段候选（排除 LOB/CLOB）",
+      "endpoint": "POST /api/yd/board/dm/tableMeta/list",
+      "depends_on": ["query_data_model"],
+      "object_key": ""
+    },
+    {
+      "id": "create_board",
+      "kind": "create",
+      "description": "dashboard/create 建看板（r349149自动化测试看板）",
+      "endpoint": "POST /api/yd/board/dashboard/create",
+      "depends_on": ["query_data_model"],
+      "object_key": "board_id"
+    },
+    {
+      "id": "create_widget",
+      "kind": "create",
+      "description": "widget/create 建 DIGITALPANEL 组件（任一可查询组件）",
+      "endpoint": "POST /api/yd/board/widget/create",
+      "depends_on": ["create_board"],
+      "object_key": "widget_id"
+    },
+    {
+      "id": "probe_null_field",
+      "kind": "verify",
+      "description": "getDataWithConfig 逐字段探测空值数据；命中即记录 field，并附环境部署版本对比信息",
+      "endpoint": "POST /api/yd/board/widget/getDataWithConfig",
+      "depends_on": ["query_table_meta", "create_widget"],
+      "object_key": "field"
+    },
+    {
+      "id": "create_filter_widget",
+      "kind": "create",
+      "description": "widget/create 建第二个 DIGITALPANEL 组件（P0 空值口径专用）",
+      "endpoint": "POST /api/yd/board/widget/create",
+      "depends_on": ["create_board", "probe_null_field"],
+      "object_key": "filter_widget_id"
+    },
+    {
+      "id": "configure_filter",
+      "kind": "configure",
+      "description": "widget/config 写入「不包含」负向过滤条件（探测值 zz_r349149_probe_zz）",
+      "endpoint": "POST /api/yd/board/widget/config",
+      "depends_on": ["create_filter_widget"],
+      "object_key": ""
+    }
+  ],
+  "cleanup": {
+    "policy": "state_file_only",
+    "flag": "--cleanup"
+  },
+  "owner": "tools/prepare_board_test_data.py",
+  "tag": "r349149"
+}

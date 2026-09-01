@@ -1,6 +1,9 @@
+from pathlib import Path
+
 import pytest
 
 import config
+from tools.revision_marks import register_revision_marks
 
 
 def _option_registered(parser, option_name):
@@ -8,6 +11,12 @@ def _option_registered(parser, option_name):
     anonymous_parser = getattr(parser, "_anonymous", None)
     options = getattr(anonymous_parser, "options", ())
     return any(option_name in getattr(option, "_long_opts", ()) for option in options)
+
+
+def pytest_configure(config):
+    """注册源码里出现的 r<rev> mark，无需在 ini 里为每个版本手写。"""
+    test_root = Path(__file__).resolve().parent / "test_case"
+    register_revision_marks(config, test_root)
 
 
 def pytest_addoption(parser):
@@ -18,12 +27,12 @@ def pytest_addoption(parser):
     # --base-url 用于临时覆盖 config.base_url，常用于切换测试环境域名。
     # pytest-base-url 插件也可能提供同名参数，此时复用插件选项避免重复注册。
     if not _option_registered(parser, "--base-url"):
-        parser.addoption("--base-url", action="store", default=None, help="override config.base_url")
+        parser.addoption("--base-url", action="store", default=None, help="覆盖 config.base_url")
 
     # --website-name 用于覆盖 Allure 报告中的网站/项目名称展示。
     if not _option_registered(parser, "--website-name"):
         parser.addoption(
-            "--website-name", action="store", default=None, help="override Allure epic website name"
+            "--website-name", action="store", default=None, help="覆盖 Allure 报告的网站名称"
         )
 
 

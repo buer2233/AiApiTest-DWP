@@ -30,6 +30,22 @@ RUNNER_ENVIRONMENT_KEYS = (
     "OPEN_REPORT",
     "CI_RUN_RETENTION_DAYS",
     "CI_RUNNER_ENV",
+    # api-test 的目标环境与角色凭据；账号 JSON 由 Jenkins Secret Text 注入。
+    "TARGET_BASE_URL",
+    "E9_BASE_URL",
+    "E9_LOGINID",
+    "E9_USERPASSWORD",
+    "E9_ACCOUNTS_JSON",
+    "E9_EMPLOYEE1_LOGINID",
+    "E9_EMPLOYEE1_PASSWORD",
+    "E9_EMPLOYEE2_LOGINID",
+    "E9_EMPLOYEE2_PASSWORD",
+    "E9_EMPLOYEE3_LOGINID",
+    "E9_EMPLOYEE3_PASSWORD",
+    "E9_EMPLOYEE4_LOGINID",
+    "E9_EMPLOYEE4_PASSWORD",
+    "E9_EMPLOYEE5_LOGINID",
+    "E9_EMPLOYEE5_PASSWORD",
 )
 
 
@@ -53,6 +69,21 @@ def build_context(
         "OPEN_REPORT": "false",
         "CI_RUN_RETENTION_DAYS": "30",
         "CI_RUNNER_ENV": "jenkins",
+        "TARGET_BASE_URL": "",
+        "E9_BASE_URL": "",
+        "E9_LOGINID": "",
+        "E9_USERPASSWORD": "",
+        "E9_ACCOUNTS_JSON": "",
+        "E9_EMPLOYEE1_LOGINID": "",
+        "E9_EMPLOYEE1_PASSWORD": "",
+        "E9_EMPLOYEE2_LOGINID": "",
+        "E9_EMPLOYEE2_PASSWORD": "",
+        "E9_EMPLOYEE3_LOGINID": "",
+        "E9_EMPLOYEE3_PASSWORD": "",
+        "E9_EMPLOYEE4_LOGINID": "",
+        "E9_EMPLOYEE4_PASSWORD": "",
+        "E9_EMPLOYEE5_LOGINID": "",
+        "E9_EMPLOYEE5_PASSWORD": "",
     }
     runner_environment = []
     for key in RUNNER_ENVIRONMENT_KEYS:

@@ -6,3 +6,27 @@ test_workflow_case:
   module_name: 流程模块
   module_dev: 陈序彪
   module_test: 刘艳
+test_board_case:
+  module_name: 看板模块
+  module_dev: 待维护
+  module_test: 待维护
+test_doc_func_case:
+  module_name: 文档功能模块
+  module_dev: 待维护
+  module_test: 待维护
+test_email_case:
+  module_name: 邮件模块
+  module_dev: 待维护
+  module_test: 待维护
+test_formmode_case:
+  module_name: 表单建模模块
+  module_dev: 待维护
+  module_test: 待维护
+test_odoc_file_case:
+  module_name: 公文文件模块
+  module_dev: 待维护
+  module_test: 待维护
+test_system_doc_case:
+  module_name: 系统文档模块
+  module_dev: 待维护
+  module_test: 待维护

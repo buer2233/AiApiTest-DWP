@@ -4,9 +4,28 @@ from urllib.parse import urlparse
 # Allure 报告中展示的网站名称；为空时会从 base_url 自动解析域名。
 website_name = ""
 
-# 被测系统基础地址，必须包含协议和域名。
-# base_url = "http://10.10.46.136:8080"
-base_url = "http://10.10.46.136:8080"  # E9测试环境
+# ──────────────────────────────────────────────────────────────────────────────
+# base_url 读取优先级
+#   1. 环境变量 TARGET_BASE_URL（Jenkins 参数覆盖）
+#   2. 环境变量 E9_BASE_URL（CI 覆盖）
+#   3. 版本化环境目录中的默认地址
+# ──────────────────────────────────────────────────────────────────────────────
+
+# 与版本化环境目录保持一致的默认测试入口；CI 可通过 E9_BASE_URL 或
+# Jenkins 的 --base-url 覆盖，避免把环境选择写死在接口方法中。
+_fallback_base_url = "http://10.10.46.136:8080"
+
+
+def _load_root_base_url() -> str:
+    """读取 CI 环境覆盖地址；未提供时返回默认测试环境。"""
+    # Jenkins 参数标准名为 TARGET_BASE_URL，保留 E9_BASE_URL 兼容本地调用。
+    env_url = os.getenv("TARGET_BASE_URL") or os.getenv("E9_BASE_URL")
+    if env_url:
+        return env_url
+    return _fallback_base_url
+
+
+base_url = _load_root_base_url()
 
 # 是否使用 curl_cffi 模拟浏览器 TLS 指纹（绕过 Cloudflare 等 WAF）。
 # True: 使用 curl_cffi，需要安装 pip install curl_cffi

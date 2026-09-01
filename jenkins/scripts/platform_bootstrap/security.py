@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping, Sequence
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -40,7 +41,30 @@ class Redactor:
     ) -> "Redactor":
         secrets = list(extra_secrets)
         for key, value in values.items():
-            if is_sensitive_key(key) or key.upper() == "JENKINS_USERNAME":
+            normalized_key = key.upper()
+            if normalized_key == "E9_ACCOUNTS_JSON":
+                # Secret Text 通常是嵌套 JSON，键名本身不含 password；
+                # 同时加入完整值和账号字段，兼容日志中的压缩/格式化输出。
+                secrets.append(value)
+                try:
+                    payload = json.loads(value)
+                except (TypeError, json.JSONDecodeError):
+                    payload = None
+
+                def collect_account_values(item: object) -> None:
+                    if isinstance(item, Mapping):
+                        for item_key, item_value in item.items():
+                            if str(item_key).lower() in {"user_name", "username", "password"}:
+                                if isinstance(item_value, str):
+                                    secrets.append(item_value)
+                            else:
+                                collect_account_values(item_value)
+                    elif isinstance(item, list):
+                        for child in item:
+                            collect_account_values(child)
+
+                collect_account_values(payload)
+            elif is_sensitive_key(key) or normalized_key == "JENKINS_USERNAME":
                 secrets.append(value)
         return cls(extra_secrets=secrets)
 

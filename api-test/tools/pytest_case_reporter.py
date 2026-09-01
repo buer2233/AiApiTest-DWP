@@ -15,7 +15,7 @@ def pytest_addoption(parser):
         "--ci-case-results",
         action="store",
         default="",
-        help="write final pytest node id results to the given JSON file",
+        help="将最终 pytest node id 结果写入指定 JSON 文件",
     )
 
 

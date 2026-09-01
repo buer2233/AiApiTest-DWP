@@ -61,10 +61,10 @@ class TestWorkflowBase1API:
             5. 获取分页 Key（用于后续表格数据请求）
             6. 获取表格数据（待办事项列表）
             7. 获取表格数据总数
-            8. 获取未操作者列表
+            8. 获取未操Author列表
         """
-        # Author: dengwanpeng
-        # Create Date: 2026-08-12
+        # Author:dengwanpeng
+        # Create Date:2026-08-12
         # IsAI: True
 
         with allure.step("1.获取 Portal 协同门户信息"):
@@ -131,10 +131,10 @@ class TestWorkflowBase1API:
                 f"表格总数异常: {table_count}"
             )
 
-        with allure.step("8.获取未操作者列表"):
+        with allure.step("8.获取未操Author列表"):
             unoperators = self.workflow_api_admin.get_unoperators()
             assert isinstance(unoperators, dict), (
-                f"未操作者数据类型异常: {unoperators}"
+                f"未操Author数据类型异常: {unoperators}"
             )
 
     @allure.story("查询待办事宜-普通成员1")
@@ -150,10 +150,10 @@ class TestWorkflowBase1API:
             5. 获取分页 Key
             6. 获取表格数据
             7. 获取表格数据总数
-            8. 获取未操作者列表
+            8. 获取未操Author列表
         """
-        # Author: dengwanpeng
-        # Create Date: 2026-08-12
+        # Author:dengwanpeng
+        # Create Date:2026-08-12
         # IsAI: True
 
         with allure.step("1.获取 Portal 协同门户信息"):
@@ -189,6 +189,6 @@ class TestWorkflowBase1API:
             table_count = self.ec_api_emp1.get_table_counts(data_key=sessionkey)
             assert table_count.get("count", 0) >= 0, f"表格总数异常: {table_count}"
 
-        with allure.step("8.获取未操作者列表"):
+        with allure.step("8.获取未操Author列表"):
             unoperators = self.workflow_api_emp1.get_unoperators()
-            assert isinstance(unoperators, dict), f"未操作者数据异常: {unoperators}"
+            assert isinstance(unoperators, dict), f"未操Author数据异常: {unoperators}"

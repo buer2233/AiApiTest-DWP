@@ -25,7 +25,7 @@ from utils.common_function import load_account
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @pytest.fixture(scope="session", autouse=True)
-def login_admin():
+def login_admin(base_url):
     """自动登录管理员账号，整个测试会话只执行一次。
 
     所有用例默认受益于管理员已登录状态，无需在每个用例中重复
@@ -40,7 +40,7 @@ def login_admin():
                     作为所有模块接口的统一入口。
     """
     account = load_account("admin")
-    api = LoginAPI()
+    api = LoginAPI(base_url=base_url)
     api._caller = account["user_name"]
 
     api.get_rsa_info()
@@ -67,7 +67,7 @@ def login_admin():
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @pytest.fixture(scope="session")
-def login_employee() -> Callable[[str], APIContext]:
+def login_employee(base_url) -> Callable[[str], APIContext]:
     """返回一个工厂函数，按需登录任意员工账号（非自动执行）。
 
     设计思路：
@@ -118,7 +118,7 @@ def login_employee() -> Callable[[str], APIContext]:
         if not account["user_name"] or not account["password"]:
             pytest.skip(f"账号 '{role}' 未配置凭据，跳过当前用例")
 
-        api = LoginAPI()
+        api = LoginAPI(base_url=base_url)
         api._caller = account["user_name"]
 
         api.get_rsa_info()

@@ -1,5 +1,6 @@
 pytest==7.4.4
 requests==2.32.5
+curl_cffi==0.15.0
 allure-pytest==2.13.5
 pytest-rerunfailures==16.1
 PyYAML==6.0.2

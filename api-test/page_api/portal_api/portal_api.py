@@ -24,8 +24,8 @@ class PortalAPI(BaseAPI):
         Returns:
             dict: 包含 isuse、hpid、defaultExpand、width 等字段。
         """
-        # Author: dengwanpeng
-        # Create Date: 2026-08-12
+        # Author:dengwanpeng
+        # Create Date:2026-08-12
         # IsAI: True
         url = "/api/portal/synergy/getSynergyPortal"
         error_msg = kwargs.pop("error_msg", "获取 E9 Portal 协同门户信息")

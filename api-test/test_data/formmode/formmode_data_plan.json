@@ -1,0 +1,63 @@
+{
+  "schema_version": "t4.3-v1",
+  "module": "formmode",
+  "revision": 349152,
+  "prepare_tool": "tools/prepare_formmode_test_data.py",
+  "state_file": "test_data/formmode/formmode_test_data.json",
+  "steps": [
+    {
+      "id": "query_layouts",
+      "kind": "query",
+      "description": "getLayoutList 取目标模块（mode_id=1001 / form_id=-7）的查看/编辑布局",
+      "endpoint": "POST /api/formmode/manage/layout/getLayoutList",
+      "depends_on": [],
+      "object_key": ""
+    },
+    {
+      "id": "query_roles",
+      "kind": "query",
+      "description": "getRoleSetList 取可用角色",
+      "endpoint": "POST /api/hrm/roleset/getRoleSetList",
+      "depends_on": [],
+      "object_key": "_role_id"
+    },
+    {
+      "id": "create_bill",
+      "kind": "create",
+      "description": "doSubmit 以 employee1 身份建一笔真实单据（创建人=该员工）",
+      "endpoint": "POST /api/formmode/data/doSubmit",
+      "depends_on": ["query_layouts"],
+      "object_key": "billid"
+    },
+    {
+      "id": "add_role_member",
+      "kind": "configure",
+      "description": "/hrm/roleset/save 把该员工加入角色",
+      "endpoint": "POST /api/hrm/roleset/save",
+      "depends_on": ["query_roles", "create_bill"],
+      "object_key": "_member_id"
+    },
+    {
+      "id": "save_role_limited_right",
+      "kind": "configure",
+      "description": "saveModeRightList 保存 sharetype=4 / isrolelimited=1 / rolefield=-101(创建人) 的受限权限并绑定查看/编辑布局",
+      "endpoint": "POST /api/formmode/manage/right/saveModeRightList",
+      "depends_on": ["add_role_member"],
+      "object_key": "_right_ids"
+    },
+    {
+      "id": "verify_layout_binding",
+      "kind": "verify",
+      "description": "layoutBase 以员工身份验证返回编辑布局（r349152 修复路径）",
+      "endpoint": "POST /api/formmode/data/layoutBase",
+      "depends_on": ["save_role_limited_right"],
+      "object_key": "role_limited_expected_layoutid"
+    }
+  ],
+  "cleanup": {
+    "policy": "state_file_only",
+    "flag": "--cleanup"
+  },
+  "owner": "tools/prepare_formmode_test_data.py",
+  "tag": "r349152"
+}

@@ -33,8 +33,14 @@ python runpytest.py -m smoke
 ```
 
 E9 真实登录验收优先从 Jenkins Credentials 或进程环境变量读取私有凭据：
-`E9_LOGINID` 与 `E9_USERPASSWORD` 必须同时配置。仅在本地调试且明确使用抓包账号时，
+`E9_LOGINID` 与 `E9_USERPASSWORD` 必须同时配置。需要权限链路时，按角色补充
+`E9_EMPLOYEE1_LOGINID` / `E9_EMPLOYEE1_PASSWORD` 至 `E9_EMPLOYEE5_LOGINID` /
+`E9_EMPLOYEE5_PASSWORD`。仅在本地调试且明确使用抓包账号时，
 才回退读取 `test_data/account.json`。
+
+Jenkins 推荐创建 Secret Text 凭据，并将其 ID 配置为 `JENKINS_API_TEST_E9_CREDENTIALS_ID`。
+Secret 内容使用账号映射 JSON，例如 `{"admin":{"user_name":"...","password":"..."}}`，
+可继续增加 `employee1` 至 `employee5`；Pipeline 会以 `E9_ACCOUNTS_JSON` 注入隔离 runner。
 
 ```powershell
 $env:E9_LOGINID = "<E9_LOGINID>"

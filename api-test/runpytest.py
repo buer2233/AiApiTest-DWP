@@ -11,7 +11,8 @@ from pathlib import Path
 3. build_allure_generate_command：根据 Allure 结果目录和报告目录构造 allure generate 命令。
 4. run_command：统一执行外部命令，并返回 subprocess 执行结果。
 5. ensure_runtime_dirs：确保报告、运行时、日志和 Allure 目录存在。
-6. main：解析命令行参数，执行 pytest，生成 Allure 报告，并按需打开报告。
+6. safe_clean_allure_results：安全清理 allure-results 可再生产物，失败降级为告警。
+7. main：解析命令行参数，执行 pytest，生成 Allure 报告，并按需打开报告。
 """
 
 import config
@@ -27,7 +28,10 @@ def build_pytest_command(
     Args:
         case_path: pytest 要执行的用例目录或文件路径，默认执行 test_case。
         marker: pytest marker 表达式，用于筛选指定标记的用例。
-        clean: 是否在运行前清理旧的 Allure 结果目录。
+        clean: 是否在执行前清理旧 Allure 结果；四期 T4.5 起清理由
+            safe_clean_allure_results 预执行，命令不再携带
+            --clean-alluredir——沙箱策略拦截目录删除时该 flag 会让
+            pytest 直接 INTERNALERROR，预清理则可降级为告警继续执行。
         allure_results_dir: 自定义 Allure 结果目录；不传时使用 config.allure_results_dir。
     Returns:
         list[str]: 可直接传给 subprocess.run 的 pytest 命令参数列表。
@@ -43,6 +47,7 @@ def build_pytest_command(
     ]
     if marker:
         command.extend(["-m", marker])
+    # 保留本地入口的历史契约；CI runner 使用独立 run 目录隔离结果。
     if clean:
         command.append("--clean-alluredir")
     if int(config.reruns) > 0:
@@ -72,6 +77,19 @@ def build_timestamped_allure_report_dir(base_report_dir=None, timestamp=None):
         report_dir = report_root / f"{report_timestamp}_{index:03d}"
         index += 1
     return report_dir
+
+
+def build_allure_open_hint(report_dir):
+    """说明不能用 file:// 直接打开 Allure 静态页。
+    Allure 是前端路由应用，点击 Categories 等会再拉 data/*.json。
+    用 file:// 打开时浏览器会拦截这些请求，页面显示 404 Not found。
+    """
+    report_dir = Path(report_dir)
+    return (
+        f"Allure 报告目录: {report_dir}\n"
+        "不要用浏览器直接打开 index.html（file:// 下点击 Categories 会 404）。\n"
+        f'请执行: allure open "{report_dir}"'
+    )
 
 
 def build_allure_generate_command(results_dir=None, report_dir=None):
@@ -118,6 +136,39 @@ def ensure_runtime_dirs():
         Path(path).mkdir(parents=True, exist_ok=True)
 
 
+def safe_clean_allure_results(results_dir=None):
+    """安全清理 allure-results：仅删除可再生执行产物，失败降级为告警。
+
+    四期 T4.5：清理逐项执行，任何条目被沙箱策略、文件锁或权限拦截时
+    只记录告警并继续，不抛异常（避免 pytest --clean-alluredir 触发
+    INTERNALERROR 中断全流程）。目录本身保留，供本次执行继续写入。
+    Args:
+        results_dir: Allure 结果目录；不传时使用 config.allure_results_dir。
+    Returns:
+        tuple[bool, list[str]]: (是否全部清理成功, 告警信息列表)。
+    """
+    target = Path(results_dir or config.allure_results_dir)
+    warnings = []
+    if not target.is_dir():
+        return True, warnings
+    failed = []
+    for entry in sorted(target.iterdir()):
+        try:
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+        except OSError as exc:
+            failed.append(f"{entry.name}: {exc}")
+    if failed:
+        preview = "; ".join(failed[:5])
+        warnings.append(
+            f"allure-results 预清理未完全成功（{len(failed)} 项残留，可能混入本次报告）：{preview}"
+        )
+        return False, warnings
+    return True, warnings
+
+
 def main(case_path="test_case", marker=None, open_report=False, clean=True, argv=None):
     """命令行主入口。
     负责解析用户传入的 pytest 执行参数，准备运行目录，执行接口自动化用例，
@@ -130,29 +181,36 @@ def main(case_path="test_case", marker=None, open_report=False, clean=True, argv
         argv: 指定要解析的命令行参数列表；不传时读取真实命令行参数。
     """
     # 定义命令行参数，便于通过 runpytest.py 统一控制用例范围和报告行为。
-    parser = argparse.ArgumentParser(description="Run API pytest cases and generate Allure report.")
+    parser = argparse.ArgumentParser(description="执行 API pytest 用例并生成 Allure 报告。")
     parser.add_argument(
-        "--case-path", default=case_path, help="pytest case path, default: test_case"
+        "--case-path", default=case_path, help="pytest 用例路径，默认：test_case"
     )
     parser.add_argument(
-        "-m", "--marker", default=marker, help="pytest marker expression"
+        "-m", "--marker", default=marker, help="pytest 标记表达式"
     )
     parser.add_argument(
         "--open-report",
         action=argparse.BooleanOptionalAction,
         default=open_report,
-        help="open Allure report after generation",
+        help="生成后打开 Allure 报告",
     )
     parser.add_argument(
         "--clean",
         action=argparse.BooleanOptionalAction,
         default=clean,
-        help="clean old allure-results before run, default: True",
+        help="执行前清理旧的 allure-results，默认：True",
     )
     args = parser.parse_args(argv)
 
     # 先创建运行所需目录，再启动 pytest，避免输出报告或日志时目录不存在。
     ensure_runtime_dirs()
+
+    # 四期 T4.5：清理改为安全预执行；沙箱/文件锁拦截时降级为告警，
+    # 不再向 pytest 传 --clean-alluredir（该路径失败会 INTERNALERROR）。
+    if args.clean:
+        _clean_ok, clean_warnings = safe_clean_allure_results()
+        for warning in clean_warnings:
+            print(f"WARNING: {warning}")
 
     # 根据命令行参数构造 pytest 命令，并保留执行结果用于最终退出码。
     pytest_result = run_command(
@@ -172,6 +230,8 @@ def main(case_path="test_case", marker=None, open_report=False, clean=True, argv
         allure_command[0] = allure_executable
         allure_result = run_command(allure_command)
 
+        if allure_result.returncode == 0:
+            print(build_allure_open_hint(allure_report_dir))
         # 只有报告生成成功且用户传入 --open-report 时，才调用 allure open。
         if args.open_report and allure_result.returncode == 0:
             run_command([allure_executable, "open", str(allure_report_dir)])
@@ -191,4 +251,10 @@ def run_default_main():
 
 
 if __name__ == "__main__":
-    run_default_main()
+    import sys
+
+    # IDE 双击运行（无参数）保持全量；命令行传入 -m / --case-path 时尊重参数。
+    if len(sys.argv) > 1:
+        main()
+    else:
+        run_default_main()

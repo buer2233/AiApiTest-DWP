@@ -71,6 +71,7 @@ Jenkins controller 使用 Docker Socket 控制**应用服务**镜像和容器。
 | `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_URL`、`JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_BRANCH` | 环境目录受控 SCM 来源。 |
 | `JENKINS_ENVIRONMENT_CATALOG_SYNC_SCM_CREDENTIALS_ID`、`JENKINS_ENVIRONMENT_CATALOG_SYNC_PUSH_CREDENTIALS_ID` | 环境目录 checkout 与 push 的独立 Jenkins Credentials ID。 |
 | `JENKINS_ENVIRONMENT_CATALOG_SERVICE_CREDENTIALS_ID` | Jenkins 调用 backend 内部 API 时使用的 Secret Text Credentials ID。 |
+| `JENKINS_API_TEST_E9_CREDENTIALS_ID` | 业务 API Job 使用的 Jenkins Secret Text Credentials ID；内容为 E9 角色账号 JSON，仅在 Jenkins 私有环境中配置。 |
 | `ENVIRONMENT_CATALOG_SERVICE_TOKEN` | 注入 backend 的服务令牌；启用同步时必须与上一项所指 Jenkins Secret Text 的内容一致。 |
 
 `DB_USER` 与 `DB_PASSWORD` 是 Compose **必填**的应用专用非 root 数据库用户和密码，**只写入本地 `.env`**。`MYSQL_ROOT_PASSWORD` 只用于 MySQL 管理和初始化，不作为 backend 或 worker 的应用连接账号。

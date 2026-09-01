@@ -95,6 +95,25 @@ def test_redactor_masks_literals_headers_urls_and_sensitive_mappings():
     }
 
 
+def test_redactor_masks_credentials_embedded_in_e9_accounts_json():
+    """E9 Secret Text JSON 的账号和值不得出现在生命周期证据中。"""
+    secret = json.dumps(
+        {
+            "admin": {"user_name": "e9-admin", "password": "e9-admin-pass"},
+            "employee1": {"user_name": "e9-employee", "password": "e9-employee-pass"},
+        }
+    )
+    redactor = Redactor.from_env({"E9_ACCOUNTS_JSON": secret})
+
+    redacted = redactor.text(f"runner env: {secret}")
+
+    assert "e9-admin" not in redacted
+    assert "e9-admin-pass" not in redacted
+    assert "e9-employee" not in redacted
+    assert "e9-employee-pass" not in redacted
+    assert "***" in redacted
+
+
 def test_dotenv_parser_supports_required_subset_and_only_reports_key_names(tmp_path):
     env_path = tmp_path / ".env"
     env_path.write_text(

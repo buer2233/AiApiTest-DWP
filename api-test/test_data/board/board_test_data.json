@@ -1,0 +1,14 @@
+{
+  "_module": "board",
+  "_description": "r349149 数据中心看板前置测试数据（tools/prepare_board_test_data.py 构建，--cleanup 可回收）。Git 管理，勿放 runtime/。",
+  "board_id": "1bb3f04edeb84deeb62c48d16eb6aa5a",
+  "widget_id": "4697145a2f2f4eed8300c7ca7e2e65fa",
+  "filter_widget_id": "01fcf03f1cda44ca90b3606e3d9a83b1",
+  "dm_id": "ec0ecd15fb9948d6895e913c5501f156",
+  "table": "formtable_main_34",
+  "field": "DWB",
+  "probe_value": "zz_r349149_probe_zz",
+  "_schema_version": "t4.3-v1",
+  "_owner": "tools/prepare_board_test_data.py",
+  "_tag": "r349149"
+}

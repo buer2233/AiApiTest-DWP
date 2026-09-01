@@ -1,15 +1,15 @@
 {
   "admin": {
-    "user_name": "sysadmin",
-    "password": "111aaa###"
+    "user_name": "",
+    "password": ""
   },
   "employee1": {
-    "user_name": "AutoTest001",
-    "password": "AutoTest001"
+    "user_name": "",
+    "password": ""
   },
   "employee2": {
-    "user_name": "AutoTest002",
-    "password": "AutoTest002"
+    "user_name": "",
+    "password": ""
   },
   "employee3": {
     "user_name": "",

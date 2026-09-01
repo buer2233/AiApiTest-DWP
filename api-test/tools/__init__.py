@@ -1,1 +1,1 @@
-"""Reusable tools for api-test CI execution."""
+"""api-test 持续集成执行可复用工具。"""
