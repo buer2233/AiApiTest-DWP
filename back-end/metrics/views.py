@@ -1535,7 +1535,10 @@ class ModuleSnapshotListView(APIView):
         if isinstance(sort_fields, Response):
             return sort_fields
 
-        queryset = ModuleSnapshot.objects.select_related("module", "environment").filter(environment_id=environment_id)
+        queryset = ModuleSnapshot.objects.select_related("module", "environment").filter(
+            environment_id=environment_id,
+            module__is_active=True,
+        )
         for param_name, lookup in [
             ("module_test", "module__module_test__in"),
             ("module_name", "module__module_name__in"),

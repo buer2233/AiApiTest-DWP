@@ -157,13 +157,13 @@ helper 只通过 Jenkins API 提交并轮询固定 Job，使用相同的参数�
 | Checkout/Workspace | 使用代码固定的 `/workspace/AiApiTest-DWP` 挂载仓库获取流水线源码；环境目录同步 Job 才使用独立受管 SCM。 | 保留 Jenkins 控制台和可用证据。 |
 | Bootstrap Preflight | 校验 `.env`、Docker CLI/Compose、Socket/GID、MySQL/Jenkins 运行状态以及 MySQL health。 | 输出结构化诊断并停止。 |
 | Dependency Assurance | 分别校验 backend、frontend、api-runner 三个依赖域。缺失或不满足时各只安装/构建一次，完整记录日志。 | 汇总失败域，在部署前停止。 |
-| Schema & Initial Data | 仅通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务依序执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`。空库创建全部 Django 表；已有库只应用未执行 migration。 | 任一步失败即阻止 Deploy；不 rollback、不清库、不删表。 |
+| Schema & Initial Data | 仅通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务依序执行 `migrate --noinput`、`seed_environment --reconcile`、`sync_modules --reconcile`、`init_admin --bootstrap-only`。空库创建全部 Django 表；已有库只应用未执行 migration。 | 任一步失败即阻止 Deploy；不 rollback、不清库、不删表。 |
 | Deploy | 仅部署 backend、frontend、`jenkins-sync-worker`。 | 保留服务与部署日志；不回滚、不删除卷。 |
 | Health | 探测 backend live/ready、frontend health/SPA/API 代理和 worker 心跳。 | 输出失败服务的结构化原因与证据。 |
 | Tests | 默认执行公开健康与冒烟探针；全量模式还运行 backend pytest、frontend unit/build/Playwright、api-runner/Jenkins 静态测试。 | 归档已有测试证据并标记构建失败。 |
 | Archive & Summary | 归档证据并发布可用的 Allure 结果。 | 即使前序失败也尽力生成 Summary 与归档。 |
 
-环境 Job 仅在 `Schema & Initial Data` 通过一次性 `backend-bootstrap` 服务执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`；该服务无端口、卷、`container_name`、healthcheck、`depends_on` 或常驻 restart，且不属于 Deploy 的应用服务。AI、宿主机、常驻 backend/worker、readiness 和其他 Job 不执行 migration 或初始化管理员。所有路径继续禁止 `collectstatic`、自动 rollback、`down -v`、volume 删除、清库、删表或 reset。服务或依赖失败时，先阅读 Jenkins 的 Summary、结构化诊断和 Artifact，修复根因后重新构建。
+环境 Job 仅在 `Schema & Initial Data` 通过一次性 `backend-bootstrap` 服务执行 `migrate --noinput`、`seed_environment --reconcile`、`sync_modules --reconcile`、`init_admin --bootstrap-only`；该服务无端口、卷、`container_name`、healthcheck、`depends_on` 或常驻 restart，且不属于 Deploy 的应用服务。AI、宿主机、常驻 backend/worker、readiness 和其他 Job 不执行 migration 或初始化管理员。所有路径继续禁止 `collectstatic`、自动 rollback、`down -v`、volume 删除、清库、删表或 reset。服务或依赖失败时，先阅读 Jenkins 的 Summary、结构化诊断和 Artifact，修复根因后重新构建。
 
 ## 访问平台与构建产物
 

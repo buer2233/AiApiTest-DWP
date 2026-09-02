@@ -12,7 +12,8 @@ class SchemaInitializationService:
     stage_name = "schema-initialization"
     steps = (
         ("migrate", ("migrate", "--noinput")),
-        ("seed_environment", ("seed_environment",)),
+        ("seed_environment", ("seed_environment", "--reconcile")),
+        ("sync_modules", ("sync_modules", "--reconcile")),
         ("init_admin", ("init_admin", "--bootstrap-only")),
     )
 

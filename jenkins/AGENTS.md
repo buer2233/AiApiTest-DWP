@@ -53,7 +53,7 @@
 
 - 平台应用环境重启、依赖检查/安装、`backend`/`frontend`/`jenkins-sync-worker` 启动、停止或重建，以及平台冒烟/全量环境验收，AI 必须且只能触发固定 Jenkins 环境 Job。
 - 固定环境 Job 名在代码中固化为 `AiApiTest-DWP-Platform-Bootstrap`，不允许通过 `.env` 改名；它由本地 Compose Jenkins 启动时通过版本化 init Groovy 幂等创建或修复，固定加载 `jenkins/Jenkinsfile.platform-bootstrap`，不得手工创建另一条旁路 Job。
-- 该 Job 固定经过 `Checkout/Workspace`、`Bootstrap Preflight`、`Dependency Assurance`、`Schema & Initial Data`、`Deploy`、`Health`、`Tests`、`Archive & Summary` 八阶段；schema 阶段仅通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务依序执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`，成功后才允许 Deploy。`build_all=true` 默认全量重建应用镜像并重建三项应用容器，`run_full_tests=false` 默认仅冒烟。
+- 该 Job 固定经过 `Checkout/Workspace`、`Bootstrap Preflight`、`Dependency Assurance`、`Schema & Initial Data`、`Deploy`、`Health`、`Tests`、`Archive & Summary` 八阶段；schema 阶段仅通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务依序执行 `migrate --noinput`、`seed_environment --reconcile`、`sync_modules --reconcile`、`init_admin --bootstrap-only`，成功后才允许 Deploy。`build_all=true` 默认全量重建应用镜像并重建三项应用容器，`run_full_tests=false` 默认仅冒烟。
 - Windows 唯一入口为 `scripts/trigger-platform-bootstrap.ps1`；Linux/macOS/Git Bash 唯一入口为 `scripts/trigger-platform-bootstrap.sh`。用户在 Jenkins 页面手工点击同一 Job 也使用相同 Pipeline、参数、阶段和结果契约。
 - AI 禁止直接执行应用服务 `docker compose up/restart/stop/down`、`docker build`、宿主机或运行容器的 `pip install`、`npm install/npm ci`，也禁止直接启动 Django `runserver`、Vite 或同步 worker 替代环境 Job。
 - MySQL 与 Jenkins 仅由主人/平台运维按 `docker/DEPLOYMENT.md` 完成 bootstrap；环境 Job/helper 永不管理这两个基础服务。AI 只能检查并反馈，不能代替主人/平台运维启动。

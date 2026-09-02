@@ -44,7 +44,7 @@ Compose Jenkins 会把 `jenkins/scripts/configure-local-mounted-jobs.groovy` 以
 
 AI 对平台应用环境的重启、依赖检查或安装、`backend`/`frontend`/`jenkins-sync-worker` 的启动停止重建，以及冒烟或全量环境验收，只能使用上述 helper 或 Jenkins 页面中的同一个固定 Job。AI 禁止直接运行应用服务 `docker compose up/restart/stop/down`、`docker build`、宿主机或容器内 `pip install`、`npm install/npm ci`、Django `runserver`、Vite 或同步 worker 启动命令。
 
-MySQL 与 Jenkins 不属于环境 Job 的管理范围；它们只由主人或平台运维 bootstrap。环境 Job 仅在 `Schema & Initial Data` 通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务执行 `migrate --noinput`、`seed_environment`、`init_admin --bootstrap-only`；该阶段失败会阻止 Deploy。除此之外，AI、宿主机、常驻服务、readiness、其他 Job 均不执行 migration 或初始化管理员，也不执行 rollback、不删除 volume、`collectstatic` 或 `down -v`。
+MySQL 与 Jenkins 不属于环境 Job 的管理范围；它们只由主人或平台运维 bootstrap。环境 Job 仅在 `Schema & Initial Data` 通过 profile `bootstrap` 的一次性 `backend-bootstrap` 服务执行 `migrate --noinput`、`seed_environment --reconcile`、`sync_modules --reconcile`、`init_admin --bootstrap-only`；该阶段失败会阻止 Deploy。除此之外，AI、宿主机、常驻服务、readiness、其他 Job 均不执行 migration 或初始化管理员，也不执行 rollback、不删除 volume、`collectstatic` 或 `down -v`。
 
 ### 构建参数
 
@@ -62,7 +62,7 @@ MySQL 与 Jenkins 不属于环境 Job 的管理范围；它们只由主人或平
 | `Checkout/Workspace` | 获取 Pipeline 源码并准备 Jenkins 可写 workspace。 | 输出最小失败摘要并归档可用证据。 |
 | `Bootstrap Preflight` | 校验 `.env`、Docker CLI/Compose、Socket/GID、Compose 配置和 MySQL/Jenkins bootstrap 前提。 | 给出结构化根因与修复建议，停止后续步骤。 |
 | `Dependency Assurance` | 分别校验 `backend`、`frontend`、`api-runner` 三个依赖域（下称“三域”）的镜像、哈希标签和完整性；需要时在本阶段构建镜像。 | 任一域失败则汇总失败原因，部署前终止。 |
-| `Schema & Initial Data` | 仅通过一次性 `backend-bootstrap` 服务执行 migration、环境种子和 bootstrap 管理员初始化。 | 任一步失败即阻止 Deploy，不回滚、不删库。 |
+| `Schema & Initial Data` | 仅通过一次性 `backend-bootstrap` 服务执行 migration、环境/模块 YAML 重投影和 bootstrap 管理员初始化。 | 任一步失败即阻止 Deploy，不回滚、不删库。 |
 | `Deploy` | 通过 `docker compose up -d --no-build` 管理 `backend`、`frontend`、`jenkins-sync-worker`，只部署已在依赖阶段构建或复用的镜像。 | 保留失败服务与日志，不进行自动回滚。 |
 | `Health` | 检查应用服务和依赖可达性，受统一 deadline 约束。 | 记录失败服务和诊断证据。 |
 | `Tests` | 默认执行冒烟；按 `run_full_tests=true` 执行全量回归。 | 写入测试日志、报告结果和摘要。 |

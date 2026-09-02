@@ -449,11 +449,85 @@ def test_seed_environment_is_idempotent_and_projects_the_image_catalog():
     call_command("seed_environment")
 
     assert MetricEnvironment.objects.count() == 1
-    environment = MetricEnvironment.objects.get(env_key="gbif-public")
-    assert environment.env_name == "GBIF Public API"
-    assert environment.base_url == "https://api.gbif.org"
-    assert environment.url_desc == "GBIF public API test environment"
+    environment = MetricEnvironment.objects.get(env_key="e9-test")
+    assert environment.env_name == "E9 测试环境"
+    assert environment.base_url == "http://10.10.46.136:8080"
+    assert environment.url_desc == "E9 测试环境"
     assert environment.is_active is True
+
+
+@pytest.mark.django_db
+def test_sync_modules_reconcile_deactivates_modules_removed_from_yaml(tmp_path):
+    yaml_path = tmp_path / "package_module.yaml"
+    write_module_yaml(
+        yaml_path,
+        """test_login_case:
+  module_name: 登录模块
+  module_dev: 申友建
+  module_test: 蒋于亭
+""",
+    )
+    stale = MetricModule.objects.create(
+        package_name="legacy_case",
+        case_path="test_case/legacy_case",
+        module_name="历史模块",
+        module_dev="旧开发",
+        module_test="旧测试",
+        is_active=True,
+    )
+    environment = MetricEnvironment.objects.create(
+        env_key="e9-test",
+        env_name="E9 测试环境",
+        base_url="http://10.10.46.136:8080",
+        url_desc="E9 测试环境",
+        is_active=True,
+    )
+
+    call_command("sync_modules", source=str(yaml_path), reconcile=True)
+
+    stale.refresh_from_db()
+    current = MetricModule.objects.get(package_name="test_login_case")
+    assert stale.is_active is False
+    assert current.case_path == "test_case/test_login_case"
+    assert current.module_name == "登录模块"
+    assert ModuleSnapshot.objects.filter(module=current, environment=environment).exists()
+
+
+@pytest.mark.django_db
+def test_sync_modules_reconcile_rejects_invalid_yaml_without_deactivating_existing_modules(tmp_path):
+    yaml_path = tmp_path / "package_module.yaml"
+    write_module_yaml(
+        yaml_path,
+        """test_login_case:
+  module_name: 登录模块
+  module_dev: 申友建
+  module_test:
+""",
+    )
+    stale = MetricModule.objects.create(
+        package_name="legacy_case",
+        case_path="test_case/legacy_case",
+        module_name="历史模块",
+        module_dev="旧开发",
+        module_test="旧测试",
+        is_active=True,
+    )
+
+    with pytest.raises(CommandError, match="缺少必填字段"):
+        call_command("sync_modules", source=str(yaml_path), reconcile=True)
+
+    stale.refresh_from_db()
+    assert stale.is_active is True
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("yaml_text", ["{}\n", "../escape:\n  module_name: x\n  module_dev: y\n  module_test: z\n"])
+def test_sync_modules_reconcile_rejects_empty_or_path_like_keys(tmp_path, yaml_text):
+    yaml_path = tmp_path / "package_module.yaml"
+    yaml_path.write_text(yaml_text, encoding="utf-8")
+
+    with pytest.raises(CommandError):
+        call_command("sync_modules", source=str(yaml_path), reconcile=True)
 
 
 @pytest.mark.django_db
