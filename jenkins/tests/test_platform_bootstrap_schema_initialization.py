@@ -91,7 +91,8 @@ def test_schema_initialization_uses_fixed_compose_argv_in_required_order(tmp_pat
     assert result.success is True
     assert [spec.argv for spec in runner.specs] == [
         prefix + ("migrate", "--noinput"),
-        prefix + ("seed_environment",),
+        prefix + ("seed_environment", "--reconcile"),
+        prefix + ("sync_modules", "--reconcile"),
         prefix + ("init_admin", "--bootstrap-only"),
     ]
     assert (context.evidence_dir / "schema-initialization.json").is_file()

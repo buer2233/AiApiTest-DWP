@@ -1027,3 +1027,32 @@ def test_backend_image_copies_the_environment_catalog_build_input():
     dockerfile = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text(encoding="utf-8")
 
     assert "COPY api-test/utils/package_environment.yaml" in dockerfile
+
+
+@pytest.mark.django_db
+def test_seed_environment_reconcile_projects_image_catalog_over_existing_rows(tmp_path):
+    catalog_path = tmp_path / "api-test" / "utils" / "package_environment.yaml"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(
+        """e9-test:
+  base_url: http://10.10.46.136:8080/
+  url_name: E9 测试环境
+  url_desc: E9 测试环境
+""",
+        encoding="utf-8",
+    )
+    TestEnvironment.objects.create(
+        env_key="legacy-qa",
+        env_name="历史环境",
+        base_url="https://legacy.example.invalid",
+        url_desc="旧配置",
+        is_active=True,
+    )
+
+    with override_settings(REPO_ROOT=Path(tmp_path)):
+        call_command("seed_environment", reconcile=True)
+
+    assert list(TestEnvironment.objects.values_list("env_key", "base_url", "is_active")) == [
+        ("e9-test", "http://10.10.46.136:8080", True),
+        ("legacy-qa", "https://legacy.example.invalid", False),
+    ]
