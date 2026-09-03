@@ -17,6 +17,7 @@ import ModuleTrendDialog from '@/components/metrics/ModuleTrendDialog.vue'
 import RateBadge from '@/components/metrics/RateBadge.vue'
 import ReadOnlyActionButtons from '@/components/metrics/ReadOnlyActionButtons.vue'
 import { useAuthStore } from '@/stores/auth'
+import { resolveEnvironmentId } from '@/utils/environment-selection'
 import type { PaginationMeta } from '@/types/api'
 import type {
   CaseStatusUpdateResult,
@@ -44,6 +45,7 @@ const filterOptions = shallowRef<ModuleSnapshotFilterOptions>({
 const meta = shallowRef<PaginationMeta>({ total: 0, page: 1, per_page: 20, total_pages: 0 })
 const loading = shallowRef(false)
 const environmentLoading = shallowRef(false)
+const environmentsLoaded = shallowRef(false)
 const filterOptionsLoading = shallowRef(false)
 const errorMessage = shallowRef('')
 const filterOptionsError = shallowRef('')
@@ -190,10 +192,11 @@ async function refreshCurrentQuery(nextPage = 1) {
 }
 
 async function ensureDefaultEnvironmentSelected() {
-  if (filters.environment_id || !environments.value[0]) {
+  const resolvedEnvironmentId = resolveEnvironmentId(filters.environment_id, environments.value)
+  if (!resolvedEnvironmentId || resolvedEnvironmentId === filters.environment_id) {
     return false
   }
-  filters.environment_id = String(environments.value[0].id)
+  filters.environment_id = resolvedEnvironmentId
   await router.replace({ path: '/modules', query: buildQuery(1) })
   return true
 }
@@ -202,14 +205,18 @@ async function loadEnvironments() {
   environmentLoading.value = true
   try {
     environments.value = await fetchTestEnvironments({ is_active: true })
-    await ensureDefaultEnvironmentSelected()
+    environmentsLoaded.value = true
+    const routeChanged = await ensureDefaultEnvironmentSelected()
+    if (!routeChanged) {
+      await Promise.all([loadFilterOptions(), loadModules()])
+    }
   } finally {
     environmentLoading.value = false
   }
 }
 
 async function loadFilterOptions() {
-  if (!filters.environment_id) {
+  if (!environmentsLoaded.value || !filters.environment_id) {
     filterOptions.value = { module_names: [], package_names: [], module_devs: [], module_tests: [] }
     loadedFilterOptionsEnvironmentId.value = ''
     return
@@ -234,7 +241,7 @@ async function loadFilterOptions() {
 }
 
 async function loadModules() {
-  if (!filters.environment_id) {
+  if (!environmentsLoaded.value || !filters.environment_id) {
     modules.value = []
     meta.value = { total: 0, page: 1, per_page: perPage.value, total_pages: 0 }
     return
