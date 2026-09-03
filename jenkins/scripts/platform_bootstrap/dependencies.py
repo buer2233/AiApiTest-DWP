@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
@@ -111,14 +112,24 @@ def _iter_files(workspace: Path, inputs: Iterable[Path]) -> list[Path]:
         candidate = input_path.resolve()
         if candidate != workspace and workspace not in candidate.parents:
             raise ValueError(f"hash input escapes workspace: {input_path}")
-        candidates = candidate.rglob("*") if candidate.is_dir() else (candidate,)
-        for path in candidates:
-            if not path.is_file() or path.is_symlink():
-                continue
-            relative = path.relative_to(workspace)
-            if path.name in IGNORED_NAMES or any(part in IGNORED_PARTS for part in relative.parts):
-                continue
-            files.add(path)
+        if candidate.is_dir():
+            for root, dirnames, filenames in os.walk(candidate, followlinks=False):
+                # 原运行产物和虚拟环境目录不参与指纹，主动剪枝避免 Windows 挂载下扫描数万文件。
+                dirnames[:] = [name for name in dirnames if name not in IGNORED_PARTS]
+                for filename in filenames:
+                    if filename in IGNORED_NAMES:
+                        continue
+                    path = Path(root) / filename
+                    if path.is_symlink() or not path.is_file():
+                        continue
+                    relative = path.relative_to(workspace)
+                    if any(part in IGNORED_PARTS for part in relative.parts):
+                        continue
+                    files.add(path)
+        elif candidate.is_file() and not candidate.is_symlink():
+            relative = candidate.relative_to(workspace)
+            if candidate.name not in IGNORED_NAMES and not any(part in IGNORED_PARTS for part in relative.parts):
+                files.add(candidate)
     return sorted(files, key=lambda item: item.relative_to(workspace).as_posix())
 
 
